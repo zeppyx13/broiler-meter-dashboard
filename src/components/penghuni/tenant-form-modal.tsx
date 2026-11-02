@@ -36,7 +36,7 @@ export default function TenantFormModal({ open, editData, onClose, onSubmit }: P
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
                 <div className="flex items-center justify-between">
-                    <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">Edit Penghuni</h3>
+                    <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">Edit Peternak</h3>
                     <button onClick={onClose} className="rounded-xl p-2 
                     transition hover:bg-[#F0F0F0]" title="Close modal">
                         <X size={18} className="text-[#666]" />
@@ -75,20 +75,20 @@ export default function TenantFormModal({ open, editData, onClose, onSubmit }: P
                             onChange={(e) => setForm({ ...form, role: e.target.value as any })}
                             className="w-full rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] px-4 py-3 font-inter text-sm outline-none transition focus:border-[#7B1113]"
                         >
-                            <option value="tenant">Tenant</option>
+                            <option value="tenant">Peternak</option>
                             <option value="admin">Admin</option>
                             <option value="manager">Manager</option>
                         </select>
                     </div>
                 </div>
 
-                {/* Info kamar (read-only) */}
+                {/* Info kandang (read-only) */}
                 {editData?.room_number && (
                     <div className="mt-4 rounded-2xl bg-[#F8F8F8] px-4 py-3">
-                        <p className="font-inter text-xs text-[#777]">Kamar aktif</p>
+                        <p className="font-inter text-xs text-[#777]">Kandang aktif</p>
                         <p className="mt-0.5 font-poppins text-sm font-semibold text-[#2F2F2F]">
-                            Kamar {editData.room_number}
-                            {editData.room_floor ? ` · Lantai ${editData.room_floor}` : ""}
+                            Kandang {editData.room_number}
+                            {editData.room_floor ? ` · Blok ${editData.room_floor}` : ""}
                         </p>
                     </div>
                 )}

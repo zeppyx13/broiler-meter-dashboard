@@ -1,19 +1,22 @@
-# Coasther — Admin Dashboard
+# Coasther — Broiler Coop IoT Dashboard
 
-Dashboard manajemen kost berbasis web untuk admin dan manager **Coasther**, dibangun dengan Next.js 15 App Router.
+Dashboard monitoring kandang ayam broiler (ESP32 + PZEM-004T + YF-S201) berbasis web untuk admin dan peternak **Coasther**, dibangun dengan Next.js 15 App Router.
 
 ## Fitur Utama
 
-- **Dashboard** — Statistik kamar, tagihan, keluhan, dan pemakaian utilitas real-time
-- **Manajemen Kamar** — CRUD kamar, upload foto, fasilitas multi-select
-- **Manajemen Penghuni** — Data tenant, role, dan akun pengguna
-- **Kontrak** — Buat dan kelola kontrak sewa dengan auto-fill harga
-- **Tagihan & Pembayaran** — Monitor invoice, status pembayaran Midtrans, dan overdue
-- **Keluhan** — Terima dan update status keluhan tenant
-- **Pengumuman** — Buat pengumuman dengan FCM broadcast ke semua tenant
-- **IoT Monitoring** — Pantau telemetri listrik & air per kamar secara real-time, kontrol relay
-- **Fasilitas** — Manajemen fasilitas kamar
+- **Dashboard** — Statistik kandang, laporan biaya energi, alert, dan pemakaian utilitas real-time
+- **Manajemen Kandang** — CRUD kandang, upload foto, komponen multi-select
+- **Manajemen Peternak** — Data peternak/PIC kandang, role, dan akun pengguna
+- **Siklus Produksi** — Buat dan kelola siklus produksi (chick-in s/d estimasi panen) dengan auto-fill biaya operasional
+- **Laporan Biaya Energi & Pembayaran** — Monitor laporan biaya energi per siklus, status pembayaran Midtrans, dan overdue
+- **Alert & Peringatan Dini** — Terima dan tindak lanjuti alert anomali dari sensor kandang
+- **Pengumuman** — Buat pengumuman dengan FCM broadcast ke semua peternak
+- **IoT Monitoring** — Pantau telemetri listrik & air per kandang secara real-time, kontrol relay
+- **Komponen Kandang** — Manajemen komponen perangkat kandang (ESP32, PZEM-004T, YF-S201, relay, LCD, dll.)
 - **Pengaturan Tarif** — Konfigurasi tarif air, listrik, denda, dan free quota
+- **Guard** — Deteksi anomali konsumsi air/listrik dan kondisi kandang (contoh/mock, menunggu integrasi backend AI)
+- **Forecast** — Prediksi kebutuhan air/listrik dan estimasi biaya sampai panen (contoh/mock, menunggu integrasi backend AI)
+- **Eco-Advisor** — Rekomendasi efisiensi energi & air dengan estimasi penghematan (contoh/mock, menunggu integrasi backend AI)
 - **Coasther AI** — Chat asisten admin berbasis Google Gemini dengan konteks data dashboard
 
 ## Tech Stack
@@ -60,15 +63,16 @@ Gunakan akun dengan role `admin` atau `manager` yang sudah terdaftar di database
 
 / → Redirect ke /dashboard <br>
 /dashboard → Halaman utama & statistik<br>
-/dashboard/kamar → Manajemen kamar<br>
-/dashboard/penghuni → Manajemen penghuni<br>
-/dashboard/kontrak → Manajemen kontrak sewa<br>
-/dashboard/tagihan → Data invoice<br>
+/dashboard/kamar → Manajemen kandang<br>
+/dashboard/penghuni → Manajemen peternak<br>
+/dashboard/kontrak → Manajemen siklus produksi<br>
+/dashboard/tagihan → Laporan biaya energi<br>
 /dashboard/pembayaran → Data pembayaran<br>
-/dashboard/keluhan → Manajemen keluhan<br>
+/dashboard/keluhan → Alert & peringatan dini<br>
 /dashboard/pengumuman → Manajemen pengumuman<br>
-/dashboard/alat-iot → Monitoring & kontrol IoT<br>
-/dashboard/fasilitas → Manajemen fasilitas<br>
+/dashboard/iot → Monitoring & kontrol IoT<br>
+/dashboard/terminal → IoT remote terminal<br>
+/dashboard/fasilitas → Manajemen komponen kandang<br>
 /dashboard/settings → Pengaturan tarif<br>
 
 ## Build Production

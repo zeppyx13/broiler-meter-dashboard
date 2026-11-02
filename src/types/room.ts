@@ -13,6 +13,10 @@ export type Room = {
     facilities?: { id: number; name: string }[];
     review_avg?: number;
     review_count?: number;
+    population?: number;
+    age_days?: number;
+    strain?: string;
+    phase_count?: number;
 };
 export type RoomWithFacilities = Room & {
     facilities: { id: number; name: string }[];

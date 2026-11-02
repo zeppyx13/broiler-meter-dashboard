@@ -15,11 +15,17 @@ const ROLE_STYLE: Record<string, string> = {
     manager: "bg-amber-100 text-amber-700",
 };
 
+const ROLE_LABEL: Record<string, string> = {
+    tenant: "Peternak",
+    admin: "Admin",
+    manager: "Manager",
+};
+
 export default function TenantTable({ tenants, onEdit, onDelete }: Props) {
     if (tenants.length === 0) {
         return (
             <div className="rounded-3xl border border-[#EAEAEA] bg-white px-6 py-16 text-center">
-                <p className="font-inter text-sm text-[#999]">Tidak ada penghuni ditemukan.</p>
+                <p className="font-inter text-sm text-[#999]">Tidak ada peternak ditemukan.</p>
             </div>
         );
     }
@@ -33,7 +39,7 @@ export default function TenantTable({ tenants, onEdit, onDelete }: Props) {
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Email</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">No. HP</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Role</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Kamar</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Kandang</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Aksi</th>
                     </tr>
                 </thead>
@@ -52,11 +58,11 @@ export default function TenantTable({ tenants, onEdit, onDelete }: Props) {
                                 <td className="px-6 py-4 font-inter text-sm text-[#666]">{t.phone ?? "-"}</td>
                                 <td className="px-6 py-4">
                                     <span className={`rounded-full px-3 py-1 font-inter text-xs font-medium ${ROLE_STYLE[t.role] ?? "bg-gray-100 text-gray-700"}`}>
-                                        {t.role}
+                                        {ROLE_LABEL[t.role] ?? t.role}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 font-inter text-sm text-[#666]">
-                                    {t.room_number ? `Kamar ${t.room_number}` : "-"}
+                                    {t.room_number ? `Kandang ${t.room_number}` : "-"}
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex gap-2">

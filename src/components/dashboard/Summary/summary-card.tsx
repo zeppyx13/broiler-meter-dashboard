@@ -1,4 +1,4 @@
-import SectionCard from "./section-card";
+import SectionCard from "../section-card";
 import SummaryItem from "./summary-item";
 
 type SummaryCardProps = {
@@ -23,7 +23,7 @@ export default function SummaryCard({
                     {totalIncome}
                 </h4>
                 <p className="mt-2 font-inter text-xs text-white/80">
-                    Termasuk sewa kamar, air, dan listrik.
+                    Termasuk biaya operasional, air, dan listrik.
                 </p>
             </div>
 

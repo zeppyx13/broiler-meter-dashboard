@@ -25,7 +25,7 @@ export default function PaymentFilterBar({ search, status, onSearchChange, onSta
                     <Search size={16} className="text-[#999]" />
                     <input
                         type="text"
-                        placeholder="Cari nama atau kamar..."
+                        placeholder="Cari nama atau kandang..."
                         value={search}
                         onChange={(e) => onSearchChange(e.target.value)}
                         suppressHydrationWarning

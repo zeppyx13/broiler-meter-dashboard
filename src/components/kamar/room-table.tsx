@@ -30,7 +30,7 @@ export default function RoomTable({ rooms, onEdit, onDelete }: RoomTableProps) {
     if (rooms.length === 0) {
         return (
             <div className="rounded-3xl border border-[#EAEAEA] bg-white px-6 py-16 text-center">
-                <p className="font-inter text-sm text-[#999]">Tidak ada kamar ditemukan.</p>
+                <p className="font-inter text-sm text-[#999]">Tidak ada kandang ditemukan.</p>
             </div>
         );
     }
@@ -40,11 +40,11 @@ export default function RoomTable({ rooms, onEdit, onDelete }: RoomTableProps) {
             <table className="min-w-full border-separate border-spacing-y-0">
                 <thead>
                     <tr className="border-b border-[#EAEAEA]">
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Kamar</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Lantai</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Harga / Bulan</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Kandang</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Blok</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Biaya / Bulan</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Deposit</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Fasilitas</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Komponen</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Status</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Aksi</th>
                     </tr>
@@ -73,7 +73,7 @@ export default function RoomTable({ rooms, onEdit, onDelete }: RoomTableProps) {
                                     {room.number}
                                 </td>
                                 <td className="px-6 py-4 font-inter text-sm text-[#666]">
-                                    {room.floor !== null ? `Lantai ${room.floor}` : "-"}
+                                    {room.floor !== null ? `Blok ${room.floor}` : "-"}
                                 </td>
                                 <td className="px-6 py-4 font-inter text-sm text-[#2F2F2F]">
                                     {formatRupiah(room.price_monthly)}
@@ -91,7 +91,7 @@ export default function RoomTable({ rooms, onEdit, onDelete }: RoomTableProps) {
                                         {roomFacilityCount > 0 && (
                                             <div className="invisible absolute bottom-full left-0 z-10 mb-2 w-max max-w-xs rounded-2xl border border-[#EAEAEA] bg-white p-3 shadow-lg group-hover:visible">
                                                 <p className="mb-2 font-inter text-xs font-medium text-[#777]">
-                                                    Fasilitas kamar:
+                                                    Komponen kandang:
                                                 </p>
                                                 <div className="flex flex-wrap gap-1.5">
                                                     {room.facilities?.map((f) => (

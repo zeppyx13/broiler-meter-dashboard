@@ -34,8 +34,8 @@ export default function LeaseListSection() {
 
     async function handleDelete(lease: Lease) {
         const result = await Swal.fire({
-            title: `Hapus kontrak ini?`,
-            text: `${lease.tenant_name} — Kamar ${lease.room_number}. Kamar akan otomatis tersedia kembali.`,
+            title: `Hapus siklus produksi ini?`,
+            text: `${lease.tenant_name} — Kandang ${lease.room_number}. Kandang akan otomatis tersedia kembali.`,
             icon: "warning",
             showCancelButton: true,
             confirmButtonText: "Ya, hapus",
@@ -48,7 +48,7 @@ export default function LeaseListSection() {
             await deleteLease(lease.id);
             queryClient.invalidateQueries({ queryKey: ["leases"] });
             queryClient.invalidateQueries({ queryKey: ["rooms"] });
-            Swal.fire({ icon: "success", title: "Kontrak dihapus", timer: 1500, showConfirmButton: false });
+            Swal.fire({ icon: "success", title: "Siklus produksi dihapus", timer: 1500, showConfirmButton: false });
         } catch (err: any) {
             Swal.fire({
                 icon: "error",
@@ -69,7 +69,7 @@ export default function LeaseListSection() {
             queryClient.invalidateQueries({ queryKey: ["leases"] });
             queryClient.invalidateQueries({ queryKey: ["rooms"] });
             setModalOpen(false);
-            Swal.fire({ icon: "success", title: editData ? "Kontrak diperbarui" : "Kontrak dibuat", timer: 1500, showConfirmButton: false });
+            Swal.fire({ icon: "success", title: editData ? "Siklus produksi diperbarui" : "Siklus produksi dibuat", timer: 1500, showConfirmButton: false });
         } catch (err: any) {
             Swal.fire({
                 icon: "error",
@@ -98,7 +98,7 @@ export default function LeaseListSection() {
 
             {isError && (
                 <div className="rounded-3xl border border-red-100 bg-red-50 p-5 text-sm text-red-600">
-                    Gagal memuat data kontrak.
+                    Gagal memuat data siklus produksi.
                 </div>
             )}
 
@@ -109,7 +109,7 @@ export default function LeaseListSection() {
             {!isLoading && totalPages > 1 && (
                 <div className="flex items-center justify-between pt-2">
                     <p className="font-inter text-sm text-[#777]">
-                        Halaman {page} dari {totalPages} · Total {meta?.total} kontrak
+                        Halaman {page} dari {totalPages} · Total {meta?.total} siklus produksi
                     </p>
                     <div className="flex gap-2">
                         <button

@@ -110,7 +110,7 @@ export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Pr
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-[#EAEAEA] px-6 pt-6 pb-4">
                     <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">
-                        {editData ? "Edit Kontrak" : "Tambah Kontrak"}
+                        {editData ? "Edit Siklus Produksi" : "Tambah Siklus Produksi"}
                     </h3>
                     <button title="Close" onClick={onClose} className="rounded-xl p-2 transition hover:bg-[#F0F0F0]">
                         <X size={18} className="text-[#666]" />
@@ -123,27 +123,27 @@ export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Pr
                     {editData ? (
                         /* Mode Edit — tampilkan info read-only */
                         <div className="rounded-2xl bg-[#F8F8F8] px-4 py-3">
-                            <p className="font-inter text-xs text-[#777]">Penghuni · Kamar</p>
+                            <p className="font-inter text-xs text-[#777]">Peternak · Kandang</p>
                             <p className="mt-0.5 font-poppins text-sm font-semibold text-[#2F2F2F]">
-                                {editData.tenant_name} · Kamar {editData.room_number}
+                                {editData.tenant_name} · Kandang {editData.room_number}
                             </p>
                         </div>
                     ) : (
-                        /* Mode Tambah — dropdown tenant & kamar */
+                        /* Mode Tambah — dropdown peternak & kandang */
                         <>
-                            {/* Pilih Tenant */}
+                            {/* Pilih Peternak */}
                             <div>
                                 <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">
-                                    Penghuni <span className="text-red-500">*</span>
+                                    Peternak <span className="text-red-500">*</span>
                                 </label>
                                 <select
-                                    title="Penghuni"
+                                    title="Peternak"
                                     value={form.user_id || ""}
                                     onChange={(e) => setForm({ ...form, user_id: Number(e.target.value) })}
                                     suppressHydrationWarning
                                     className="w-full rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] px-4 py-3 font-inter text-sm outline-none transition focus:border-[#7B1113]"
                                 >
-                                    <option value="">-- Pilih Penghuni --</option>
+                                    <option value="">-- Pilih Peternak --</option>
                                     {tenants.map((t) => (
                                         <option key={t.id} value={t.id}>
                                             {t.name} — {t.email}
@@ -152,28 +152,28 @@ export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Pr
                                 </select>
                                 {tenants.length === 0 && (
                                     <p className="mt-1 font-inter text-xs text-[#999]">
-                                        Tidak ada tenant tersedia atau sedang memuat...
+                                        Tidak ada peternak tersedia atau sedang memuat...
                                     </p>
                                 )}
                             </div>
 
-                            {/* Pilih Kamar */}
+                            {/* Pilih Kandang */}
                             <div>
                                 <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">
-                                    Kamar <span className="text-red-500">*</span>
+                                    Kandang <span className="text-red-500">*</span>
                                 </label>
                                 <select
-                                    title="kamar"
+                                    title="kandang"
                                     value={form.room_id || ""}
                                     onChange={(e) => handleRoomChange(Number(e.target.value))}
                                     suppressHydrationWarning
                                     className="w-full rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] px-4 py-3 font-inter text-sm outline-none transition focus:border-[#7B1113]"
                                 >
-                                    <option value="">-- Pilih Kamar Tersedia --</option>
+                                    <option value="">-- Pilih Kandang Tersedia --</option>
                                     {availableRooms.map((r) => (
                                         <option key={r.id} value={r.id}>
-                                            Kamar {r.number}
-                                            {r.floor ? ` · Lantai ${r.floor}` : ""} —{" "}
+                                            Kandang {r.number}
+                                            {r.floor ? ` · Blok ${r.floor}` : ""} —{" "}
                                             {new Intl.NumberFormat("id-ID", {
                                                 style: "currency",
                                                 currency: "IDR",
@@ -184,7 +184,7 @@ export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Pr
                                 </select>
                                 {availableRooms.length === 0 && (
                                     <p className="mt-1 font-inter text-xs text-orange-500">
-                                        Tidak ada kamar yang tersedia saat ini.
+                                        Tidak ada kandang yang tersedia saat ini.
                                     </p>
                                 )}
                             </div>
@@ -195,7 +195,7 @@ export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Pr
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">
-                                Tanggal Mulai <span className="text-red-500">*</span>
+                                Tanggal Chick-in <span className="text-red-500">*</span>
                             </label>
                             <input
                                 title="date"
@@ -209,7 +209,7 @@ export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Pr
                         </div>
                         <div>
                             <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">
-                                Tanggal Berakhir
+                                Estimasi Tanggal Panen
                             </label>
                             <input
                                 title="date"
@@ -226,19 +226,19 @@ export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Pr
                     <div className={`grid gap-3 ${editData ? "grid-cols-2" : "grid-cols-1"}`}>
                         <div>
                             <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">
-                                Sewa / Bulan <span className="text-red-500">*</span>
+                                Biaya Operasional / Bulan <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="number"
                                 value={form.monthly_rent_snapshot || ""}
                                 onChange={(e) => setForm({ ...form, monthly_rent_snapshot: Number(e.target.value) })}
                                 suppressHydrationWarning
-                                placeholder="Auto-fill saat pilih kamar"
+                                placeholder="Auto-fill saat pilih kandang"
                                 className="w-full rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] px-4 py-3 font-inter text-sm outline-none transition focus:border-[#7B1113]"
                             />
                             {!editData && form.room_id > 0 && (
                                 <p className="mt-1 font-inter text-xs text-green-600">
-                                    ✓ Auto-fill dari harga kamar
+                                    ✓ Auto-fill dari biaya kandang
                                 </p>
                             )}
                         </div>
@@ -253,7 +253,7 @@ export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Pr
                                     className="w-full rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] px-4 py-3 font-inter text-sm outline-none transition focus:border-[#7B1113]"
                                 >
                                     <option value="active">Aktif</option>
-                                    <option value="ended">Berakhir</option>
+                                    <option value="ended">Selesai</option>
                                 </select>
                             </div>
                         )}
@@ -287,7 +287,7 @@ export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Pr
                         className="flex items-center gap-2 rounded-2xl bg-[#7B1113] px-5 py-2.5 font-poppins text-sm font-semibold text-[#C6A971] transition hover:opacity-90 disabled:opacity-50"
                     >
                         {loading && <LoaderCircle size={15} className="animate-spin" />}
-                        {editData ? "Simpan Perubahan" : "Buat Kontrak"}
+                        {editData ? "Simpan Perubahan" : "Buat Siklus Produksi"}
                     </button>
                 </div>
             </div>

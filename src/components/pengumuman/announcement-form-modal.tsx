@@ -135,7 +135,7 @@ export default function AnnouncementFormModal({ open, editData, onClose, onSubmi
                                 }`} />
                         </button>
                         <span className="font-inter text-sm text-[#555]">
-                            {form.is_active ? "Aktif — tampil ke penghuni" : "Nonaktif — tersembunyi"}
+                            {form.is_active ? "Aktif — tampil ke peternak" : "Nonaktif — tersembunyi"}
                         </span>
                     </div>
                 </div>

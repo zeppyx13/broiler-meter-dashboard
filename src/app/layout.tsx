@@ -14,7 +14,7 @@ const poppins = Poppins({
 
 export const metadata = {
   title: "Coasther Admin",
-  description: "Admin dashboard Coasther",
+  description: "Dashboard monitoring IoT kandang ayam broiler Coasther — listrik, air, dan kondisi kandang secara real-time.",
   icons: {
     icon: "/coasther.ico",
   },

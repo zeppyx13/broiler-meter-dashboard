@@ -48,7 +48,7 @@ export default function InvoiceEditModal({ open, invoice, onClose, onSubmit }: P
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
                 <div className="flex items-center justify-between">
-                    <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">Edit Tagihan</h3>
+                    <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">Edit Laporan Biaya Energi</h3>
                     <button onClick={onClose} className="rounded-xl p-2 transition hover:bg-[#F0F0F0]" title="Tutup">
                         <X size={18} className="text-[#666]" />
                     </button>
@@ -58,10 +58,10 @@ export default function InvoiceEditModal({ open, invoice, onClose, onSubmit }: P
                 <div className="mt-4 rounded-2xl bg-[#F8F8F8] p-4 space-y-1">
                     <p className="font-poppins text-sm font-semibold text-[#2F2F2F]">{invoice.tenant_name}</p>
                     <p className="font-inter text-xs text-[#777]">
-                        Kamar {invoice.room_number} · {invoice.month}
+                        Kandang {invoice.room_number} · {invoice.month}
                     </p>
                     <p className="font-inter text-xs text-[#777]">
-                        Total: <span className="font-semibold text-[#2F2F2F]">{formatRupiah(invoice.total_amount)}</span>
+                        Total Biaya: <span className="font-semibold text-[#2F2F2F]">{formatRupiah(invoice.total_amount)}</span>
                     </p>
                 </div>
 
@@ -84,7 +84,7 @@ export default function InvoiceEditModal({ open, invoice, onClose, onSubmit }: P
 
                     {/* Denda */}
                     <div>
-                        <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">Denda (Rp)</label>
+                        <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">Biaya Tambahan (Rp)</label>
                         <input
                             type="number"
                             value={fineAmount || ""}

@@ -59,21 +59,21 @@ export default async function Home() {
               </p>
 
               <h1 className="mt-4 max-w-lg font-poppins text-4xl font-bold leading-tight">
-                Dashboard pengelolaan smart kost-an modern dan efisien
+                Dashboard monitoring kandang ayam broiler berbasis IoT
               </h1>
 
               <p className="mt-4 max-w-md font-inter text-sm leading-7 text-white/85">
-                Kelola kamar, penghuni, dan aktivitas sistem dalam satu panel admin.
+                Kelola kandang, peternak, dan aktivitas sistem IoT dalam satu panel admin.
               </p>
             </div>
 
             <div className="space-y-4">
               <div className="rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur-md">
                 <p className="font-inter text-sm text-[#C6A971]">
-                  Minimalis • Elegan • Modern
+                  Efisien • Terpantau • Hemat Energi
                 </p>
                 <h2 className="mt-2 font-poppins text-2xl font-semibold">
-                  Smart Kost Low Costh
+                  Smart Coop, Low Cost
                 </h2>
               </div>
 
@@ -99,7 +99,7 @@ export default async function Home() {
               </h2>
 
               <p className="mt-3 font-inter text-sm text-[#666]">
-                Gunakan akun admin untuk mengakses sistem Coasther.
+                Gunakan akun admin untuk mengakses sistem monitoring kandang Coasther.
               </p>
             </div>
 
@@ -107,7 +107,7 @@ export default async function Home() {
 
             <div className="mt-8 rounded-2xl bg-[#F8F8F8] p-4">
               <p className="font-inter text-xs text-[#666]">
-                Panel ini hanya untuk admin. Aplikasi pengguna tersedia di{" "}
+                Panel ini hanya untuk admin. Aplikasi peternak tersedia di{" "}
                 <a
                   href="https://play.google.com/store/apps/details?id=com.coasther.app"
                   target="_blank"

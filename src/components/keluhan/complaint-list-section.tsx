@@ -35,13 +35,13 @@ export default function ComplaintListSection() {
         next: "open" | "in_progress" | "closed"
     ) {
         const labelMap: Record<string, string> = {
-            open: "membuka kembali",
-            in_progress: "memproses",
+            open: "mengaktifkan kembali",
+            in_progress: "menindaklanjuti",
             closed: "menyelesaikan",
         };
 
         const result = await Swal.fire({
-            title: `${labelMap[next]?.charAt(0).toUpperCase() + labelMap[next]?.slice(1)} keluhan ini?`,
+            title: `${labelMap[next]?.charAt(0).toUpperCase() + labelMap[next]?.slice(1)} alert ini?`,
             text: `"${complaint.title}"`,
             icon: "question",
             showCancelButton: true,
@@ -88,7 +88,7 @@ export default function ComplaintListSection() {
 
             {isError && (
                 <div className="rounded-3xl border border-red-100 bg-red-50 p-5 text-sm text-red-600">
-                    Gagal memuat data keluhan.
+                    Gagal memuat data alert.
                 </div>
             )}
 
@@ -102,7 +102,7 @@ export default function ComplaintListSection() {
             {!isLoading && totalPages > 1 && (
                 <div className="flex items-center justify-between pt-2">
                     <p className="font-inter text-sm text-[#777]">
-                        Halaman {page} dari {totalPages} · Total {meta?.total} keluhan
+                        Halaman {page} dari {totalPages} · Total {meta?.total} alert
                     </p>
                     <div className="flex gap-2">
                         <button

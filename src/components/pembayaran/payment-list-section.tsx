@@ -56,7 +56,7 @@ export default function PaymentListSection() {
 
             {isError && (
                 <div className="rounded-3xl border border-red-100 bg-red-50 p-5 text-sm text-red-600">
-                    Gagal memuat data pembayaran.
+                    Gagal memuat data laporan biaya energi.
                 </div>
             )}
 

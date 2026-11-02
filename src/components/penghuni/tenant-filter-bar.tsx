@@ -11,7 +11,7 @@ type Props = {
 
 const ROLE_OPTIONS: { label: string; value: "" | "tenant" | "admin" | "manager" }[] = [
     { label: "Semua", value: "" },
-    { label: "Tenant", value: "tenant" },
+    { label: "Peternak", value: "tenant" },
     { label: "Admin", value: "admin" },
     { label: "Manager", value: "manager" },
 ];

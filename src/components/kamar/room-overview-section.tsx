@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Star, BedDouble } from "lucide-react";
+import { Search, BedDouble } from "lucide-react";
 import { api } from "@/lib/api";
 
 type RoomWithDetails = {
@@ -16,8 +16,6 @@ type RoomWithDetails = {
     main_image_url: string | null;
     is_occupied: boolean | number;
     facilities: { id: number; name: string }[];
-    review_avg: number;
-    review_count: number;
 };
 
 async function getAllRooms(): Promise<RoomWithDetails[]> {
@@ -149,7 +147,6 @@ export default function RoomOverviewSection() {
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {rooms.map((room) => {
                         const available = Boolean(room.is_available);
-                        const rating = Number(room.review_avg ?? 0);
                         // ← Resolve sekali, simpan ke variabel
                         const imageUrl = resolveImageUrl(room.main_image_url);
 
@@ -202,19 +199,6 @@ export default function RoomOverviewSection() {
                                         {formatRupiah(room.price_monthly)}
                                         <span className="font-inter text-xs font-normal text-[#999]"> / bulan</span>
                                     </p>
-
-                                    {/* Rating */}
-                                    {rating > 0 && (
-                                        <div className="mt-2 flex items-center gap-1">
-                                            <Star size={13} className="fill-yellow-400 text-yellow-400" />
-                                            <span className="font-inter text-xs text-[#555]">
-                                                {rating.toFixed(1)}
-                                            </span>
-                                            <span className="font-inter text-xs text-[#999]">
-                                                ({room.review_count} ulasan)
-                                            </span>
-                                        </div>
-                                    )}
 
                                     {/* Deskripsi */}
                                     {room.description && (

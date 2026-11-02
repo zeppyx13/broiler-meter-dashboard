@@ -9,6 +9,9 @@ import {
     sidebarMenus,
 } from "@/lib/dashboard-data";
 import SummarySection from "@/components/dashboard/Summary/summary-section";
+import GuardSection from "@/components/dashboard/guard/guard-section";
+import ForecastSection from "@/components/dashboard/forecast/forecast-section";
+import EcoAdvisorSection from "@/components/dashboard/eco-advisor/eco-advisor-section";
 
 export default function AdminDashboardPage() {
     return (
@@ -23,6 +26,15 @@ export default function AdminDashboardPage() {
             <section className="grid gap-6 xl:grid-cols-3">
                 <RoomsSection />
                 <SummarySection />
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-2">
+                <GuardSection />
+                <ForecastSection />
+            </section>
+
+            <section className="grid gap-6">
+                <EcoAdvisorSection />
             </section>
         </DashboardShell>
     );

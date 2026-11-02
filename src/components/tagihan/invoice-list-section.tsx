@@ -57,7 +57,7 @@ export default function InvoiceListSection() {
             await updateInvoice(editInvoice.id, payload);
             queryClient.invalidateQueries({ queryKey: ["invoices"] });
             setModalOpen(false);
-            Swal.fire({ icon: "success", title: "Tagihan diperbarui", timer: 1500, showConfirmButton: false });
+            Swal.fire({ icon: "success", title: "Laporan biaya energi diperbarui", timer: 1500, showConfirmButton: false });
         } catch (err: any) {
             Swal.fire({
                 icon: "error",
@@ -89,7 +89,7 @@ export default function InvoiceListSection() {
 
             {isError && (
                 <div className="rounded-3xl border border-red-100 bg-red-50 p-5 text-sm text-red-600">
-                    Gagal memuat data tagihan.
+                    Gagal memuat data laporan biaya energi.
                 </div>
             )}
 
@@ -100,7 +100,7 @@ export default function InvoiceListSection() {
             {!isLoading && totalPages > 1 && (
                 <div className="flex items-center justify-between pt-2">
                     <p className="font-inter text-sm text-[#777]">
-                        Halaman {page} dari {totalPages} · Total {meta?.total} tagihan
+                        Halaman {page} dari {totalPages} · Total {meta?.total} laporan
                     </p>
                     <div className="flex gap-2">
                         <button

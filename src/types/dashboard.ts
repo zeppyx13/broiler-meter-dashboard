@@ -17,7 +17,8 @@ export type SidebarIconName =
     | "fileCheck"       // kontrak sewa
     | "megaphone"       // pengumuman
     | "sparkles"        // fasilitas
-    | "cpu";            // IoT meter
+    | "cpu"             // IoT meter
+    | "terminal";       // IoT terminal
 
 export type SidebarMenuItem = {
     label: string;

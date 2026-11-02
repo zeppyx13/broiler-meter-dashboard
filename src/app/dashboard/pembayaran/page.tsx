@@ -6,9 +6,9 @@ export default function PembayaranPage() {
     return (
         <DashboardShell menus={sidebarMenus}>
             <div>
-                <p className="font-inter text-sm text-[#666]">Keuangan</p>
+                <p className="font-inter text-sm text-[#666]">Energi</p>
                 <h2 className="mt-1 font-poppins text-2xl font-bold text-[#2F2F2F]">
-                    Data Pembayaran
+                    Laporan Biaya Energi
                 </h2>
             </div>
 

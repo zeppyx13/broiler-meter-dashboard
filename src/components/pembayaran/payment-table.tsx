@@ -34,7 +34,7 @@ export default function PaymentTable({ payments }: Props) {
     if (payments.length === 0) {
         return (
             <div className="rounded-3xl border border-[#EAEAEA] bg-white px-6 py-16 text-center">
-                <p className="font-inter text-sm text-[#999]">Tidak ada data pembayaran.</p>
+                <p className="font-inter text-sm text-[#999]">Tidak ada data laporan biaya energi.</p>
             </div>
         );
     }
@@ -44,8 +44,8 @@ export default function PaymentTable({ payments }: Props) {
             <table className="min-w-full">
                 <thead>
                     <tr className="border-b border-[#EAEAEA]">
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Penghuni</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Kamar</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Peternak</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Kandang</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Bulan</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Metode</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Jumlah</th>

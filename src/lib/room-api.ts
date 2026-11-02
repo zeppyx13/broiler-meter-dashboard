@@ -13,7 +13,7 @@ export async function getRooms(params?: {
     page?: number;
     limit?: number;
 }) {
-    const response = await api.get("/api/rooms/all", {
+    const response = await api.get<RoomListResponse>("/api/rooms/all", {
         params,
         headers: authHeader(),
     });

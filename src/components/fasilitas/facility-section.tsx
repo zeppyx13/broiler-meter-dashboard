@@ -33,7 +33,7 @@ export default function FacilitySection() {
             await createFacility(addName.trim());
             queryClient.invalidateQueries({ queryKey: ["facilities"] });
             setAddName("");
-            Swal.fire({ icon: "success", title: "Fasilitas ditambahkan", timer: 1200, showConfirmButton: false });
+            Swal.fire({ icon: "success", title: "Komponen ditambahkan", timer: 1200, showConfirmButton: false });
         } catch (err: any) {
             Swal.fire({
                 icon: "error",
@@ -76,7 +76,7 @@ export default function FacilitySection() {
     async function handleDelete(f: Facility) {
         const result = await Swal.fire({
             title: `Hapus "${f.name}"?`,
-            text: "Fasilitas ini akan dihapus dari semua kamar.",
+            text: "Komponen ini akan dihapus dari semua kandang.",
             icon: "warning",
             showCancelButton: true,
             confirmButtonText: "Ya, hapus",
@@ -102,7 +102,7 @@ export default function FacilitySection() {
         <div className="space-y-6">
             {/* Form tambah */}
             <div className="rounded-3xl border border-[#EAEAEA] bg-white p-6">
-                <h3 className="font-poppins text-sm font-semibold text-[#2F2F2F]">Tambah Fasilitas Baru</h3>
+                <h3 className="font-poppins text-sm font-semibold text-[#2F2F2F]">Tambah Komponen Kandang</h3>
                 <div className="mt-3 flex gap-3">
                     <input
                         type="text"
@@ -110,7 +110,7 @@ export default function FacilitySection() {
                         onChange={(e) => setAddName(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleAdd()}
                         suppressHydrationWarning
-                        placeholder="cth. WiFi, AC, Lemari, Parkir Motor..."
+                        placeholder="cth. ESP32, PZEM-004T, Relay, YF-S201..."
                         className="flex-1 rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] px-4 py-3 font-inter text-sm outline-none transition focus:border-[#7B1113]"
                     />
                     <button
@@ -129,10 +129,10 @@ export default function FacilitySection() {
             <div className="rounded-3xl border border-[#EAEAEA] bg-white p-6">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="font-poppins text-sm font-semibold text-[#2F2F2F]">
-                        Daftar Fasilitas
+                        Daftar Komponen
                     </h3>
                     <span className="rounded-full bg-[#F8F8F8] px-3 py-1 font-inter text-xs text-[#777]">
-                        {facilities.length} fasilitas
+                        {facilities.length} komponen
                     </span>
                 </div>
 
@@ -145,11 +145,11 @@ export default function FacilitySection() {
                 )}
 
                 {isError && (
-                    <p className="text-sm text-red-500">Gagal memuat data fasilitas.</p>
+                    <p className="text-sm text-red-500">Gagal memuat data komponen.</p>
                 )}
 
                 {!isLoading && !isError && facilities.length === 0 && (
-                    <p className="font-inter text-sm text-[#999]">Belum ada fasilitas. Tambahkan di atas.</p>
+                    <p className="font-inter text-sm text-[#999]">Belum ada komponen. Tambahkan di atas.</p>
                 )}
 
                 {!isLoading && !isError && (

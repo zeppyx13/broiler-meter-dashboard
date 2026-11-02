@@ -28,7 +28,7 @@ export default function LeaseTable({ leases, onEdit, onDelete }: Props) {
     if (leases.length === 0) {
         return (
             <div className="rounded-3xl border border-[#EAEAEA] bg-white px-6 py-16 text-center">
-                <p className="font-inter text-sm text-[#999]">Tidak ada kontrak ditemukan.</p>
+                <p className="font-inter text-sm text-[#999]">Tidak ada data siklus produksi ditemukan.</p>
             </div>
         );
     }
@@ -38,11 +38,11 @@ export default function LeaseTable({ leases, onEdit, onDelete }: Props) {
             <table className="min-w-full">
                 <thead>
                     <tr className="border-b border-[#EAEAEA]">
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Penghuni</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Kamar</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Mulai</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Berakhir</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Sewa/Bulan</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Peternak</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Kandang</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Chick-in</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Estimasi Panen</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Biaya Operasional/Bulan</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Status</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Aksi</th>
                     </tr>
@@ -61,7 +61,7 @@ export default function LeaseTable({ leases, onEdit, onDelete }: Props) {
                                 </td>
                                 <td className="px-6 py-4 font-inter text-sm text-[#666]">
                                     {l.room_number}
-                                    {l.room_floor ? ` · Lt ${l.room_floor}` : ""}
+                                    {l.room_floor ? ` · Blok ${l.room_floor}` : ""}
                                 </td>
                                 <td className="px-6 py-4 font-inter text-sm text-[#666]">{formatDate(l.start_date)}</td>
                                 <td className="px-6 py-4 font-inter text-sm text-[#666]">{formatDate(l.end_date)}</td>
@@ -73,7 +73,7 @@ export default function LeaseTable({ leases, onEdit, onDelete }: Props) {
                                         ? "bg-green-100 text-green-700"
                                         : "bg-gray-100 text-gray-600"
                                         }`}>
-                                        {l.status === "active" ? "Aktif" : "Berakhir"}
+                                        {l.status === "active" ? "Aktif" : "Selesai"}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4">

@@ -2,8 +2,8 @@
 
 const STATUS_OPTIONS = [
     { label: "Semua", value: "" },
-    { label: "Open", value: "open" },
-    { label: "Diproses", value: "in_progress" },
+    { label: "Waspada", value: "open" },
+    { label: "Ditindaklanjuti", value: "in_progress" },
     { label: "Selesai", value: "closed" },
 ];
 

@@ -32,7 +32,7 @@ export default function InvoiceTable({ invoices, onEdit }: Props) {
     if (invoices.length === 0) {
         return (
             <div className="rounded-3xl border border-[#EAEAEA] bg-white px-6 py-16 text-center">
-                <p className="font-inter text-sm text-[#999]">Tidak ada tagihan ditemukan.</p>
+                <p className="font-inter text-sm text-[#999]">Tidak ada laporan biaya energi ditemukan.</p>
             </div>
         );
     }
@@ -42,11 +42,11 @@ export default function InvoiceTable({ invoices, onEdit }: Props) {
             <table className="min-w-full">
                 <thead>
                     <tr className="border-b border-[#EAEAEA]">
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Penghuni</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Kamar</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Peternak</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Kandang</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Bulan</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Jatuh Tempo</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Total</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Total Biaya</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Status</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Aksi</th>
                     </tr>
@@ -65,7 +65,7 @@ export default function InvoiceTable({ invoices, onEdit }: Props) {
                                 </td>
                                 <td className="px-6 py-4 font-inter text-sm text-[#666]">
                                     {inv.room_number}
-                                    {inv.room_floor ? ` · Lt ${inv.room_floor}` : ""}
+                                    {inv.room_floor ? ` · Blok ${inv.room_floor}` : ""}
                                 </td>
                                 <td className="px-6 py-4 font-inter text-sm text-[#666]">{inv.month}</td>
                                 <td className="px-6 py-4 font-inter text-sm text-[#666]">

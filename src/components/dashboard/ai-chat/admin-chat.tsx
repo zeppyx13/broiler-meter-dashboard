@@ -10,16 +10,16 @@ function renderMarkdown(text: string) {
         .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
         .replace(/\*(.*?)\*/g, "<em>$1</em>")
         .replace(/^[\*\-] (.+)$/gm, "<li>$1</li>")
-        .replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>")
+        .replace(/(<li>[\s\S]*<\/li>)/g, "<ul>$1</ul>")
         .replace(/\n/g, "<br/>");
 }
 
 const SUGGESTED_QUESTIONS = [
-    "Siapa tenant yang belum bayar paling lama?",
-    "Kamar mana yang sudah kosong paling lama?",
-    "Kontrak siapa yang mau habis bulan ini?",
-    "Berikan ringkasan keuangan bulan ini",
-    "Keluhan apa yang belum ditangani?",
+    "Siapa peternak yang belum menyelesaikan laporan biaya energi paling lama?",
+    "Kandang mana yang sudah kosong paling lama?",
+    "Siklus produksi siapa yang mau selesai bulan ini?",
+    "Berikan ringkasan biaya energi bulan ini",
+    "Alert apa yang belum ditangani?",
 ];
 
 export default function AdminChat() {
@@ -34,7 +34,7 @@ export default function AdminChat() {
         if (open && messages.length === 0) {
             setMessages([{
                 role: "assistant",
-                content: "Halo! Saya asisten AI Coasther. Saya bisa membantu Anda menganalisis data operasional, keuangan, dan penghuni kost. Apa yang ingin Anda ketahui?",
+                content: "Halo! Saya asisten AI Coasther. Saya bisa membantu Anda menganalisis data operasional, biaya energi, dan peternak kandang. Apa yang ingin Anda ketahui?",
                 timestamp: new Date().toISOString(),
             }]);
         }
@@ -142,7 +142,7 @@ export default function AdminChat() {
                                     Coasther AI
                                 </p>
                                 <p className="font-inter text-xs text-white/70">
-                                    Asisten manajemen kost
+                                    Asisten manajemen kandang
                                 </p>
                             </div>
                         </div>
@@ -236,7 +236,7 @@ export default function AdminChat() {
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={handleKeyDown}
-                                placeholder="Tanya sesuatu tentang data kost..."
+                                placeholder="Tanya sesuatu tentang data kandang..."
                                 rows={1}
                                 suppressHydrationWarning
                                 className="flex-1 resize-none rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] px-4 py-2.5 font-inter text-sm outline-none transition focus:border-[#7B1113] placeholder:text-[#BBB]"

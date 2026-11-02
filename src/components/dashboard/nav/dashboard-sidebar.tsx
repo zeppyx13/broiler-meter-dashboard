@@ -4,7 +4,7 @@ import {
     LogOut, Home, BedDouble, Users,
     FileText, CreditCard, Settings,
     MessageSquare, FileCheck, Megaphone, Sparkles, Cpu,
-    Star, Terminal,
+    Terminal,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
@@ -31,7 +31,6 @@ const iconMap: Record<SidebarIconName, LucideIcon> = {
     megaphone: Megaphone,
     sparkles: Sparkles,
     cpu: Cpu,
-    star: Star,
     terminal: Terminal,
 };
 

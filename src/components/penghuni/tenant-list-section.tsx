@@ -47,7 +47,7 @@ export default function TenantListSection() {
     async function handleDelete(tenant: Tenant) {
         const result = await Swal.fire({
             title: `Hapus ${tenant.name}?`,
-            text: "Semua data terkait penghuni ini (invoice, lease, complaint) akan ikut terhapus.",
+            text: "Semua data terkait peternak ini (laporan biaya energi, siklus produksi, alert) akan ikut terhapus.",
             icon: "warning",
             showCancelButton: true,
             confirmButtonText: "Ya, hapus",
@@ -60,7 +60,7 @@ export default function TenantListSection() {
         try {
             await deleteTenant(tenant.id);
             queryClient.invalidateQueries({ queryKey: ["tenants"] });
-            Swal.fire({ icon: "success", title: "Penghuni dihapus", timer: 1500, showConfirmButton: false });
+            Swal.fire({ icon: "success", title: "Peternak dihapus", timer: 1500, showConfirmButton: false });
         } catch (err: any) {
             Swal.fire({
                 icon: "error",
@@ -106,7 +106,7 @@ export default function TenantListSection() {
 
             {isError && (
                 <div className="rounded-3xl border border-red-100 bg-red-50 p-5 text-sm text-red-600">
-                    Gagal memuat data penghuni.
+                    Gagal memuat data peternak.
                 </div>
             )}
 
@@ -117,7 +117,7 @@ export default function TenantListSection() {
             {!isLoading && totalPages > 1 && (
                 <div className="flex items-center justify-between pt-2">
                     <p className="font-inter text-sm text-[#777]">
-                        Halaman {page} dari {totalPages} · Total {meta?.total} penghuni
+                        Halaman {page} dari {totalPages} · Total {meta?.total} peternak
                     </p>
                     <div className="flex gap-2">
                         <button

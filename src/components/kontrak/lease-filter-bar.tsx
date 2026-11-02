@@ -9,7 +9,7 @@ type Props = {
 const STATUS_OPTIONS = [
     { label: "Semua", value: "" },
     { label: "Aktif", value: "active" },
-    { label: "Berakhir", value: "ended" },
+    { label: "Selesai", value: "ended" },
 ];
 
 export default function LeaseFilterBar({ status, onStatusChange, onTambah }: Props) {
@@ -36,7 +36,7 @@ export default function LeaseFilterBar({ status, onStatusChange, onTambah }: Pro
                 suppressHydrationWarning
                 className="rounded-2xl bg-[#7B1113] px-5 py-2.5 font-poppins text-sm font-semibold text-[#C6A971] transition hover:opacity-90"
             >
-                + Tambah Kontrak
+                + Tambah Siklus Produksi
             </button>
         </div>
     );

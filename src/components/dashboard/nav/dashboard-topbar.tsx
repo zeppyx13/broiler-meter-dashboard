@@ -11,17 +11,16 @@ type DashboardTopbarProps = {
 
 const PAGE_TITLES: Record<string, { label: string; title: string }> = {
     "/dashboard": { label: "Selamat datang kembali", title: "Dashboard Overview" },
-    "/dashboard/kamar": { label: "Manajemen", title: "Data Kamar" },
-    "/dashboard/penghuni": { label: "Manajemen", title: "Data Penghuni" },
-    "/dashboard/tagihan": { label: "Keuangan", title: "Data Tagihan" },
-    "/dashboard/pembayaran": { label: "Keuangan", title: "Data Pembayaran" },
-    "/dashboard/keluhan": { label: "Manajemen", title: "Keluhan Penghuni" },
-    "/dashboard/kontrak": { label: "Manajemen", title: "Kontrak Sewa" },
+    "/dashboard/kamar": { label: "Manajemen", title: "Data Kandang" },
+    "/dashboard/penghuni": { label: "Manajemen", title: "Data Peternak" },
+    "/dashboard/tagihan": { label: "Energi", title: "Laporan Biaya Energi" },
+    "/dashboard/pembayaran": { label: "Energi", title: "Data Pembayaran" },
+    "/dashboard/keluhan": { label: "Manajemen", title: "Alert & Peringatan Dini" },
+    "/dashboard/kontrak": { label: "Manajemen", title: "Siklus Produksi" },
     "/dashboard/pengumuman": { label: "Manajemen", title: "Pengumuman" },
-    "/dashboard/fasilitas": { label: "Manajemen", title: "Data Fasilitas" },
+    "/dashboard/fasilitas": { label: "Manajemen", title: "Komponen Kandang" },
     "/dashboard/iot": { label: "IoT", title: "Alat IoT / Meter" },
     "/dashboard/iot/terminal": { label: "IoT", title: "Remote Terminal" },
-    "/dashboard/rating": { label: "Manajemen", title: "Rating Penghuni" },
 };
 
 export default function DashboardTopbar({ onMenuClick }: DashboardTopbarProps) {
