@@ -16,7 +16,7 @@ export default function RoomsSection() {
         return (
             <div className="xl:col-span-2 rounded-3xl border border-[#EAEAEA] bg-white p-6">
                 <p className="font-inter text-sm text-[#777]">
-                    Memuat data kamar...
+                    Memuat data kandang...
                 </p>
             </div>
         );
@@ -25,7 +25,7 @@ export default function RoomsSection() {
     if (isError) {
         return (
             <div className="xl:col-span-2 rounded-3xl border border-red-100 bg-red-50 p-5 text-sm text-red-600">
-                Gagal memuat data kamar.
+                Gagal memuat data kandang.
             </div>
         );
     }

@@ -15,7 +15,7 @@ const TABS: {
     icon: any;
 }[] = [
         { key: "overview", label: "Overview", icon: HomeIcon },
-        { key: "list", label: "Kelola Kamar", icon: ListChecks },
+        { key: "list", label: "Kelola Kandang", icon: ListChecks },
     ];
 
 export default function KamarPage() {

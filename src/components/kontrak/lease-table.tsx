@@ -9,14 +9,6 @@ type Props = {
     onDelete: (lease: Lease) => void;
 };
 
-function formatRupiah(value: number) {
-    return new Intl.NumberFormat("id-ID", {
-        style: "currency",
-        currency: "IDR",
-        minimumFractionDigits: 0,
-    }).format(value);
-}
-
 function formatDate(date: string | null) {
     if (!date) return "-";
     return new Date(date).toLocaleDateString("id-ID", {
@@ -38,11 +30,9 @@ export default function LeaseTable({ leases, onEdit, onDelete }: Props) {
             <table className="min-w-full">
                 <thead>
                     <tr className="border-b border-[#EAEAEA]">
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Peternak</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Kandang</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Chick-in</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Estimasi Panen</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Biaya Operasional/Bulan</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Status</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Aksi</th>
                     </tr>
@@ -55,19 +45,12 @@ export default function LeaseTable({ leases, onEdit, onDelete }: Props) {
                                 key={l.id}
                                 className={`transition hover:bg-[#FAFAFA] ${!isLast ? "border-b border-[#F0F0F0]" : ""}`}
                             >
-                                <td className="px-6 py-4">
-                                    <p className="font-poppins text-sm font-semibold text-[#2F2F2F]">{l.tenant_name}</p>
-                                    <p className="font-inter text-xs text-[#999]">{l.tenant_email}</p>
-                                </td>
-                                <td className="px-6 py-4 font-inter text-sm text-[#666]">
+                                <td className="px-6 py-4 font-poppins text-sm font-semibold text-[#2F2F2F]">
                                     {l.room_number}
                                     {l.room_floor ? ` · Blok ${l.room_floor}` : ""}
                                 </td>
                                 <td className="px-6 py-4 font-inter text-sm text-[#666]">{formatDate(l.start_date)}</td>
                                 <td className="px-6 py-4 font-inter text-sm text-[#666]">{formatDate(l.end_date)}</td>
-                                <td className="px-6 py-4 font-poppins text-sm font-semibold text-[#2F2F2F]">
-                                    {formatRupiah(l.monthly_rent_snapshot)}
-                                </td>
                                 <td className="px-6 py-4">
                                     <span className={`rounded-full px-3 py-1 font-inter text-xs font-medium ${l.status === "active"
                                         ? "bg-green-100 text-green-700"

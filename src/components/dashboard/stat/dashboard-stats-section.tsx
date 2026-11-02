@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BedDouble, Users, Droplets, Zap } from "lucide-react";
+import { BedDouble, Sprout, Droplets, Zap } from "lucide-react";
 import StatCard from "./stat-card";
 import { getDashboardStats } from "@/lib/dashboard-api";
+import { getLeases } from "@/lib/lease-api";
 import { socket } from "@/lib/socket";
 import type { StatItem } from "@/types/dashboard";
 
@@ -25,6 +26,12 @@ export default function DashboardStatsSection() {
     const { data, isLoading, isError } = useQuery({
         queryKey: ["dashboard-stats"],
         queryFn: getDashboardStats,
+    });
+
+    const { data: activeCycles } = useQuery({
+        queryKey: ["leases-active-count"],
+        queryFn: () => getLeases({ status: "active", limit: 1 }),
+        staleTime: 30 * 1000,
     });
 
     const [telemetry, setTelemetry] = useState<TelemetryPayload | null>(null);
@@ -59,16 +66,16 @@ export default function DashboardStatsSection() {
 
         return [
             {
-                title: "Total Kamar",
+                title: "Total Kandang",
                 value: String(data.totalRooms),
-                desc: `${data.availableRooms} kamar tersedia`,
+                desc: `${data.availableRooms} kandang tersedia`,
                 icon: BedDouble,
             },
             {
-                title: "Total Penghuni",
-                value: String(data.totalTenants),
-                desc: `${data.activeTenants} aktif bulan ini`,
-                icon: Users,
+                title: "Siklus Produksi Aktif",
+                value: String(activeCycles?.meta.total ?? 0),
+                desc: "Siklus produksi berjalan saat ini",
+                icon: Sprout,
             },
             {
                 title: "Pemakaian Air",
@@ -89,7 +96,7 @@ export default function DashboardStatsSection() {
                 icon: Zap,
             },
         ];
-    }, [data, telemetry]);
+    }, [data, telemetry, activeCycles]);
 
     if (isLoading) {
         return (

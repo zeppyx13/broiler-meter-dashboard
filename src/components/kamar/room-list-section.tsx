@@ -59,8 +59,8 @@ export default function RoomListSection() {
 
     async function handleDelete(room: Room) {
         const result = await Swal.fire({
-            title: `Hapus Kamar ${room.number}?`,
-            text: "Kamar yang dihapus tidak bisa dikembalikan.",
+            title: `Hapus Kandang ${room.number}?`,
+            text: "Kandang yang dihapus tidak bisa dikembalikan.",
             icon: "warning",
             showCancelButton: true,
             confirmButtonText: "Ya, hapus",
@@ -75,7 +75,7 @@ export default function RoomListSection() {
             queryClient.invalidateQueries({ queryKey: ["rooms"] });
             Swal.fire({
                 icon: "success",
-                title: "Kamar dihapus",
+                title: "Kandang dihapus",
                 timer: 1500,
                 showConfirmButton: false,
             });
@@ -103,7 +103,7 @@ export default function RoomListSection() {
 
                 Swal.fire({
                     icon: "success",
-                    title: editData ? "Kamar diperbarui" : "Kamar ditambahkan",
+                    title: editData ? "Kandang diperbarui" : "Kandang ditambahkan",
                     timer: 1500,
                     showConfirmButton: false,
                 });
@@ -139,7 +139,7 @@ export default function RoomListSection() {
 
             {isError && (
                 <div className="rounded-3xl border border-red-100 bg-red-50 p-5 text-sm text-red-600">
-                    Gagal memuat data kamar.
+                    Gagal memuat data kandang.
                 </div>
             )}
 
@@ -155,7 +155,7 @@ export default function RoomListSection() {
             {!isLoading && totalPages > 1 && (
                 <div className="flex items-center justify-between pt-2">
                     <p className="font-inter text-sm text-[#777]">
-                        Halaman {page} dari {totalPages} · Total {meta?.total} kamar
+                        Halaman {page} dari {totalPages} · Total {meta?.total} kandang
                     </p>
                     <div className="flex gap-2">
                         <button

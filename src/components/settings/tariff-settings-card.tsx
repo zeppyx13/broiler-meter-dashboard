@@ -54,8 +54,8 @@ const fields: FieldConfig[] = [
     },
     {
         key: "late_fee_flat",
-        label: "Denda Keterlambatan",
-        description: "Nominal denda flat jika tagihan melewati jatuh tempo",
+        label: "Biaya Tambahan Lainnya",
+        description: "Nominal penyesuaian tambahan opsional pada laporan biaya energi bulanan",
         prefix: "Rp",
         suffix: "",
         icon: <AlertTriangle size={18} className="text-red-500" />,
@@ -98,7 +98,7 @@ export default function TariffSettingsCard() {
     async function handleSave() {
         const confirm = await Swal.fire({
             title: "Simpan Perubahan Tarif?",
-            text: "Perubahan akan berpengaruh pada invoice yang belum di-generate.",
+            text: "Perubahan akan berpengaruh pada laporan biaya energi yang belum di-generate.",
             icon: "warning",
             showCancelButton: true,
             confirmButtonText: "Ya, Simpan",
@@ -208,7 +208,7 @@ export default function TariffSettingsCard() {
             <div className="mt-6 flex gap-3 rounded-2xl bg-amber-50 p-4">
                 <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-500" />
                 <p className="font-inter text-sm text-amber-700">
-                    Perubahan tarif hanya berlaku untuk invoice yang belum digenerate. Invoice bulan berjalan yang sudah ada tidak akan terpengaruh.
+                    Perubahan tarif hanya berlaku untuk laporan biaya energi yang belum digenerate. Laporan bulan berjalan yang sudah ada tidak akan terpengaruh.
                 </p>
             </div>
 

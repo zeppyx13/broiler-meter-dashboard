@@ -31,7 +31,7 @@ export default function RoomFilterBar({
                     <Search size={16} className="text-[#999]" />
                     <input
                         type="text"
-                        placeholder="Cari nomor kamar..."
+                        placeholder="Cari nomor kandang..."
                         value={search}
                         onChange={(e) => onSearchChange(e.target.value)}
                         className="w-44 bg-transparent font-inter text-sm outline-none placeholder:text-[#999]"
@@ -60,7 +60,7 @@ export default function RoomFilterBar({
                 onClick={onTambah}
                 className="rounded-2xl bg-[#7B1113] px-5 py-2.5 font-poppins text-sm font-semibold text-[#C6A971] transition hover:opacity-90"
             >
-                + Tambah Kamar
+                + Tambah Kandang
             </button>
         </div>
     );

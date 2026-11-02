@@ -21,9 +21,9 @@ export default function RoomsTable({ rooms }: RoomsTableProps) {
         <SectionCard className="xl:col-span-2">
             <div className="flex items-center justify-between">
                 <div>
-                    <p className="font-inter text-sm text-[#666]">Monitoring Kamar</p>
+                    <p className="font-inter text-sm text-[#666]">Monitoring Kandang</p>
                     <h3 className="mt-1 font-poppins text-xl font-semibold text-[#2F2F2F]">
-                        Status Kamar & Tagihan
+                        Status Kandang & Biaya Energi
                     </h3>
                 </div>
 
@@ -39,10 +39,10 @@ export default function RoomsTable({ rooms }: RoomsTableProps) {
                 <table className="min-w-full border-separate border-spacing-y-3">
                     <thead>
                         <tr>
-                            <th className="text-left font-inter text-xs text-[#777]">Kamar</th>
-                            <th className="text-left font-inter text-xs text-[#777]">Penghuni</th>
+                            <th className="text-left font-inter text-xs text-[#777]">Kandang</th>
+                            <th className="text-left font-inter text-xs text-[#777]">Blok</th>
                             <th className="text-left font-inter text-xs text-[#777]">Status</th>
-                            <th className="text-left font-inter text-xs text-[#777]">Tagihan</th>
+                            <th className="text-left font-inter text-xs text-[#777]">Biaya Energi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -53,7 +53,7 @@ export default function RoomsTable({ rooms }: RoomsTableProps) {
                                 </td>
 
                                 <td className="px-4 py-4 font-inter text-sm text-[#666]">
-                                    {room.tenant_name ?? "-"}
+                                    {room.room_floor ? `Blok ${room.room_floor}` : "-"}
                                 </td>
 
                                 <td className="px-4 py-4">

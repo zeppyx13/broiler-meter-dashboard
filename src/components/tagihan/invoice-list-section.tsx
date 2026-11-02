@@ -1,31 +1,26 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import Swal from "sweetalert2";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import InvoiceFilterBar from "./invoice-filter-bar";
 import InvoiceTable from "./invoice-table";
-import InvoiceEditModal from "./invoice-edit-modal";
-import { getInvoices, updateInvoice } from "@/lib/invoice-api";
-import type { Invoice, InvoiceUpdatePayload } from "@/types/invoice";
+import InvoiceDetailModal from "./invoice-edit-modal";
+import { getInvoices } from "@/lib/invoice-api";
+import type { Invoice } from "@/types/invoice";
 
 const LIMIT = 10;
 
 export default function InvoiceListSection() {
-    const queryClient = useQueryClient();
-
     const [search, setSearch] = useState("");
-    const [status, setStatus] = useState("");
     const [month, setMonth] = useState("");
     const [page, setPage] = useState(1);
     const [modalOpen, setModalOpen] = useState(false);
-    const [editInvoice, setEditInvoice] = useState<Invoice | null>(null);
+    const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
     const { data, isLoading, isError } = useQuery({
-        queryKey: ["invoices", status, month, page],
+        queryKey: ["invoices", month, page],
         queryFn: () =>
             getInvoices({
-                status: status || undefined,
                 month: month || undefined,
                 page,
                 limit: LIMIT,
@@ -33,49 +28,26 @@ export default function InvoiceListSection() {
         staleTime: 30 * 1000,
     });
 
-    // Filter search di client side (API tidak support search by name)
+    // Filter search di client side (API tidak support search by nomor kandang)
     const invoices = (data?.invoices ?? []).filter((inv) => {
         if (!search) return true;
-        const q = search.toLowerCase();
-        return (
-            inv.tenant_name.toLowerCase().includes(q) ||
-            inv.room_number.toLowerCase().includes(q)
-        );
+        return inv.room_number.toLowerCase().includes(search.toLowerCase());
     });
 
     const meta = data?.meta;
     const totalPages = meta ? Math.ceil(meta.total / LIMIT) : 1;
 
-    function handleEdit(invoice: Invoice) {
-        setEditInvoice(invoice);
+    function handleViewDetail(invoice: Invoice) {
+        setSelectedInvoice(invoice);
         setModalOpen(true);
     }
-
-    const handleSubmit = useCallback(async (payload: InvoiceUpdatePayload) => {
-        if (!editInvoice) return;
-        try {
-            await updateInvoice(editInvoice.id, payload);
-            queryClient.invalidateQueries({ queryKey: ["invoices"] });
-            setModalOpen(false);
-            Swal.fire({ icon: "success", title: "Laporan biaya energi diperbarui", timer: 1500, showConfirmButton: false });
-        } catch (err: any) {
-            Swal.fire({
-                icon: "error",
-                title: "Gagal menyimpan",
-                text: err?.response?.data?.message || "Terjadi kesalahan.",
-                confirmButtonColor: "#7B1113",
-            });
-        }
-    }, [editInvoice, queryClient]);
 
     return (
         <div className="space-y-4">
             <InvoiceFilterBar
                 search={search}
-                status={status}
                 month={month}
                 onSearchChange={(v) => { setSearch(v); setPage(1); }}
-                onStatusChange={(v) => { setStatus(v); setPage(1); }}
                 onMonthChange={(v) => { setMonth(v); setPage(1); }}
             />
 
@@ -94,7 +66,7 @@ export default function InvoiceListSection() {
             )}
 
             {!isLoading && !isError && (
-                <InvoiceTable invoices={invoices} onEdit={handleEdit} />
+                <InvoiceTable invoices={invoices} onEdit={handleViewDetail} />
             )}
 
             {!isLoading && totalPages > 1 && (
@@ -123,11 +95,10 @@ export default function InvoiceListSection() {
                 </div>
             )}
 
-            <InvoiceEditModal
+            <InvoiceDetailModal
                 open={modalOpen}
-                invoice={editInvoice}
+                invoice={selectedInvoice}
                 onClose={() => setModalOpen(false)}
-                onSubmit={handleSubmit}
             />
         </div>
     );

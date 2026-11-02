@@ -8,6 +8,7 @@ import { getFacilities } from "@/lib/facility-api";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { getRoomById } from "@/lib/room-api";
+import { getRoomExtra, setRoomExtra, type RoomExtra } from "@/lib/broiler-local-store";
 
 type RoomFormModalProps = {
     open: boolean;
@@ -52,6 +53,7 @@ export default function RoomFormModal({
     onSubmit,
 }: RoomFormModalProps) {
     const [form, setForm] = useState<RoomFormPayload>(EMPTY_FORM);
+    const [extra, setExtra] = useState<RoomExtra>({});
     const [loading, setLoading] = useState(false);
     const [uploadLoading, setUploadLoading] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -107,6 +109,8 @@ export default function RoomFormModal({
             setForm(EMPTY_FORM);
             setPreviewUrl(null);
         }
+
+        setExtra(editData ? getRoomExtra(editData.id) : {});
     }, [editData, open]);
 
     function toggleFacility(id: number) {
@@ -165,6 +169,9 @@ export default function RoomFormModal({
         try {
             setLoading(true);
             await onSubmit(form);
+            if (editData) {
+                setRoomExtra(editData.id, extra);
+            }
         } finally {
             setLoading(false);
         }
@@ -179,7 +186,7 @@ export default function RoomFormModal({
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-[#EAEAEA] px-6 pb-4 pt-6">
                     <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">
-                        {editData ? "Edit Kamar" : "Tambah Kamar"}
+                        {editData ? "Edit Kandang" : "Tambah Kandang"}
                     </h3>
                     <button onClick={onClose} className="rounded-xl p-2 transition hover:bg-[#F0F0F0]" title="Tutup">
                         <X size={18} className="text-[#666]" />
@@ -189,10 +196,10 @@ export default function RoomFormModal({
                 {/* Body scrollable */}
                 <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
 
-                    {/* Nomor Kamar */}
+                    {/* Nomor Kandang */}
                     <div>
                         <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">
-                            Nomor Kamar <span className="text-red-500">*</span>
+                            Nomor Kandang <span className="text-red-500">*</span>
                         </label>
                         <input
                             type="text"
@@ -204,10 +211,10 @@ export default function RoomFormModal({
                         />
                     </div>
 
-                    {/* Lantai + Status */}
+                    {/* Blok + Status */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">Lantai</label>
+                            <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">Blok</label>
                             <input
                                 type="number"
                                 value={form.floor ?? ""}
@@ -220,7 +227,7 @@ export default function RoomFormModal({
                         <div>
                             <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">Status</label>
                             <select
-                                title="Pilih status ketersediaan kamar"
+                                title="Pilih status ketersediaan kandang"
                                 value={form.is_available ? "1" : "0"}
                                 onChange={(e) => setForm({ ...form, is_available: e.target.value === "1" })}
                                 suppressHydrationWarning
@@ -232,32 +239,22 @@ export default function RoomFormModal({
                         </div>
                     </div>
 
-                    {/* Harga + Deposit */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">
-                                Harga / Bulan <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="number"
-                                value={form.price_monthly || ""}
-                                onChange={(e) => setForm({ ...form, price_monthly: Number(e.target.value) })}
-                                suppressHydrationWarning
-                                placeholder="1500000"
-                                className="w-full rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] px-4 py-3 font-inter text-sm outline-none transition focus:border-[#7B1113]"
-                            />
-                        </div>
-                        <div>
-                            <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">Deposit</label>
-                            <input
-                                type="number"
-                                value={form.deposit || ""}
-                                onChange={(e) => setForm({ ...form, deposit: Number(e.target.value) })}
-                                suppressHydrationWarning
-                                placeholder="500000"
-                                className="w-full rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] px-4 py-3 font-inter text-sm outline-none transition focus:border-[#7B1113]"
-                            />
-                        </div>
+                    {/* Estimasi biaya operasional — dipakai backend, tidak ditampilkan sebagai "sewa" */}
+                    <div>
+                        <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">
+                            Estimasi Biaya Operasional / Bulan <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            value={form.price_monthly || ""}
+                            onChange={(e) => setForm({ ...form, price_monthly: Number(e.target.value) })}
+                            suppressHydrationWarning
+                            placeholder="1500000"
+                            className="w-full rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] px-4 py-3 font-inter text-sm outline-none transition focus:border-[#7B1113]"
+                        />
+                        <p className="mt-1 font-inter text-xs text-[#999]">
+                            Perkiraan biaya operasional bulanan kandang (listrik, air, perawatan) — bukan harga sewa.
+                        </p>
                     </div>
 
                     {/* Deskripsi */}
@@ -266,16 +263,80 @@ export default function RoomFormModal({
                         <textarea
                             value={form.description ?? ""}
                             onChange={(e) => setForm({ ...form, description: e.target.value })}
-                            placeholder="Deskripsi kamar..."
+                            placeholder="Deskripsi kandang..."
                             rows={3}
                             className="w-full resize-none rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] px-4 py-3 font-inter text-sm outline-none transition focus:border-[#7B1113]"
                         />
                     </div>
 
+                    {/* Data Broiler — hanya tersedia setelah kandang dibuat (disimpan lokal) */}
+                    <div className="rounded-2xl border border-dashed border-[#EAEAEA] bg-[#FAFAFA] p-4">
+                        <p className="font-inter text-sm font-medium text-[#2F2F2F]">
+                            Data Kandang Broiler
+                        </p>
+                        <p className="mt-0.5 font-inter text-xs text-[#999]">
+                            {editData
+                                ? "Dipakai untuk Ringkasan, Guard & Forecast kandang ini. Tersimpan lokal di perangkat ini."
+                                : "Simpan kandang dulu, lalu buka Edit untuk mengisi data ini."}
+                        </p>
+
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="mb-1.5 block font-inter text-xs font-medium text-[#555]">Populasi (ekor)</label>
+                                <input
+                                    type="number"
+                                    disabled={!editData}
+                                    value={extra.population ?? ""}
+                                    onChange={(e) => setExtra((prev) => ({ ...prev, population: e.target.value ? Number(e.target.value) : undefined }))}
+                                    suppressHydrationWarning
+                                    placeholder="cth. 5000"
+                                    className="w-full rounded-2xl border border-[#EAEAEA] bg-white px-4 py-2.5 font-inter text-sm outline-none transition focus:border-[#7B1113] disabled:opacity-50"
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block font-inter text-xs font-medium text-[#555]">Strain Ayam</label>
+                                <input
+                                    type="text"
+                                    disabled={!editData}
+                                    value={extra.strain ?? ""}
+                                    onChange={(e) => setExtra((prev) => ({ ...prev, strain: e.target.value }))}
+                                    suppressHydrationWarning
+                                    placeholder="cth. Ross 308"
+                                    className="w-full rounded-2xl border border-[#EAEAEA] bg-white px-4 py-2.5 font-inter text-sm outline-none transition focus:border-[#7B1113] disabled:opacity-50"
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block font-inter text-xs font-medium text-[#555]">Jumlah Fase Panel</label>
+                                <input
+                                    type="number"
+                                    disabled={!editData}
+                                    value={extra.phase_count ?? ""}
+                                    onChange={(e) => setExtra((prev) => ({ ...prev, phase_count: e.target.value ? Number(e.target.value) : undefined }))}
+                                    suppressHydrationWarning
+                                    placeholder="cth. 1"
+                                    className="w-full rounded-2xl border border-[#EAEAEA] bg-white px-4 py-2.5 font-inter text-sm outline-none transition focus:border-[#7B1113] disabled:opacity-50"
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block font-inter text-xs font-medium text-[#555]">Daya Terpasang (kW)</label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    disabled={!editData}
+                                    value={extra.expected_power_kw ?? ""}
+                                    onChange={(e) => setExtra((prev) => ({ ...prev, expected_power_kw: e.target.value ? Number(e.target.value) : undefined }))}
+                                    suppressHydrationWarning
+                                    placeholder="cth. 6.0"
+                                    className="w-full rounded-2xl border border-[#EAEAEA] bg-white px-4 py-2.5 font-inter text-sm outline-none transition focus:border-[#7B1113] disabled:opacity-50"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Upload Foto */}
                     <div>
                         <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">
-                            Foto Kamar
+                            Foto Kandang
                         </label>
 
                         {previewUrl ? (
@@ -406,7 +467,7 @@ export default function RoomFormModal({
                         {(loading || uploadLoading) && (
                             <LoaderCircle size={15} className="animate-spin" />
                         )}
-                        {uploadLoading ? "Mengupload foto..." : loading ? "Menyimpan..." : editData ? "Simpan Perubahan" : "Tambah Kamar"}
+                        {uploadLoading ? "Mengupload foto..." : loading ? "Menyimpan..." : editData ? "Simpan Perubahan" : "Tambah Kandang"}
                     </button>
                 </div>
             </div>

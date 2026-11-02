@@ -49,7 +49,6 @@ export default function ComplaintTable({ complaints, onUpdateStatus }: Props) {
                     <tr className="border-b border-[#EAEAEA]">
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Alert</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Keterangan</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Peternak</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Kandang</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Tanggal</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Status</th>
@@ -75,11 +74,7 @@ export default function ComplaintTable({ complaints, onUpdateStatus }: Props) {
                                         {c.description ?? "-"}
                                     </p>
                                 </td>
-                                <td className="px-6 py-4">
-                                    <p className="font-inter text-sm text-[#2F2F2F]">{c.tenant_name ?? "-"}</p>
-                                    <p className="font-inter text-xs text-[#999]">{c.tenant_email ?? ""}</p>
-                                </td>
-                                <td className="px-6 py-4 font-inter text-sm text-[#666]">
+                                <td className="px-6 py-4 font-poppins text-sm font-semibold text-[#2F2F2F]">
                                     {c.room_number}
                                     {c.room_floor ? ` · Blok ${c.room_floor}` : ""}
                                 </td>

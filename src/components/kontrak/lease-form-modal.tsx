@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { X, LoaderCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { Lease, LeaseFormPayload, LeaseUpdatePayload } from "@/types/lease";
-import { getTenants } from "@/lib/tenant-api";
 import { getRooms } from "@/lib/room-api";
+import { getUser } from "@/lib/auth";
+import { getCycleExtra, setCycleExtra, type CycleExtra } from "@/lib/broiler-local-store";
 
 type Props = {
     open: boolean;
@@ -25,14 +26,7 @@ export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Pr
         note: "",
     });
     const [loading, setLoading] = useState(false);
-
-    // Fetch tenants (role=tenant, limit semua)
-    const { data: tenantData } = useQuery({
-        queryKey: ["tenants-dropdown"],
-        queryFn: () => getTenants({ role: "tenant", limit: 100 }),
-        staleTime: 60 * 1000,
-        enabled: open,
-    });
+    const [extra, setExtra] = useState<CycleExtra>({});
 
     // Fetch kamar tersedia saja (is_available=1)
     const { data: roomData } = useQuery({
@@ -42,7 +36,6 @@ export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Pr
         enabled: open,
     });
 
-    const tenants = tenantData?.users ?? [];
     const availableRooms = roomData?.rooms ?? [];
 
     useEffect(() => {
@@ -56,8 +49,11 @@ export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Pr
                 status: editData.status,
                 note: editData.note ?? "",
             });
+            setExtra(getCycleExtra(editData.id));
         } else {
-            setForm({ user_id: 0, room_id: 0, start_date: "", end_date: "", monthly_rent_snapshot: 0, status: "active", note: "" });
+            const currentUser = getUser();
+            setForm({ user_id: Number(currentUser?.id ?? 0), room_id: 0, start_date: "", end_date: "", monthly_rent_snapshot: 0, status: "active", note: "" });
+            setExtra({});
         }
     }, [editData, open]);
 
@@ -81,6 +77,7 @@ export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Pr
                     monthly_rent_snapshot: Number(form.monthly_rent_snapshot),
                     note: form.note || null,
                 } as LeaseUpdatePayload);
+                setCycleExtra(editData.id, extra);
             } else {
                 if (!form.user_id || !form.room_id || !form.start_date) return;
                 await onSubmit({
@@ -123,40 +120,14 @@ export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Pr
                     {editData ? (
                         /* Mode Edit — tampilkan info read-only */
                         <div className="rounded-2xl bg-[#F8F8F8] px-4 py-3">
-                            <p className="font-inter text-xs text-[#777]">Peternak · Kandang</p>
+                            <p className="font-inter text-xs text-[#777]">Kandang</p>
                             <p className="mt-0.5 font-poppins text-sm font-semibold text-[#2F2F2F]">
-                                {editData.tenant_name} · Kandang {editData.room_number}
+                                Kandang {editData.room_number}
                             </p>
                         </div>
                     ) : (
-                        /* Mode Tambah — dropdown peternak & kandang */
+                        /* Mode Tambah — dropdown kandang (peternak = akun yang sedang login) */
                         <>
-                            {/* Pilih Peternak */}
-                            <div>
-                                <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">
-                                    Peternak <span className="text-red-500">*</span>
-                                </label>
-                                <select
-                                    title="Peternak"
-                                    value={form.user_id || ""}
-                                    onChange={(e) => setForm({ ...form, user_id: Number(e.target.value) })}
-                                    suppressHydrationWarning
-                                    className="w-full rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] px-4 py-3 font-inter text-sm outline-none transition focus:border-[#7B1113]"
-                                >
-                                    <option value="">-- Pilih Peternak --</option>
-                                    {tenants.map((t) => (
-                                        <option key={t.id} value={t.id}>
-                                            {t.name} — {t.email}
-                                        </option>
-                                    ))}
-                                </select>
-                                {tenants.length === 0 && (
-                                    <p className="mt-1 font-inter text-xs text-[#999]">
-                                        Tidak ada peternak tersedia atau sedang memuat...
-                                    </p>
-                                )}
-                            </div>
-
                             {/* Pilih Kandang */}
                             <div>
                                 <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">
@@ -257,6 +228,54 @@ export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Pr
                                 </select>
                             </div>
                         )}
+                    </div>
+
+                    {/* Data Siklus Broiler — hanya tersedia setelah siklus dibuat (disimpan lokal) */}
+                    <div className="rounded-2xl border border-dashed border-[#EAEAEA] bg-[#FAFAFA] p-4">
+                        <p className="font-inter text-sm font-medium text-[#2F2F2F]">Data Siklus Broiler</p>
+                        <p className="mt-0.5 font-inter text-xs text-[#999]">
+                            {editData
+                                ? "Dipakai untuk kurva umur & prediksi panen. Tersimpan lokal di perangkat ini."
+                                : "Simpan siklus dulu, lalu buka Edit untuk mengisi data ini."}
+                        </p>
+                        <div className="mt-3 grid grid-cols-3 gap-3">
+                            <div>
+                                <label className="mb-1.5 block font-inter text-xs font-medium text-[#555]">Populasi Awal</label>
+                                <input
+                                    type="number"
+                                    disabled={!editData}
+                                    value={extra.population_start ?? ""}
+                                    onChange={(e) => setExtra((prev) => ({ ...prev, population_start: e.target.value ? Number(e.target.value) : undefined }))}
+                                    suppressHydrationWarning
+                                    placeholder="cth. 5000"
+                                    className="w-full rounded-2xl border border-[#EAEAEA] bg-white px-3 py-2.5 font-inter text-sm outline-none transition focus:border-[#7B1113] disabled:opacity-50"
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block font-inter text-xs font-medium text-[#555]">Strain</label>
+                                <input
+                                    type="text"
+                                    disabled={!editData}
+                                    value={extra.strain ?? ""}
+                                    onChange={(e) => setExtra((prev) => ({ ...prev, strain: e.target.value }))}
+                                    suppressHydrationWarning
+                                    placeholder="cth. Ross 308"
+                                    className="w-full rounded-2xl border border-[#EAEAEA] bg-white px-3 py-2.5 font-inter text-sm outline-none transition focus:border-[#7B1113] disabled:opacity-50"
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block font-inter text-xs font-medium text-[#555]">Target Panen (hari)</label>
+                                <input
+                                    type="number"
+                                    disabled={!editData}
+                                    value={extra.harvest_target_days ?? ""}
+                                    onChange={(e) => setExtra((prev) => ({ ...prev, harvest_target_days: e.target.value ? Number(e.target.value) : undefined }))}
+                                    suppressHydrationWarning
+                                    placeholder="35"
+                                    className="w-full rounded-2xl border border-[#EAEAEA] bg-white px-3 py-2.5 font-inter text-sm outline-none transition focus:border-[#7B1113] disabled:opacity-50"
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     {/* Catatan */}

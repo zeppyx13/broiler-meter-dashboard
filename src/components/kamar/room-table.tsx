@@ -1,9 +1,14 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, LineChart, Wifi, WifiOff } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import type { Room } from "@/types/room";
 import { getFacilities } from "@/lib/facility-api";
+import { api } from "@/lib/api";
+import { getToken } from "@/lib/auth";
+import { getRoomExtra } from "@/lib/broiler-local-store";
+import { isTelemetryFresh } from "@/lib/broiler-reference";
 
 type RoomTableProps = {
     rooms: Room[];
@@ -11,12 +16,14 @@ type RoomTableProps = {
     onDelete: (room: Room) => void;
 };
 
-function formatRupiah(value: number) {
-    return new Intl.NumberFormat("id-ID", {
-        style: "currency",
-        currency: "IDR",
-        minimumFractionDigits: 0,
-    }).format(value);
+function authHeader() {
+    const token = getToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function getAllLiveStatus(): Promise<{ room_id: number; recorded_at: string }[]> {
+    const response = await api.get("/api/iot/live-status", { headers: authHeader() });
+    return response.data.data ?? [];
 }
 
 export default function RoomTable({ rooms, onEdit, onDelete }: RoomTableProps) {
@@ -26,6 +33,14 @@ export default function RoomTable({ rooms, onEdit, onDelete }: RoomTableProps) {
         staleTime: 5 * 60 * 1000,
     });
     const totalFacilities = facilityData?.facilities?.length ?? 0;
+
+    const { data: liveList } = useQuery({
+        queryKey: ["iot-live-status-all"],
+        queryFn: getAllLiveStatus,
+        refetchInterval: 15 * 1000,
+        staleTime: 10 * 1000,
+    });
+    const liveMap = new Map((liveList ?? []).map((l) => [l.room_id, l]));
 
     if (rooms.length === 0) {
         return (
@@ -42,8 +57,8 @@ export default function RoomTable({ rooms, onEdit, onDelete }: RoomTableProps) {
                     <tr className="border-b border-[#EAEAEA]">
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Kandang</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Blok</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Biaya / Bulan</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Deposit</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Populasi</th>
+                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Perangkat</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Komponen</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Status</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Aksi</th>
@@ -63,6 +78,8 @@ export default function RoomTable({ rooms, onEdit, onDelete }: RoomTableProps) {
                                 : ratio >= 0.4
                                     ? "bg-yellow-100 text-yellow-700"
                                     : "bg-gray-100 text-gray-600";
+                        const population = getRoomExtra(room.id).population;
+                        const online = isTelemetryFresh(liveMap.get(room.id)?.recorded_at);
 
                         return (
                             <tr
@@ -70,16 +87,21 @@ export default function RoomTable({ rooms, onEdit, onDelete }: RoomTableProps) {
                                 className={`transition hover:bg-[#FAFAFA] ${!isLast ? "border-b border-[#F0F0F0]" : ""}`}
                             >
                                 <td className="px-6 py-4 font-poppins text-sm font-semibold text-[#2F2F2F]">
-                                    {room.number}
+                                    <Link href={`/dashboard/kamar/${room.id}`} className="hover:text-[#7B1113] hover:underline">
+                                        {room.number}
+                                    </Link>
                                 </td>
                                 <td className="px-6 py-4 font-inter text-sm text-[#666]">
                                     {room.floor !== null ? `Blok ${room.floor}` : "-"}
                                 </td>
-                                <td className="px-6 py-4 font-inter text-sm text-[#2F2F2F]">
-                                    {formatRupiah(room.price_monthly)}
-                                </td>
                                 <td className="px-6 py-4 font-inter text-sm text-[#666]">
-                                    {formatRupiah(room.deposit)}
+                                    {population ? `${population.toLocaleString("id-ID")} ekor` : "-"}
+                                </td>
+                                <td className="px-6 py-4">
+                                    <span className={`flex w-fit items-center gap-1.5 rounded-full px-3 py-1 font-inter text-xs font-medium ${online ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                                        {online ? <Wifi size={12} /> : <WifiOff size={12} />}
+                                        {online ? "Online" : "Offline"}
+                                    </span>
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="group relative w-fit">
@@ -117,6 +139,13 @@ export default function RoomTable({ rooms, onEdit, onDelete }: RoomTableProps) {
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex gap-2">
+                                        <Link
+                                            href={`/dashboard/kamar/${room.id}`}
+                                            title="Lihat Ringkasan"
+                                            className="rounded-xl bg-[#F8F8F8] p-2 transition hover:bg-[#EAEAEA]"
+                                        >
+                                            <LineChart size={15} className="text-[#7B1113]" />
+                                        </Link>
                                         <button
                                             onClick={() => onEdit(room)}
                                             title="Edit"

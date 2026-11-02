@@ -10,8 +10,6 @@ import {
 } from "@/lib/dashboard-data";
 import SummarySection from "@/components/dashboard/Summary/summary-section";
 import GuardSection from "@/components/dashboard/guard/guard-section";
-import ForecastSection from "@/components/dashboard/forecast/forecast-section";
-import EcoAdvisorSection from "@/components/dashboard/eco-advisor/eco-advisor-section";
 
 export default function AdminDashboardPage() {
     return (
@@ -28,14 +26,13 @@ export default function AdminDashboardPage() {
                 <SummarySection />
             </section>
 
-            <section className="grid gap-6 xl:grid-cols-2">
+            <section className="grid gap-6">
                 <GuardSection />
-                <ForecastSection />
             </section>
 
-            <section className="grid gap-6">
-                <EcoAdvisorSection />
-            </section>
+            <p className="text-center font-inter text-xs text-[#AAA]">
+                Forecast &amp; Eco-Advisor per kandang tersedia di halaman Ringkasan tiap kandang — buka dari Kelola Kandang.
+            </p>
         </DashboardShell>
     );
 }

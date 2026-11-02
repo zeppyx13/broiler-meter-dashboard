@@ -52,9 +52,9 @@ export default function ComplaintsList({ items, onUpdateStatus }: ComplaintsList
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <p className="font-inter text-sm text-[#666]">Keluhan Penghuni</p>
+                    <p className="font-inter text-sm text-[#666]">Alert & Peringatan Dini</p>
                     <h3 className="mt-1 font-poppins text-xl font-semibold text-[#2F2F2F]">
-                        Complaint Management
+                        Manajemen Alert
                     </h3>
                 </div>
             </div>
@@ -63,7 +63,7 @@ export default function ComplaintsList({ items, onUpdateStatus }: ComplaintsList
                 {items.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-[#D8D8D8] bg-[#FAFAFA] p-6 text-center">
                         <p className="font-inter text-sm text-[#777]">
-                            Tidak ada keluhan yang perlu ditindaklanjuti. 🎉
+                            Tidak ada alert yang perlu ditindaklanjuti. 🎉
                         </p>
                     </div>
                 ) : (
@@ -78,7 +78,7 @@ export default function ComplaintsList({ items, onUpdateStatus }: ComplaintsList
                                         {item.title}
                                     </p>
                                     <p className="mt-1 font-inter text-xs text-[#777]">
-                                        Kamar {item.room_number} • Lantai {item.room_floor}
+                                        Kandang {item.room_number} • Blok {item.room_floor}
                                     </p>
                                 </div>
                                 <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-medium ${statusMap[item.status]}`}>
@@ -130,7 +130,7 @@ export default function ComplaintsList({ items, onUpdateStatus }: ComplaintsList
                     href="/dashboard/keluhan"
                     className="flex w-full items-center justify-center rounded-2xl border border-[#EAEAEA] py-3 font-inter text-sm font-medium text-[#7B1113] transition hover:bg-[#ebe9e9]"
                 >
-                    Lihat Semua Keluhan →
+                    Lihat Semua Alert →
                 </Link>
             </div>
         </SectionCard>
