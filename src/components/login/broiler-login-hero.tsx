@@ -2,196 +2,306 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Zap, Activity, Sun, ShieldCheck, ChevronRight } from "lucide-react";
+import {
+    Zap,
+    Newspaper,
+    BookOpen,
+    ChevronLeft,
+    ChevronRight,
+    TrendingDown,
+    ShieldAlert,
+    Radio,
+    Clock,
+} from "lucide-react";
 
-export type BroilerBackground = {
+export type BroilerArticleSlide = {
     url: string;
-    tag: string;
-    title: string;
-    description: string;
-    credit: string;
-    metric: string;
+    rubrik: string;
+    edition: string;
+    headline: string;
+    lead: string;
+    reference: string;
+    institution: string;
+    metricLabel: string;
+    metricValue: string;
+    iconType: "zap" | "trending" | "shield" | "radio";
 };
 
-export const BROILER_BACKGROUNDS: BroilerBackground[] = [
+export const BROILER_SLIDES: BroilerArticleSlide[] = [
     {
         url: "/backgrounds/broiler-grower-house.jpg",
-        tag: "Close-House Interior",
-        title: "Kandang Broiler Modern Close-House",
-        description:
-            "Sistem otomasi jalur pakan, pencahayaan LED terarah, dan pengatur iklim kandang otomatis.",
-        credit: "USDA Commercial Poultry Facility",
-        metric: "99.2% Uptime Iklim & Sensor",
+        rubrik: "LAPORAN KHUSUS • OTOMASI IKLIM MIKRO",
+        edition: "Warta Riset Broiler Modern",
+        headline:
+            "Modernisasi Kandang Close-House: Otomasi Iklim Mikro dan Jalur Pakan Terpadu Tekan Beban Puncak Kelistrikan",
+        lead:
+            "Penerapan sensor suhu dan kelembapan terpadu di area kandang memungkinkan modulasi putaran kipas ventilasi berbasis beban riil. Pendekatan ini menstabilkan indeks performa ayam tanpa pemborosan daya kilowatt-hour.",
+        reference:
+            "Standar Teknis Budidaya Broiler Komersial & Evaluasi Kebutuhan Daya Tunnel House",
+        institution:
+            "Ditjen Peternakan & Kesehatan Hewan (PKH) Kementan RI bersama Poultry Science Association (PSA)",
+        metricLabel: "Efisiensi Daya Listrik",
+        metricValue: "-32% kWh/Siklus",
+        iconType: "zap",
     },
     {
         url: "/backgrounds/smart-poultry-solar.jpg",
-        tag: "Solar Energy Farm",
-        title: "Peternakan Cerdas Energi Surya",
-        description:
-            "Integrasi pembangkit surya untuk menyuplai blower ventilasi kandang ayam secara hemat energi.",
-        credit: "Smart Agri-Solar Facility",
-        metric: "Hemat Daya Listrik hingga 38%",
+        rubrik: "INVESTIGASI TEKNOLOGI • ENERGI SURYA AGROTERNAK",
+        edition: "Kajian Transisi Energi Terbarukan",
+        headline:
+            "Pemanfaatan Panel Surya Fotovoltaik di Atap Kandang: Strategi Menangkal Beban Puncak Pendingin di Jam Terik",
+        lead:
+            "Pembangkitan daya mandiri memasok langsung kebutuhan evaporative pad dan exhaust fan di tengah hari—waktu saat beban pendinginan mencapai titik tertinggi, mengamankan pasokan listrik kritis sekaligus memotong biaya operasional.",
+        reference:
+            "Studi Kelayakan Solar PV Terdistribusi pada Fasilitas Peternakan Tropis Berkelanjutan",
+        institution:
+            "Balai Besar Pengujian Mutu dan Sertifikasi Pakan & IEEE Power and Energy Systems",
+        metricLabel: "Offset Beban Puncak",
+        metricValue: "45% Daya Siang",
+        iconType: "trending",
     },
     {
         url: "/backgrounds/poultry-commercial-farm.jpg",
-        tag: "Commercial Operation",
-        title: "Monitoring Lingkungan & Sirkulasi",
-        description:
-            "Pemantauan real-time sirkulasi udara, kelembapan, dan konsumsi air minum ayam broiler.",
-        credit: "Commercial Broiler Housing",
-        metric: "Sirkulasi Udara Terstandarisasi",
+        rubrik: "STUDI KASUS • BIOSAFETY & KESEJAHTERAAN TERNAK",
+        edition: "Buletin Manajemen Sirkulasi Udara",
+        headline:
+            "Sirkulasi Udara Dinamis Tunnel Ventilation Turunkan Akumulasi Gas Amonia dan Lindungi FCR Panen",
+        lead:
+            "Pengaturan tekanan statis dan laju udara presisi menjaga kadar amonia di bawah ambang batas 15 ppm. Hasilnya, pertumbuhan bobot harian ayam tercapai optimal tanpa perlu mengaktifkan kipas tambahan secara berlebihan.",
+        reference:
+            "Pedoman Manajemen Lingkungan Unggas Modern & Standar Kualitas Udara Kandang Tertutup",
+        institution:
+            "Cobb-Vantress & Ross Broiler Management Handbook serta Balai Penelitian Ternak (Balitnak)",
+        metricLabel: "Batas Gas Amonia",
+        metricValue: "< 15 ppm (Aman)",
+        iconType: "shield",
     },
     {
         url: "/backgrounds/smart-green-energy-farm.jpg",
-        tag: "Clean Energy IoT",
-        title: "Infrastruktur Energi Terbarukan",
-        description:
-            "Pemantauan parameter daya listrik per kandang secara presisi melalui meteran pintar IoT.",
-        credit: "Green Agricultural Energy",
-        metric: "Monitoring Tegangan & kWh Real-Time",
+        rubrik: "WARTA DIGITAL • TELEMETRI & MONITORING IOT",
+        edition: "Laporan Lapangan Instrumentasi Cerdas",
+        headline:
+            "Pencatatan Telemetri IoT Real-Time Mitigasi Lonjakan Arus dan Cegah Kegagalan Ventilasi Fatal",
+        lead:
+            "Sensor digital berbasis Modbus mencatat tegangan, arus, dan faktor daya motor blower secara seketika. Notifikasi dini langsung terpicu sebelum terjadi korsleting atau gangguan sirkulasi udara yang berisiko memicu mortalitas.",
+        reference:
+            "Implementasi IoT Multi-Node untuk Monitoring Daya dan Peringatan Dini Peternakan Presisi",
+        institution:
+            "Prosiding Seminar Nasional Instrumentasi Pertanian & Industrial Energy Audit Standards",
+        metricLabel: "Kecepatan Respon Alert",
+        metricValue: "< 1.5 Detik",
+        iconType: "radio",
     },
 ];
 
 export default function BroilerLoginHero() {
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [isPaused, setIsPaused] = useState(false);
 
-    // Auto rotate every 8 seconds
+    // Auto rotate every 8.5 seconds unless user hovers
     useEffect(() => {
+        if (isPaused) return;
         const interval = setInterval(() => {
-            setCurrentIndex((prev) => (prev + 1) % BROILER_BACKGROUNDS.length);
-        }, 8000);
+            setCurrentIndex((prev) => (prev + 1) % BROILER_SLIDES.length);
+        }, 8500);
         return () => clearInterval(interval);
-    }, []);
+    }, [isPaused]);
 
-    const currentBg = BROILER_BACKGROUNDS[currentIndex];
+    const currentSlide = BROILER_SLIDES[currentIndex];
 
     return (
-        <section className="relative hidden overflow-hidden lg:block">
-            {/* Background Images with smooth opacity cross-fade */}
-            {BROILER_BACKGROUNDS.map((bg, index) => (
+        <section
+            className="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between p-8 xl:p-12 text-white select-none"
+            onMouseEnter={() => setIsPaused(true)}
+            onMouseLeave={() => setIsPaused(false)}
+        >
+            {/* Background Photographic Images with Cross-Fade */}
+            {BROILER_SLIDES.map((slide, index) => (
                 <div
-                    key={bg.url}
-                    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentIndex ? "opacity-100 scale-100" : "opacity-0 scale-105 pointer-events-none"
+                    key={slide.url}
+                    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentIndex
+                            ? "opacity-100 scale-100"
+                            : "opacity-0 scale-105 pointer-events-none"
                         }`}
                 >
                     <Image
-                        src={bg.url}
-                        alt={bg.title}
+                        src={slide.url}
+                        alt={slide.headline}
                         fill
                         priority={index === 0}
-                        className="object-cover transition-transform duration-7000 ease-out"
+                        className="object-cover"
                     />
                 </div>
             ))}
 
-            {/* Cinematic Gradient Overlays (Burgundy / Dark Slate / Vignette) */}
-            <div className="absolute inset-0 bg-linear-to-br from-[#1A0304]/85 via-[#3D0A0C]/60 to-[#1A1A1A]/90" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(198,169,113,0.18),transparent_50%)]" />
+            {/* High-Contrast Editorial Vignette & Tint Overlays */}
+            {/* Left to right gradient for readability */}
+            <div className="absolute inset-0 bg-linear-to-r from-[#0C0203]/95 via-[#1A0507]/80 to-[#121212]/50" />
+            {/* Top to bottom vignette */}
+            <div className="absolute inset-0 bg-linear-to-t from-[#080202] via-transparent to-[#0A0203]/80" />
+            {/* Subtle warm grain / ambient highlight */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_35%,rgba(198,169,113,0.12),transparent_60%)]" />
 
-            {/* Foreground Content */}
-            <div className="relative z-10 flex h-full flex-col justify-between p-10 text-white">
-                {/* Header with App Logo Badge */}
-                <div>
-                    <div className="flex items-center gap-3.5">
-                        <div className="relative h-13 w-13 shrink-0 overflow-hidden rounded-2xl border border-white/20 shadow-lg shadow-black/40">
-                            <Image
-                                src="/coasther.png"
-                                alt="Coasther Logo"
-                                fill
-                                sizes="52px"
-                                className="object-cover"
-                                priority
-                            />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <p className="font-poppins text-xs font-bold tracking-[0.25em] text-[#C6A971]">
-                                    COASTHER SMART IOT
-                                </p>
-                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 backdrop-blur-sm border border-emerald-500/30">
-                                    <Zap className="h-2.5 w-2.5 fill-emerald-300" /> Broiler Energy
-                                </span>
-                            </div>
-                            <h2 className="font-poppins text-lg font-bold text-white">
-                                Broiler Energy & Smart Coop
-                            </h2>
-                        </div>
+            {/* TOP BAR: Editorial Publication Masthead */}
+            <header className="relative z-10 flex items-center justify-between border-b border-white/15 pb-5">
+                <div className="flex items-center gap-3">
+                    <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-[#C6A971]/40 bg-[#7B1113] shadow-md shadow-black/50">
+                        <Image
+                            src="/coasther.png"
+                            alt="Coasther Broiler Logo"
+                            fill
+                            sizes="44px"
+                            className="object-cover"
+                            priority
+                        />
                     </div>
-
-                    <h1 className="mt-8 max-w-lg font-poppins text-4xl font-extrabold leading-tight tracking-tight text-white drop-shadow-md">
-                        Monitoring Hemat Energi Kandang Ayam Broiler Berbasis IoT
-                    </h1>
-
-                    <p className="mt-4 max-w-md font-inter text-sm leading-relaxed text-white/90">
-                        Otomasi pemantauan daya listrik blower, pendingin evaporatif, pemanas, dan meteran air minum ternak secara akurat dan efisien.
-                    </p>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <span className="font-poppins text-xs font-bold tracking-[0.22em] text-[#C6A971] uppercase">
+                                COASTHER OBSERVER
+                            </span>
+                            <span className="h-1 w-1 rounded-full bg-[#C6A971]" />
+                            <span className="font-inter text-[11px] font-medium tracking-wide text-white/70">
+                                Warta Presisi Kandang
+                            </span>
+                        </div>
+                        <p className="font-inter text-xs text-white/90">
+                            Jurnal IoT & Konservasi Energi Broiler
+                        </p>
+                    </div>
                 </div>
 
-                {/* Bottom Info Card & Background Selector */}
-                <div className="space-y-4">
-                    {/* Active Background Card */}
-                    <div className="rounded-3xl border border-white/20 bg-black/40 p-5 backdrop-blur-md shadow-2xl transition-all duration-500">
-                        <div className="flex items-center justify-between">
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#C6A971]/20 px-3 py-1 font-inter text-xs font-semibold text-[#FCE09B] border border-[#C6A971]/30">
-                                <Activity className="h-3.5 w-3.5 text-[#FCE09B]" /> {currentBg.tag}
+                {/* Status Indicator */}
+                <div className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-950/60 px-3 py-1 backdrop-blur-md">
+                    <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                    </span>
+                    <span className="font-inter text-[11px] font-medium text-emerald-300">
+                        Monitoring Aktif 24/7
+                    </span>
+                </div>
+            </header>
+
+            {/* CENTER / BOTTOM: Cohesive Editorial Feature Article Spread */}
+            <div className="relative z-10 my-auto py-6">
+                <article className="max-w-xl transition-all duration-500">
+                    {/* Rubrik / Category Tagline with News Icon */}
+                    <div className="flex items-center gap-2 mb-3.5">
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-[#7B1113]/85 px-2.5 py-1 font-inter text-[11px] font-bold tracking-wider text-[#FCE09B] border border-[#C6A971]/40 uppercase shadow-sm">
+                            <Newspaper className="h-3 w-3 text-[#FCE09B]" />
+                            {currentSlide.rubrik}
+                        </span>
+                        <span className="text-white/40 text-xs">•</span>
+                        <span className="font-inter text-xs text-white/70 italic flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-white/50" /> {currentSlide.edition}
+                        </span>
+                    </div>
+
+                    {/* Headline: Editorial serif typography (Lora) */}
+                    <h2 className="font-lora text-2xl xl:text-3xl font-bold leading-snug tracking-tight text-white drop-shadow-md">
+                        &ldquo;{currentSlide.headline}&rdquo;
+                    </h2>
+
+                    {/* Excerpt / Lead Paragraph */}
+                    <p className="mt-3.5 font-inter text-sm xl:text-[15px] leading-relaxed text-white/90 antialiased">
+                        {currentSlide.lead}
+                    </p>
+
+                    {/* Technical Metric Highlight Pill */}
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                        <div className="inline-flex items-center gap-2 rounded-xl bg-black/45 px-3.5 py-1.5 border border-white/20 backdrop-blur-md">
+                            <Zap className="h-4 w-4 text-[#C6A971]" />
+                            <span className="font-inter text-xs text-white/70">
+                                {currentSlide.metricLabel}:
                             </span>
-                            <span className="font-inter text-xs font-semibold text-emerald-400 bg-emerald-950/60 px-2.5 py-0.5 rounded-md border border-emerald-500/30">
-                                {currentBg.metric}
-                            </span>
-                        </div>
-
-                        <h3 className="mt-3 font-poppins text-xl font-bold text-white">
-                            {currentBg.title}
-                        </h3>
-
-                        <p className="mt-1 font-inter text-xs leading-5 text-white/80">
-                            {currentBg.description}
-                        </p>
-
-                        <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
-                            <p className="font-inter text-[11px] text-white/60">
-                                📷 {currentBg.credit}
-                            </p>
-                            <span className="text-[11px] text-[#C6A971] flex items-center gap-1">
-                                Smart Agriculture <ChevronRight className="h-3 w-3" />
+                            <span className="font-poppins text-xs font-bold text-emerald-300">
+                                {currentSlide.metricValue}
                             </span>
                         </div>
                     </div>
 
-                    {/* Background Selector Thumbnails */}
-                    <div className="flex items-center justify-between rounded-2xl bg-black/30 p-2 backdrop-blur-sm border border-white/10">
-                        <div className="flex items-center gap-2">
-                            {BROILER_BACKGROUNDS.map((bg, index) => (
+                    {/* Scientific Reference / Citation Block (Gaya Rujukan & Pemberitaan Resmi) */}
+                    <div className="mt-5 rounded-2xl border border-white/15 bg-[#120305]/75 p-4 backdrop-blur-md shadow-xl">
+                        <div className="flex items-start gap-2.5">
+                            <div className="mt-0.5 rounded-lg bg-[#C6A971]/15 p-1.5 border border-[#C6A971]/30 text-[#C6A971] shrink-0">
+                                <BookOpen className="h-3.5 w-3.5" />
+                            </div>
+                            <div className="space-y-1">
+                                <p className="font-inter text-[11px] font-semibold uppercase tracking-wider text-[#C6A971]">
+                                    Rujukan Teknis & Kajian Lapangan:
+                                </p>
+                                <p className="font-inter text-xs leading-relaxed text-white/85">
+                                    {currentSlide.reference}
+                                </p>
+                                <p className="font-inter text-[11px] text-white/60 pt-0.5">
+                                    Sumber Otoritas: <span className="text-white/80 font-medium">{currentSlide.institution}</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+            </div>
+
+            {/* FOOTER: Minimalist Editorial Pagination & Timeline (NO Thumbnails) */}
+            <footer className="relative z-10 border-t border-white/15 pt-4">
+                <div className="flex items-center justify-between">
+                    {/* Editorial Slide Counter & Step Indicator */}
+                    <div className="flex items-center gap-3">
+                        <span className="font-lora text-sm font-semibold tracking-wider text-[#C6A971]">
+                            {String(currentIndex + 1).padStart(2, "0")} <span className="text-white/40 font-normal">/</span> {String(BROILER_SLIDES.length).padStart(2, "0")}
+                        </span>
+
+                        {/* Interactive Minimalist Progress Bars */}
+                        <div className="flex items-center gap-1.5">
+                            {BROILER_SLIDES.map((_, index) => (
                                 <button
-                                    key={bg.url}
+                                    key={index}
                                     type="button"
                                     onClick={() => setCurrentIndex(index)}
-                                    className={`group relative h-10 w-16 overflow-hidden rounded-lg border transition-all duration-300 ${index === currentIndex
-                                            ? "border-[#C6A971] ring-2 ring-[#C6A971]/50 scale-105"
-                                            : "border-white/20 opacity-60 hover:opacity-100"
+                                    aria-label={`Buka slide ${index + 1}`}
+                                    className={`h-1.5 rounded-full transition-all duration-300 ${index === currentIndex
+                                            ? "w-8 bg-[#C6A971]"
+                                            : "w-2 bg-white/30 hover:bg-white/60"
                                         }`}
-                                    title={bg.title}
-                                >
-                                    <Image
-                                        src={bg.url}
-                                        alt={bg.title}
-                                        fill
-                                        sizes="64px"
-                                        className="object-cover"
-                                    />
-                                    {index === currentIndex && (
-                                        <div className="absolute inset-0 bg-[#7B1113]/30" />
-                                    )}
-                                </button>
+                                />
                             ))}
                         </div>
+                    </div>
 
-                        <div className="pr-2 font-inter text-[11px] text-white/70">
-                            Foto {currentIndex + 1} dari {BROILER_BACKGROUNDS.length}
-                        </div>
+                    {/* Navigation Arrows */}
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setCurrentIndex(
+                                    (prev) => (prev - 1 + BROILER_SLIDES.length) % BROILER_SLIDES.length
+                                )
+                            }
+                            aria-label="Slide sebelumnya"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-black/40 text-white/80 transition hover:bg-[#7B1113] hover:text-white hover:border-[#C6A971]"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setCurrentIndex((prev) => (prev + 1) % BROILER_SLIDES.length)
+                            }
+                            aria-label="Slide selanjutnya"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-black/40 text-white/80 transition hover:bg-[#7B1113] hover:text-white hover:border-[#C6A971]"
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </button>
                     </div>
                 </div>
-            </div>
+
+                <div className="mt-2 flex items-center justify-between text-[11px] text-white/50">
+                    <span>Liputan Berbasis Data Pengukuran IoT Broiler</span>
+                    <span>Arahkan kursor untuk menjeda putaran</span>
+                </div>
+            </footer>
         </section>
     );
 }

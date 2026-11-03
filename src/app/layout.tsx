@@ -1,5 +1,5 @@
 import "./globals.css";
-import { Inter, Poppins } from "next/font/google";
+import { Inter, Poppins, Lora } from "next/font/google";
 import QueryProvider from "@/components/providers/query-provider";
 const inter = Inter({
   subsets: ["latin"],
@@ -10,6 +10,13 @@ const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-poppins",
+});
+
+const lora = Lora({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-lora",
 });
 
 export const metadata = {
@@ -31,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${poppins.variable}`}>
+      <body className={`${inter.variable} ${poppins.variable} ${lora.variable}`}>
         <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
