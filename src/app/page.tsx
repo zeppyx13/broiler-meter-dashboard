@@ -1,122 +1,77 @@
 import Image from "next/image";
 import LoginForm from "@/components/login/loginform";
+import BroilerLoginHero from "@/components/login/broiler-login-hero";
+import { Zap, ShieldCheck } from "lucide-react";
 
-type BackgroundResponse = {
-  success: boolean;
-  data?: {
-    id: string;
-    url: string;
-    blur?: string;
-    credit?: {
-      name: string;
-    };
-  };
-};
-
-async function getBackgroundImage() {
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/unsplash/background`,
-      { cache: "no-store" }
-    );
-
-    if (!res.ok) return null;
-
-    const result: BackgroundResponse = await res.json();
-    return result.data ?? null;
-  } catch {
-    return null;
-  }
-}
-
-export default async function Home() {
-  const background = await getBackgroundImage();
-
+export default function Home() {
   return (
     <main className="min-h-screen bg-white text-[#2F2F2F]">
       <div className="grid min-h-screen lg:grid-cols-2">
 
-        {/* LEFT */}
-        <section className="relative hidden overflow-hidden lg:block">
-          {background?.url ? (
-            <Image
-              src={background.url}
-              alt="Background"
-              fill
-              priority
-              className="object-cover"
-            />
-          ) : (
-            <div className="absolute inset-0 bg-[#EAEAEA]" />
-          )}
+        {/* LEFT: Realistic Broiler Chicken Farm & Smart Energy Hero */}
+        <BroilerLoginHero />
 
-          <div className="absolute inset-0 bg-linear-to-br from-[#2F2F2F]/55 via-[#7B1113]/45 to-[#2F2F2F]/65" />
-
-          <div className="relative z-10 flex h-full flex-col justify-between p-10 text-white">
-            <div>
-              <p className="font-poppins text-sm font-semibold tracking-[0.2em] text-[#C6A971]">
-                COASTHER DASHBOARD
-              </p>
-
-              <h1 className="mt-4 max-w-lg font-poppins text-4xl font-bold leading-tight">
-                Dashboard monitoring kandang ayam broiler berbasis IoT
-              </h1>
-
-              <p className="mt-4 max-w-md font-inter text-sm leading-7 text-white/85">
-                Kelola kandang, peternak, dan aktivitas sistem IoT dalam satu panel admin.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur-md">
-                <p className="font-inter text-sm text-[#C6A971]">
-                  Efisien • Terpantau • Hemat Energi
-                </p>
-                <h2 className="mt-2 font-poppins text-2xl font-semibold">
-                  Smart Coop, Low Cost
-                </h2>
-              </div>
-
-              {background?.credit?.name && (
-                <p className="font-inter text-xs text-white/70">
-                  Photo by {background.credit.name}
-                </p>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* RIGHT */}
+        {/* RIGHT: Login Card */}
         <section className="flex items-center justify-center px-6 py-10 sm:px-10">
           <div className="w-full max-w-md rounded-[28px] border border-[#EAEAEA] p-8 shadow-[0_10px_35px_rgba(0,0,0,0.08)]">
+            {/* Header with App Logo */}
             <div className="mb-8">
-              <p className="font-inter text-sm uppercase tracking-[0.18em] text-[#7B1113]">
-                Admin Login
+              <div className="mb-5 flex items-center gap-3">
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-2xl shadow-md border border-[#EAEAEA]">
+                  <Image
+                    src="/coasther.png"
+                    alt="Coasther Broiler Logo"
+                    fill
+                    sizes="48px"
+                    className="object-cover"
+                    priority
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-poppins text-lg font-bold text-[#2F2F2F]">
+                      Coasther
+                    </h3>
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                      <Zap className="h-2.5 w-2.5 fill-emerald-600 text-emerald-600" /> IoT
+                    </span>
+                  </div>
+                  <p className="font-inter text-xs font-semibold tracking-wider text-[#7B1113] uppercase">
+                    Smart Broiler Energy
+                  </p>
+                </div>
+              </div>
+
+              <p className="font-inter text-xs uppercase tracking-[0.18em] text-[#7B1113] font-semibold">
+                Admin Portal
               </p>
 
-              <h2 className="mt-3 font-poppins text-3xl font-bold">
+              <h2 className="mt-2 font-poppins text-2xl font-bold sm:text-3xl text-[#2F2F2F]">
                 Login ke Dashboard
               </h2>
 
-              <p className="mt-3 font-inter text-sm text-[#666]">
-                Gunakan akun admin untuk mengakses sistem monitoring kandang Coasther.
+              <p className="mt-2.5 font-inter text-sm text-[#666] leading-relaxed">
+                Kelola pemantauan energi kandang broiler, sensor IoT, dan siklus peternakan Coasther.
               </p>
             </div>
 
             <LoginForm />
 
-            <div className="mt-8 rounded-2xl bg-[#F8F8F8] p-4">
-              <p className="font-inter text-xs text-[#666]">
-                Panel ini hanya untuk admin. Aplikasi peternak tersedia di{" "}
-                <a
-                  href="https://play.google.com/store/apps/details?id=com.coasther.app"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-[#7B1113] underline"
-                >
-                  Google Play Store
-                </a>
-              </p>
+            <div className="mt-8 rounded-2xl bg-[#F8F8F8] p-4 border border-[#EFEFEF]">
+              <div className="flex items-start gap-2.5">
+                <ShieldCheck className="h-4 w-4 text-[#7B1113] shrink-0 mt-0.5" />
+                <p className="font-inter text-xs text-[#666] leading-relaxed">
+                  Panel admin terenkripsi. Aplikasi monitoring peternak tersedia di{" "}
+                  <a
+                    href="https://play.google.com/store/apps/details?id=com.coasther.app"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-[#7B1113] underline hover:text-[#5A0B0C]"
+                  >
+                    Google Play Store
+                  </a>
+                </p>
+              </div>
             </div>
           </div>
         </section>

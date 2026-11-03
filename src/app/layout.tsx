@@ -13,10 +13,14 @@ const poppins = Poppins({
 });
 
 export const metadata = {
-  title: "Coasther Admin",
-  description: "Dashboard monitoring IoT kandang ayam broiler Coasther — listrik, air, dan kondisi kandang secara real-time.",
+  title: "Coasther — Smart Broiler Energy Dashboard",
+  description: "Dashboard monitoring IoT dan efisiensi energi kandang ayam broiler Coasther — listrik, air, dan kondisi iklim kandang secara real-time.",
   icons: {
-    icon: "/coasther.ico",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/coasther.png", type: "image/png" },
+    ],
+    apple: "/coasther.png",
   },
 };
 

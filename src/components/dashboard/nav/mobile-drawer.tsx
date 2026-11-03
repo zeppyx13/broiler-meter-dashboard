@@ -84,17 +84,23 @@ export default function MobileDrawer({ menus, open, onClose }: MobileDrawerProps
                     <div className="flex items-center gap-3">
                         <Image
                             src="/coasther.png"
-                            alt="Coasther Logo"
+                            alt="Coasther Broiler Logo"
                             width={40}
                             height={40}
-                            className="rounded-xl object-contain"
+                            className="rounded-xl object-contain shadow-sm"
+                            priority
                         />
                         <div>
-                            <p className="font-inter text-xs font-medium uppercase tracking-[0.2em] text-[#7B1113]">
-                                Coasther
-                            </p>
-                            <h1 className="mt-0.5 font-poppins text-xl font-bold text-[#2F2F2F]">
-                                Admin Panel
+                            <div className="flex items-center gap-1.5">
+                                <p className="font-inter text-xs font-bold uppercase tracking-[0.18em] text-[#7B1113]">
+                                    Coasther
+                                </p>
+                                <span className="rounded bg-emerald-100 px-1 py-0.2 text-[9px] font-semibold text-emerald-800">
+                                    IoT
+                                </span>
+                            </div>
+                            <h1 className="mt-0.5 font-poppins text-base font-bold text-[#2F2F2F] leading-tight">
+                                Broiler Monitor
                             </h1>
                         </div>
                     </div>

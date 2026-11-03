@@ -2,7 +2,6 @@
 
 import DashboardShell from "@/components/dashboard/nav/dashboard-shell";
 import ChartPlaceholder from "@/components/dashboard/chart/chart-placeholder";
-import ComplaintsSection from "@/components/dashboard/complaint/complaints-section";
 import RoomsSection from "@/components/dashboard/rooms/rooms-section";
 import DashboardStatsSection from "@/components/dashboard/stat/dashboard-stats-section";
 import {
@@ -16,9 +15,8 @@ export default function AdminDashboardPage() {
         <DashboardShell menus={sidebarMenus}>
             <DashboardStatsSection />
 
-            <section className="grid gap-6 xl:grid-cols-3">
+            <section className="grid gap-6">
                 <ChartPlaceholder />
-                <ComplaintsSection />
             </section>
 
             <section className="grid gap-6 xl:grid-cols-3">

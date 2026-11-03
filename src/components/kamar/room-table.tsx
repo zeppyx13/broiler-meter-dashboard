@@ -4,7 +4,6 @@ import { Pencil, Trash2, LineChart, Wifi, WifiOff } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import type { Room } from "@/types/room";
-import { getFacilities } from "@/lib/facility-api";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { getRoomExtra } from "@/lib/broiler-local-store";
@@ -27,13 +26,6 @@ async function getAllLiveStatus(): Promise<{ room_id: number; recorded_at: strin
 }
 
 export default function RoomTable({ rooms, onEdit, onDelete }: RoomTableProps) {
-    const { data: facilityData } = useQuery({
-        queryKey: ["facilities"],
-        queryFn: getFacilities,
-        staleTime: 5 * 60 * 1000,
-    });
-    const totalFacilities = facilityData?.facilities?.length ?? 0;
-
     const { data: liveList } = useQuery({
         queryKey: ["iot-live-status-all"],
         queryFn: getAllLiveStatus,
@@ -59,7 +51,6 @@ export default function RoomTable({ rooms, onEdit, onDelete }: RoomTableProps) {
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Blok</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Populasi</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Perangkat</th>
-                        <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Komponen</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Status</th>
                         <th className="px-6 py-4 text-left font-inter text-xs font-medium text-[#777]">Aksi</th>
                     </tr>
@@ -68,16 +59,6 @@ export default function RoomTable({ rooms, onEdit, onDelete }: RoomTableProps) {
                     {rooms.map((room, i) => {
                         const isAvailable = Boolean(room.is_available);
                         const isLast = i === rooms.length - 1;
-                        const roomFacilityCount = room.facilities?.length ?? 0;
-                        const ratio = totalFacilities > 0
-                            ? roomFacilityCount / totalFacilities
-                            : 0;
-                        const badgeStyle =
-                            ratio >= 0.7
-                                ? "bg-green-100 text-green-700"
-                                : ratio >= 0.4
-                                    ? "bg-yellow-100 text-yellow-700"
-                                    : "bg-gray-100 text-gray-600";
                         const population = getRoomExtra(room.id).population;
                         const online = isTelemetryFresh(liveMap.get(room.id)?.recorded_at);
 
@@ -102,32 +83,6 @@ export default function RoomTable({ rooms, onEdit, onDelete }: RoomTableProps) {
                                         {online ? <Wifi size={12} /> : <WifiOff size={12} />}
                                         {online ? "Online" : "Offline"}
                                     </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <div className="group relative w-fit">
-                                        {/* Badge count */}
-                                        <span className={`rounded-full px-3 py-1 font-inter text-xs font-medium cursor-default ${badgeStyle}`}>
-                                            {roomFacilityCount}/{totalFacilities}
-                                        </span>
-                                        {/* Tooltip nama fasilitas */}
-                                        {roomFacilityCount > 0 && (
-                                            <div className="invisible absolute bottom-full left-0 z-10 mb-2 w-max max-w-xs rounded-2xl border border-[#EAEAEA] bg-white p-3 shadow-lg group-hover:visible">
-                                                <p className="mb-2 font-inter text-xs font-medium text-[#777]">
-                                                    Komponen kandang:
-                                                </p>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {room.facilities?.map((f) => (
-                                                        <span
-                                                            key={f.id}
-                                                            className="rounded-xl bg-[#F8F8F8] px-2 py-0.5 font-inter text-xs text-[#555]"
-                                                        >
-                                                            {f.name}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
                                 </td>
                                 <td className="px-6 py-4">
                                     <span className={`rounded-full px-3 py-1 text-xs font-medium ${isAvailable

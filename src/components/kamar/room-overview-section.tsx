@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { Search, BedDouble, Wifi, WifiOff } from "lucide-react";
+import { Search, ChevronRight, Wifi, WifiOff } from "lucide-react";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { getRoomExtra } from "@/lib/broiler-local-store";
@@ -14,10 +14,6 @@ type RoomWithDetails = {
     number: string;
     floor: number | null;
     is_available: boolean | number;
-    description: string | null;
-    main_image_url: string | null;
-    is_occupied: boolean | number;
-    facilities: { id: number; name: string }[];
 };
 
 async function getAllRooms(): Promise<RoomWithDetails[]> {
@@ -33,15 +29,6 @@ function authHeader() {
 async function getAllLiveStatus(): Promise<{ room_id: number; recorded_at: string }[]> {
     const response = await api.get("/api/iot/live-status", { headers: authHeader() });
     return response.data.data ?? [];
-}
-
-// ← Dipindah ke luar komponen
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-
-function resolveImageUrl(path: string | null): string | null {
-    if (!path) return null;
-    if (path.startsWith("http")) return path;
-    return `${BASE_URL}${path}`;
 }
 
 export default function RoomOverviewSection() {
@@ -136,9 +123,9 @@ export default function RoomOverviewSection() {
 
             {/* Loading */}
             {isLoading && (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="space-y-2">
                     {Array.from({ length: 6 }).map((_, i) => (
-                        <div key={i} className="h-56 animate-pulse rounded-3xl border border-[#EAEAEA] bg-white" />
+                        <div key={i} className="h-16 animate-pulse rounded-2xl border border-[#EAEAEA] bg-white" />
                     ))}
                 </div>
             )}
@@ -155,97 +142,45 @@ export default function RoomOverviewSection() {
                 </div>
             )}
 
+            {/* List — ringkas, klik baris untuk lihat Ringkasan lengkap */}
             {!isLoading && !isError && rooms.length > 0 && (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="divide-y divide-[#F0F0F0] overflow-hidden rounded-3xl border border-[#EAEAEA] bg-white">
                     {rooms.map((room) => {
                         const available = Boolean(room.is_available);
-                        // ← Resolve sekali, simpan ke variabel
-                        const imageUrl = resolveImageUrl(room.main_image_url);
+                        const population = getRoomExtra(room.id).population;
+                        const online = isTelemetryFresh(liveMap.get(room.id)?.recorded_at);
 
                         return (
                             <Link
                                 href={`/dashboard/kamar/${room.id}`}
                                 key={room.id}
-                                className={`block overflow-hidden rounded-3xl border bg-white transition hover:shadow-md ${available ? "border-[#EAEAEA]" : "border-red-100"
-                                    }`}
+                                className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-[#FAFAFA]"
                             >
-                                {/* Image */}
-                                {imageUrl ? (
-                                    <img
-                                        src={imageUrl}
-                                        alt={`Kandang ${room.number}`}
-                                        className="h-36 w-full object-cover"
-                                        onError={(e) => {
-                                            const target = e.currentTarget;
-                                            target.style.display = "none";
-                                            // Tampilkan parent dengan placeholder
-                                            target.parentElement!.classList.add("flex", "items-center", "justify-center");
-                                        }}
-                                    />
-                                ) : (
-                                    <div className="flex h-36 w-full items-center justify-center bg-[#F8F8F8]">
-                                        <BedDouble size={36} className="text-[#D0D0D0]" />
-                                    </div>
-                                )}
-
-                                <div className="p-4">
-                                    {/* Header */}
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <h3 className="font-poppins text-lg font-bold text-[#2F2F2F]">
-                                                Kandang {room.number}
-                                            </h3>
-                                            <p className="font-inter text-xs text-[#999]">
-                                                {room.floor !== null ? `Blok ${room.floor}` : "Blok -"}
-                                            </p>
-                                        </div>
-                                        <span className={`rounded-full px-3 py-1 font-inter text-xs font-medium ${available
-                                            ? "bg-green-100 text-green-700"
-                                            : "bg-red-100 text-red-700"
-                                            }`}>
-                                            {available ? "Tersedia" : "Terisi"}
-                                        </span>
-                                    </div>
-
-                                    {/* Populasi + Perangkat */}
-                                    <div className="mt-3 flex items-center gap-2">
-                                        <span className="rounded-xl bg-[#F8F8F8] px-2.5 py-1 font-inter text-xs text-[#555]">
-                                            {getRoomExtra(room.id).population
-                                                ? `${getRoomExtra(room.id).population!.toLocaleString("id-ID")} ekor`
-                                                : "Populasi belum diisi"}
-                                        </span>
-                                        <span className={`flex items-center gap-1 rounded-xl px-2.5 py-1 font-inter text-xs font-medium ${liveMap.has(room.id) && isTelemetryFresh(liveMap.get(room.id)?.recorded_at) ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                                            {liveMap.has(room.id) && isTelemetryFresh(liveMap.get(room.id)?.recorded_at) ? <Wifi size={11} /> : <WifiOff size={11} />}
-                                            {liveMap.has(room.id) && isTelemetryFresh(liveMap.get(room.id)?.recorded_at) ? "Online" : "Offline"}
-                                        </span>
-                                    </div>
-
-                                    {/* Deskripsi */}
-                                    {room.description && (
-                                        <p className="mt-2 font-inter text-xs text-[#777] line-clamp-2">
-                                            {room.description}
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <div>
+                                        <p className="font-poppins text-sm font-bold text-[#2F2F2F]">
+                                            Kandang {room.number}
                                         </p>
-                                    )}
+                                        <p className="font-inter text-xs text-[#999]">
+                                            {room.floor !== null ? `Blok ${room.floor}` : "Blok -"}
+                                            {" · "}
+                                            {population ? `${population.toLocaleString("id-ID")} ekor` : "Populasi belum diisi"}
+                                        </p>
+                                    </div>
+                                </div>
 
-                                    {/* Fasilitas */}
-                                    {room.facilities.length > 0 && (
-                                        <div className="mt-3 flex flex-wrap gap-1.5">
-                                            {room.facilities.slice(0, 5).map((f) => (
-                                                <span
-                                                    key={f.id}
-                                                    className="rounded-xl bg-[#F8F8F8] px-2.5 py-1 font-inter text-xs text-[#555]"
-                                                >
-                                                    {f.name}
-                                                </span>
-                                            ))}
-                                            {room.facilities.length > 5 && (
-                                                <span className="rounded-xl bg-[#F0F0F0] px-2.5 py-1 font-inter text-xs text-[#999]">
-                                                    +{room.facilities.length - 5} lainnya
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
-
+                                <div className="flex shrink-0 items-center gap-2">
+                                    <span className={`flex items-center gap-1 rounded-full px-2.5 py-1 font-inter text-xs font-medium ${online ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                                        {online ? <Wifi size={11} /> : <WifiOff size={11} />}
+                                        {online ? "Online" : "Offline"}
+                                    </span>
+                                    <span className={`rounded-full px-3 py-1 font-inter text-xs font-medium ${available
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-red-100 text-red-700"
+                                        }`}>
+                                        {available ? "Tersedia" : "Terisi"}
+                                    </span>
+                                    <ChevronRight size={16} className="text-[#CCC]" />
                                 </div>
                             </Link>
                         );

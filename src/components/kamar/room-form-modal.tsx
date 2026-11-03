@@ -2,12 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { X, LoaderCircle, ImagePlus, Trash2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 import type { Room, RoomFormPayload } from "@/types/room";
-import { getFacilities } from "@/lib/facility-api";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { getRoomById } from "@/lib/room-api";
 import { getRoomExtra, setRoomExtra, type RoomExtra } from "@/lib/broiler-local-store";
 
 type RoomFormModalProps = {
@@ -25,7 +22,6 @@ const EMPTY_FORM: RoomFormPayload = {
     is_available: true,
     description: "",
     main_image_url: "",
-    facility_ids: [],
 };
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
@@ -59,23 +55,10 @@ export default function RoomFormModal({
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const { data: facilityData } = useQuery({
-        queryKey: ["facilities"],
-        queryFn: getFacilities,
-        staleTime: 5 * 60 * 1000,
-    });
-    const allFacilities = facilityData?.facilities ?? [];
-
     useEffect(() => {
         if (!open) return;
 
         if (editData) {
-            getRoomById(editData.id).then((detail) => {
-                const ids = (detail.room.facilities ?? [])
-                    .map((f: { id: number }) => Number(f.id))
-                    .filter((id) => id > 0);
-                setForm((prev) => ({ ...prev, facility_ids: ids }));
-            }).catch(() => { });
             setForm({
                 number: editData.number,
                 floor: editData.floor,
@@ -84,7 +67,6 @@ export default function RoomFormModal({
                 is_available: Boolean(editData.is_available),
                 description: editData.description ?? "",
                 main_image_url: editData.main_image_url ?? "",
-                facility_ids: [], // sementara kosong, diisi setelah fetch
             });
 
             // Preview foto lama
@@ -96,15 +78,6 @@ export default function RoomFormModal({
             } else {
                 setPreviewUrl(null);
             }
-
-            // Fetch fasilitas yang sudah dimiliki kamar ini
-            getRoomById(editData.id).then((detail) => {
-                const ids = (detail.room.facilities ?? []).map((f: { id: number }) => f.id);
-                setForm((prev) => ({ ...prev, facility_ids: ids }));
-            }).catch(() => {
-                console.warn("Gagal fetch detail kamar, fasilitas tidak terisi");
-            });
-
         } else {
             setForm(EMPTY_FORM);
             setPreviewUrl(null);
@@ -112,17 +85,6 @@ export default function RoomFormModal({
 
         setExtra(editData ? getRoomExtra(editData.id) : {});
     }, [editData, open]);
-
-    function toggleFacility(id: number) {
-        const current = form.facility_ids ?? [];
-        const exists = current.includes(id);
-        setForm({
-            ...form,
-            facility_ids: exists
-                ? current.filter((f) => f !== id)
-                : [...current, id],
-        });
-    }
 
     async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
@@ -411,43 +373,6 @@ export default function RoomFormModal({
                         />
                     </div>
 
-                    {/* Fasilitas */}
-                    <div>
-                        <label className="mb-2 block font-inter text-sm font-medium text-[#2F2F2F]">
-                            Fasilitas
-                            {(form.facility_ids?.length ?? 0) > 0 && (
-                                <span className="ml-2 rounded-full bg-[#7B1113] px-2 py-0.5 font-inter text-xs text-white">
-                                    {form.facility_ids?.length} dipilih
-                                </span>
-                            )}
-                        </label>
-
-                        {allFacilities.length === 0 ? (
-                            <p className="font-inter text-xs text-[#999]">
-                                Belum ada fasilitas. Tambahkan di halaman Fasilitas dulu.
-                            </p>
-                        ) : (
-                            <div className="flex flex-wrap gap-2">
-                                {allFacilities.map((f) => {
-                                    const selected = (form.facility_ids ?? []).includes(f.id);
-                                    return (
-                                        <button
-                                            key={f.id}
-                                            type="button"
-                                            onClick={() => toggleFacility(f.id)}
-                                            suppressHydrationWarning
-                                            className={`rounded-2xl border px-3 py-1.5 font-inter text-sm transition-all ${selected
-                                                ? "border-[#7B1113] bg-[#7B1113] text-white"
-                                                : "border-[#EAEAEA] bg-[#FAFAFA] text-[#555] hover:border-[#7B1113]/40"
-                                                }`}
-                                        >
-                                            {selected ? "✓ " : ""}{f.name}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
                 </div>
 
                 {/* Footer */}

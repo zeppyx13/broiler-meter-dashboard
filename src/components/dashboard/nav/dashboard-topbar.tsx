@@ -13,10 +13,8 @@ const PAGE_TITLES: Record<string, { label: string; title: string }> = {
     "/dashboard": { label: "Selamat datang kembali", title: "Dashboard Overview" },
     "/dashboard/kamar": { label: "Manajemen", title: "Data Kandang" },
     "/dashboard/penghuni": { label: "Manajemen", title: "Data Peternak" },
-    "/dashboard/tagihan": { label: "Energi", title: "Laporan Biaya Energi" },
-    "/dashboard/keluhan": { label: "Manajemen", title: "Alert & Peringatan Dini" },
+    "/dashboard/tagihan": { label: "Energi", title: "Laporan Efisiensi" },
     "/dashboard/kontrak": { label: "Manajemen", title: "Siklus Produksi" },
-    "/dashboard/fasilitas": { label: "Manajemen", title: "Komponen Kandang" },
     "/dashboard/iot": { label: "IoT", title: "Alat IoT / Meter" },
     "/dashboard/iot/terminal": { label: "IoT", title: "Remote Terminal" },
 };
