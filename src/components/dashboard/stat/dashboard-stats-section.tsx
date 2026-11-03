@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BedDouble, Sprout, Droplets, Zap } from "lucide-react";
+import { Warehouse, Sprout, Droplets, Zap } from "lucide-react";
 import StatCard from "./stat-card";
 import { getDashboardStats } from "@/lib/dashboard-api";
 import { getLeases } from "@/lib/lease-api";
@@ -68,8 +68,8 @@ export default function DashboardStatsSection() {
             {
                 title: "Total Kandang",
                 value: String(data.totalRooms),
-                desc: `${data.availableRooms} kandang tersedia`,
-                icon: BedDouble,
+                desc: `${activeCycles?.meta.total ?? 0} aktif · ${Math.max(0, data.totalRooms - (activeCycles?.meta.total ?? 0))} istirahat`,
+                icon: Warehouse,
             },
             {
                 title: "Siklus Produksi Aktif",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Droplets, Zap, AlertTriangle, Save, RefreshCw } from "lucide-react";
+import { Droplets, Zap, Save, RefreshCw } from "lucide-react";
 import Swal from "sweetalert2";
 import { getTariff, updateTariff, type Tariff } from "@/lib/tariff-api";
 
@@ -15,51 +15,25 @@ type FieldConfig = {
     step: string;
 };
 
+// Kuota gratis & denda adalah konsep tagihan kost: tetap dikirim ke backend apa adanya, tapi tidak ditampilkan.
 const fields: FieldConfig[] = [
-    {
-        key: "water_rate",
-        label: "Tarif Air",
-        description: "Biaya per m³ air di atas kuota gratis",
-        prefix: "Rp",
-        suffix: "/ m³",
-        icon: <Droplets size={18} className="text-blue-500" />,
-        step: "1",
-    },
-    {
-        key: "water_free_quota",
-        label: "Kuota Air Gratis",
-        description: "Pemakaian air gratis per bulan",
-        prefix: "",
-        suffix: "m³",
-        icon: <Droplets size={18} className="text-blue-300" />,
-        step: "0.001",
-    },
     {
         key: "electricity_rate",
         label: "Tarif Listrik",
-        description: "Biaya per kWh di atas kuota gratis",
+        description: "Harga per kWh sesuai golongan PLN kandang Anda.",
         prefix: "Rp",
         suffix: "/ kWh",
         icon: <Zap size={18} className="text-yellow-500" />,
         step: "1",
     },
     {
-        key: "electricity_free_quota",
-        label: "Kuota Listrik Gratis",
-        description: "Pemakaian listrik gratis per bulan",
-        prefix: "",
-        suffix: "kWh",
-        icon: <Zap size={18} className="text-yellow-300" />,
-        step: "0.001",
-    },
-    {
-        key: "late_fee_flat",
-        label: "Biaya Tambahan Lainnya",
-        description: "Nominal penyesuaian tambahan opsional pada laporan biaya energi bulanan",
+        key: "water_rate",
+        label: "Tarif Air",
+        description: "Harga per m³. Isi 0 jika memakai sumur sendiri.",
         prefix: "Rp",
-        suffix: "",
-        icon: <AlertTriangle size={18} className="text-red-500" />,
-        step: "1000",
+        suffix: "/ m³",
+        icon: <Droplets size={18} className="text-blue-500" />,
+        step: "1",
     },
 ];
 
@@ -97,8 +71,8 @@ export default function TariffSettingsCard() {
 
     async function handleSave() {
         const confirm = await Swal.fire({
-            title: "Simpan Perubahan Tarif?",
-            text: "Perubahan akan berpengaruh pada laporan biaya energi yang belum di-generate.",
+            title: "Simpan perubahan tarif?",
+            text: "Estimasi biaya energi di Ringkasan kandang dan Laporan akan memakai tarif baru.",
             icon: "warning",
             showCancelButton: true,
             confirmButtonText: "Ya, Simpan",
@@ -185,31 +159,23 @@ export default function TariffSettingsCard() {
     }
 
     return (
-        <div className="rounded-3xl border border-[#EAEAEA] bg-white p-8">
+        <div className="rounded-3xl border border-[#EAEAEA] bg-white p-6 sm:p-8">
             {/* Header */}
-            <div className="flex items-start justify-between">
+            <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                     <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">
-                        Tarif & Kuota Utilitas
+                        Tarif Energi
                     </h3>
                     <p className="mt-1 font-inter text-sm text-[#666]">
-                        Terakhir diperbarui: {lastUpdated}
+                        Dipakai untuk menghitung biaya energi per siklus. Terakhir diperbarui {lastUpdated}.
                     </p>
                 </div>
 
                 {isDirty && (
                     <span className="rounded-full bg-amber-50 px-3 py-1 font-inter text-xs font-medium text-amber-600">
-                        Ada perubahan belum disimpan
+                        Belum disimpan
                     </span>
                 )}
-            </div>
-
-            {/* Warning */}
-            <div className="mt-6 flex gap-3 rounded-2xl bg-amber-50 p-4">
-                <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-500" />
-                <p className="font-inter text-sm text-amber-700">
-                    Perubahan tarif hanya berlaku untuk laporan biaya energi yang belum digenerate. Laporan bulan berjalan yang sudah ada tidak akan terpengaruh.
-                </p>
             </div>
 
             {/* Fields */}

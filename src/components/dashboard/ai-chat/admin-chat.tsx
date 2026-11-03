@@ -15,11 +15,10 @@ function renderMarkdown(text: string) {
 }
 
 const SUGGESTED_QUESTIONS = [
-    "Siapa peternak yang belum menyelesaikan laporan biaya energi paling lama?",
-    "Kandang mana yang sudah kosong paling lama?",
-    "Siklus produksi siapa yang mau selesai bulan ini?",
-    "Berikan ringkasan biaya energi bulan ini",
-    "Alert apa yang belum ditangani?",
+    "Kandang mana yang konsumsi airnya paling tidak normal hari ini?",
+    "Siklus mana yang sebentar lagi panen?",
+    "Berikan ringkasan pemakaian listrik dan biaya energi bulan ini",
+    "Bagaimana cara menghemat listrik kipas di siang hari?",
 ];
 
 export default function AdminChat() {
@@ -34,7 +33,7 @@ export default function AdminChat() {
         if (open && messages.length === 0) {
             setMessages([{
                 role: "assistant",
-                content: "Halo! Saya asisten AI Coasther. Saya bisa membantu Anda menganalisis data operasional, biaya energi, dan peternak kandang. Apa yang ingin Anda ketahui?",
+                content: "Halo! Saya Copilot Coasther. Saya bisa bantu menjelaskan kondisi kandang, konsumsi air & listrik, dan biaya energi siklus. Apa yang ingin Anda ketahui?",
                 timestamp: new Date().toISOString(),
             }]);
         }
@@ -113,7 +112,8 @@ export default function AdminChat() {
             <button
                 onClick={() => setOpen((v) => !v)}
                 suppressHydrationWarning
-                className={`fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all hover:scale-105 ${open ? "bg-[#2F2F2F]" : "bg-[#7B1113]"
+                title="Copilot"
+                className={`fixed bottom-24 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all hover:scale-105 lg:bottom-6 lg:right-6 ${open ? "bg-[#2F2F2F]" : "bg-[#7B1113]"
                     }`}
             >
                 {open ? (
@@ -129,7 +129,7 @@ export default function AdminChat() {
 
             {/* Chat panel */}
             {open && (
-                <div className="fixed bottom-24 right-6 z-50 flex w-96 flex-col overflow-hidden rounded-3xl border border-[#EAEAEA] bg-white shadow-2xl">
+                <div className="fixed bottom-40 left-4 right-4 z-50 flex flex-col overflow-hidden rounded-3xl border border-[#EAEAEA] bg-white shadow-2xl sm:left-auto sm:w-96 lg:bottom-24 lg:right-6">
 
                     {/* Header */}
                     <div className="flex items-center justify-between bg-[#7B1113] px-5 py-4">
@@ -139,10 +139,10 @@ export default function AdminChat() {
                             </div>
                             <div>
                                 <p className="font-poppins text-sm font-semibold text-white">
-                                    Coasther AI
+                                    Copilot Coasther
                                 </p>
                                 <p className="font-inter text-xs text-white/70">
-                                    Asisten manajemen kandang
+                                    Asisten kandang broiler
                                 </p>
                             </div>
                         </div>

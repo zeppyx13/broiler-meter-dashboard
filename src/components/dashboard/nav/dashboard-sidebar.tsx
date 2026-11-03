@@ -1,37 +1,17 @@
 "use client";
 
-import {
-    LogOut, Home, BedDouble, Users,
-    FileText, CreditCard, Settings,
-    MessageSquare, FileCheck, Megaphone, Sparkles, Cpu,
-    Terminal,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import SidebarItem from "./sidebar-item";
-import type { SidebarIconName, SidebarMenuItem } from "@/types/dashboard";
+import { NAV_ICONS, isNavActive } from "./nav-icons";
+import type { SidebarMenuItem } from "@/types/dashboard";
 import { clearAuth, getUser } from "@/lib/auth";
 import Image from "next/image";
 
 type DashboardSidebarProps = {
     menus: SidebarMenuItem[];
-};
-
-const iconMap: Record<SidebarIconName, LucideIcon> = {
-    home: Home,
-    bedDouble: BedDouble,
-    users: Users,
-    fileText: FileText,
-    creditCard: CreditCard,
-    settings: Settings,
-    messageSquare: MessageSquare,
-    fileCheck: FileCheck,
-    megaphone: Megaphone,
-    sparkles: Sparkles,
-    cpu: Cpu,
-    terminal: Terminal,
 };
 
 export default function DashboardSidebar({ menus }: DashboardSidebarProps) {
@@ -93,25 +73,30 @@ export default function DashboardSidebar({ menus }: DashboardSidebarProps) {
 
             <nav className="flex-1 overflow-y-auto px-4 py-6">
                 <div className="space-y-2">
-                    {menus.map((menu) => {
-                        const Icon = iconMap[menu.iconName];
+                    {menus.filter((m) => !m.group).map((menu) => (
+                        <SidebarItem
+                            key={menu.label}
+                            icon={NAV_ICONS[menu.iconName]}
+                            label={menu.label}
+                            href={menu.href}
+                            active={isNavActive(menu.href, pathname)}
+                        />
+                    ))}
+                </div>
 
-                        // exact match untuk dashboard, startsWith untuk halaman lain
-                        const isActive =
-                            menu.href === "/dashboard"
-                                ? pathname === "/dashboard"
-                                : pathname === menu.href || pathname.startsWith(menu.href + "/");
-
-                        return (
-                            <SidebarItem
-                                key={menu.label}
-                                icon={Icon}
-                                label={menu.label}
-                                href={menu.href}
-                                active={isActive}
-                            />
-                        );
-                    })}
+                <p className="mt-8 mb-2 px-4 font-inter text-[11px] font-semibold uppercase tracking-[0.18em] text-[#AAA]">
+                    Teknis
+                </p>
+                <div className="space-y-2">
+                    {menus.filter((m) => m.group === "teknis").map((menu) => (
+                        <SidebarItem
+                            key={menu.label}
+                            icon={NAV_ICONS[menu.iconName]}
+                            label={menu.label}
+                            href={menu.href}
+                            active={isNavActive(menu.href, pathname)}
+                        />
+                    ))}
                 </div>
             </nav>
 

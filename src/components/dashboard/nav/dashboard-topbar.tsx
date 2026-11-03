@@ -9,15 +9,16 @@ type DashboardTopbarProps = {
     onMenuClick: () => void;
 };
 
-const PAGE_TITLES: Record<string, { label: string; title: string }> = {
-    "/dashboard": { label: "Selamat datang kembali", title: "Dashboard Overview" },
-    "/dashboard/kamar": { label: "Manajemen", title: "Data Kandang" },
-    "/dashboard/penghuni": { label: "Manajemen", title: "Data Peternak" },
-    "/dashboard/tagihan": { label: "Energi", title: "Laporan Efisiensi" },
-    "/dashboard/kontrak": { label: "Manajemen", title: "Siklus Produksi" },
-    "/dashboard/iot": { label: "IoT", title: "Alat IoT / Meter" },
-    "/dashboard/iot/terminal": { label: "IoT", title: "Remote Terminal" },
-};
+// Urut dari path paling spesifik; dicocokkan dengan startsWith untuk halaman dinamis.
+const PAGE_TITLES: { path: string; label: string; title: string }[] = [
+    { path: "/dashboard/kamar/", label: "Kandang", title: "Detail Kandang" },
+    { path: "/dashboard/kamar", label: "Kelola", title: "Kandang" },
+    { path: "/dashboard/tagihan", label: "Efisiensi", title: "Laporan" },
+    { path: "/dashboard/settings", label: "Akun & Tarif", title: "Pengaturan" },
+    { path: "/dashboard/iot", label: "Teknis", title: "Alat IoT" },
+    { path: "/dashboard/terminal", label: "Teknis", title: "IoT Terminal" },
+    { path: "/dashboard", label: "Selamat datang kembali", title: "Beranda" },
+];
 
 export default function DashboardTopbar({ onMenuClick }: DashboardTopbarProps) {
     const pathname = usePathname();
@@ -28,7 +29,8 @@ export default function DashboardTopbar({ onMenuClick }: DashboardTopbarProps) {
     }, []);
 
     const firstName = user?.name?.split(" ")[0] ?? "Admin";
-    const page = PAGE_TITLES[pathname] ?? { label: "Manajemen", title: "Dashboard" };
+    const page = PAGE_TITLES.find((p) => pathname === p.path || pathname.startsWith(p.path))
+        ?? { label: "Coasther", title: "Dashboard" };
 
     return (
         <header className="sticky top-0 z-10 border-b border-[#EAEAEA] bg-white/90 backdrop-blur">

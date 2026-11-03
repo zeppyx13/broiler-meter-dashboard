@@ -1,32 +1,14 @@
 "use client";
 
-import {
-    LogOut, Home, BedDouble, Users,
-    FileText, CreditCard, Settings, X,
-    MessageSquare, FileCheck, Megaphone, Sparkles, Cpu, Terminal,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { LogOut, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Swal from "sweetalert2";
-import type { SidebarIconName, SidebarMenuItem } from "@/types/dashboard";
+import type { SidebarMenuItem } from "@/types/dashboard";
+import { NAV_ICONS, isNavActive } from "./nav-icons";
 import { clearAuth, getUser } from "@/lib/auth";
 import Image from "next/image";
-const iconMap: Record<SidebarIconName, LucideIcon> = {
-    home: Home,
-    bedDouble: BedDouble,
-    users: Users,
-    fileText: FileText,
-    creditCard: CreditCard,
-    settings: Settings,
-    messageSquare: MessageSquare,
-    fileCheck: FileCheck,
-    megaphone: Megaphone,
-    sparkles: Sparkles,
-    cpu: Cpu,
-    terminal: Terminal,
-};
 
 type MobileDrawerProps = {
     menus: SidebarMenuItem[];
@@ -115,31 +97,37 @@ export default function MobileDrawer({ menus, open, onClose }: MobileDrawerProps
 
                 {/* Nav */}
                 <nav className="flex-1 overflow-y-auto px-4 py-6">
-                    <div className="space-y-2">
-                        {menus.map((menu) => {
-                            const Icon = iconMap[menu.iconName];
-                            const isActive =
-                                menu.href === "/dashboard"
-                                    ? pathname === "/dashboard"
-                                    : pathname === menu.href || pathname.startsWith(menu.href + "/");
-
-                            return (
-                                <Link
-                                    key={menu.label}
-                                    href={menu.href}
-                                    className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 transition ${isActive
-                                        ? "bg-[#7B1113] text-[#C6A971]"
-                                        : "text-[#555] hover:bg-[#F8F8F8]"
-                                        }`}
-                                >
-                                    <Icon size={18} />
-                                    <span className="font-inter text-sm font-medium">
-                                        {menu.label}
-                                    </span>
-                                </Link>
-                            );
-                        })}
-                    </div>
+                    {[
+                        { title: null, items: menus.filter((m) => !m.group) },
+                        { title: "Teknis", items: menus.filter((m) => m.group === "teknis") },
+                    ].map((section) => (
+                        <div key={section.title ?? "utama"} className={section.title ? "mt-8" : ""}>
+                            {section.title && (
+                                <p className="mb-2 px-4 font-inter text-[11px] font-semibold uppercase tracking-[0.18em] text-[#AAA]">
+                                    {section.title}
+                                </p>
+                            )}
+                            <div className="space-y-2">
+                                {section.items.map((menu) => {
+                                    const Icon = NAV_ICONS[menu.iconName];
+                                    const isActive = isNavActive(menu.href, pathname);
+                                    return (
+                                        <Link
+                                            key={menu.label}
+                                            href={menu.href}
+                                            className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 transition ${isActive
+                                                ? "bg-[#7B1113] text-[#C6A971]"
+                                                : "text-[#555] hover:bg-[#F8F8F8]"
+                                                }`}
+                                        >
+                                            <Icon size={18} />
+                                            <span className="font-inter text-sm font-medium">{menu.label}</span>
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
                 </nav>
                 <div className="border-t border-[#EAEAEA] p-4">
                     <div className="rounded-2xl bg-[#F8F8F8] p-4">

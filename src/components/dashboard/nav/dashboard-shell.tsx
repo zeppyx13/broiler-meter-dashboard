@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import DashboardSidebar from "./dashboard-sidebar";
 import MobileDrawer from "./mobile-drawer";
 import DashboardTopbar from "./dashboard-topbar";
+import MobileBottomNav from "./mobile-bottom-nav";
 import type { SidebarMenuItem } from "@/types/dashboard";
 import AdminChat from "../ai-chat/admin-chat";
 
@@ -29,9 +30,10 @@ export default function DashboardShell({ menus, children }: DashboardShellProps)
 
                 <section className="flex-1 min-w-0">
                     <DashboardTopbar onMenuClick={() => setDrawerOpen(true)} />
-                    <div className="space-y-6 p-6">{children}</div>
+                    <div className="space-y-6 p-4 pb-28 sm:p-6 sm:pb-28 lg:pb-6">{children}</div>
                 </section>
             </div>
+            <MobileBottomNav menus={menus} />
             <AdminChat />
         </main>
     );

@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import DashboardShell from "@/components/dashboard/nav/dashboard-shell";
-import KandangRingkasan from "@/components/kamar/ringkasan/kandang-ringkasan";
+import KandangDetail from "@/components/kamar/ringkasan/kandang-detail";
 import { sidebarMenus } from "@/lib/dashboard-data";
 
 export default function KandangDetailPage() {
@@ -11,7 +11,7 @@ export default function KandangDetailPage() {
 
     return (
         <DashboardShell menus={sidebarMenus}>
-            <KandangRingkasan roomId={id} />
+            <KandangDetail roomId={id} />
         </DashboardShell>
     );
 }

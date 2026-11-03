@@ -1,13 +1,10 @@
-import type {
-    SidebarMenuItem,
-} from "@/types/dashboard";
+import type { SidebarMenuItem } from "@/types/dashboard";
 
 export const sidebarMenus: SidebarMenuItem[] = [
-    { label: "Dashboard", iconName: "home", href: "/dashboard" },
-    { label: "Kandang", iconName: "bedDouble", href: "/dashboard/kamar" },
-    { label: "Siklus Produksi", iconName: "fileCheck", href: "/dashboard/kontrak" },
-    { label: "Laporan Efisiensi", iconName: "fileText", href: "/dashboard/tagihan" },
-    { label: "Alat IoT", iconName: "cpu", href: "/dashboard/iot" },
-    { label: "IoT Terminal", iconName: "terminal", href: "/dashboard/terminal" },
-    { label: "Pengaturan", iconName: "settings", href: "/dashboard/settings" },
+    { label: "Beranda", iconName: "home", href: "/dashboard", mobile: true },
+    { label: "Kandang", iconName: "kandang", href: "/dashboard/kamar", mobile: true },
+    { label: "Laporan", iconName: "report", href: "/dashboard/tagihan", mobile: true },
+    { label: "Pengaturan", iconName: "settings", href: "/dashboard/settings", mobile: true },
+    { label: "Alat IoT", iconName: "cpu", href: "/dashboard/iot", group: "teknis" },
+    { label: "IoT Terminal", iconName: "terminal", href: "/dashboard/terminal", group: "teknis" },
 ];
