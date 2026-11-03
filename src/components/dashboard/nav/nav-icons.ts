@@ -1,10 +1,11 @@
-import { Home, Warehouse, FileText, Settings, Cpu, Terminal } from "lucide-react";
+import { Home, Warehouse, BellRing, FileText, Settings, Cpu, Terminal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { SidebarIconName } from "@/types/dashboard";
 
 export const NAV_ICONS: Record<SidebarIconName, LucideIcon> = {
     home: Home,
     kandang: Warehouse,
+    alert: BellRing,
     report: FileText,
     settings: Settings,
     cpu: Cpu,

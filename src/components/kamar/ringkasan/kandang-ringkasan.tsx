@@ -11,13 +11,8 @@ import {
 import SectionCard from "@/components/dashboard/section-card";
 import { sendAdminChat } from "@/lib/admin-chat-api";
 import { expectedWaterRangeLPerDay, formatRupiah, type DeviationTier } from "@/lib/broiler-reference";
+import { ALERT_TIER_STYLE } from "@/components/peringatan/peringatan-section";
 import type { KandangData } from "./use-kandang-data";
-
-const TIER_STYLE: Record<DeviationTier, { box: string; label: string }> = {
-    kritis: { box: "bg-[#FDEAEA] text-[#B42318] border-l-[#B42318]", label: "KRITIS" },
-    waspada: { box: "bg-[#FFF4E5] text-[#B76E00] border-l-[#B76E00]", label: "WASPADA" },
-    normal: { box: "bg-[#EAFBF0] text-[#1F8A4C] border-l-[#1F8A4C]", label: "NORMAL" },
-};
 
 const TONE_TEXT: Record<DeviationTier, string> = {
     kritis: "text-red-600",
@@ -32,11 +27,11 @@ function timeLabel(date: Date) {
 type Props = {
     data: KandangData;
     onEditCycle: () => void;
-    onEditRoom: () => void;
+    onOpenEquipment: () => void;
 };
 
-export default function KandangRingkasan({ data, onEditCycle, onEditRoom }: Props) {
-    const { room, live, activeCycle, cycle, roomExtra, ageDays, harvestTargetDays, daysToHarvest, todayUsage, cycleUsage, insights } = data;
+export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }: Props) {
+    const { room, live, activeCycle, cycle, expectedPowerKw, ageDays, harvestTargetDays, daysToHarvest, todayUsage, cycleUsage, insights } = data;
     const populationNow = cycle?.populationNow;
 
     const checklist = [
@@ -44,9 +39,9 @@ export default function KandangRingkasan({ data, onEditCycle, onEditRoom }: Prop
             text: "Populasi awal siklus belum diisi — per-ekor dan Guard air belum bisa dihitung.",
             action: <button onClick={onEditCycle} className="font-semibold text-[#7B1113] hover:underline">Isi sekarang</button>,
         },
-        !roomExtra.expected_power_kw && {
-            text: "Daya terpasang belum diisi — Guard belum bisa mendeteksi kipas mati.",
-            action: <button onClick={onEditRoom} className="font-semibold text-[#7B1113] hover:underline">Isi sekarang</button>,
+        !expectedPowerKw && {
+            text: "Peralatan kandang belum diisi — Guard belum bisa mendeteksi kipas mati.",
+            action: <button onClick={onOpenEquipment} className="font-semibold text-[#7B1113] hover:underline">Isi peralatan</button>,
         },
         !live && {
             text: "Perangkat IoT kandang ini belum mengirim data.",
@@ -137,7 +132,7 @@ export default function KandangRingkasan({ data, onEditCycle, onEditRoom }: Prop
                 <Kpi icon={<Zap size={14} className="text-amber-500" />} label="Daya saat ini"
                     value={live ? `${insights.actualPowerKw.toFixed(2)} kW` : "—"}
                     tone={powerTone}
-                    sub={roomExtra.expected_power_kw ? `Seharusnya ${roomExtra.expected_power_kw.toFixed(1)} kW` : "Daya terpasang belum diisi"}
+                    sub={expectedPowerKw ? `Seharusnya ${expectedPowerKw.toFixed(2)} kW` : "Peralatan belum diisi"}
                 />
                 <Kpi icon={<TrendingUp size={14} className="text-[#7B1113]" />} label="Energi siklus berjalan"
                     value={cycleUsage ? `${cycleUsage.energyKwh.toFixed(1)} kWh` : "—"}
@@ -204,10 +199,10 @@ export default function KandangRingkasan({ data, onEditCycle, onEditRoom }: Prop
                             </div>
                         ) : (
                             insights.alerts.map((a) => (
-                                <div key={a.id} className={`rounded-xl border-l-4 p-3 ${TIER_STYLE[a.tier].box}`}>
-                                    <p className="font-inter text-[11px] font-bold">{TIER_STYLE[a.tier].label}</p>
+                                <div key={a.id} className={`rounded-xl border-l-4 p-3 text-[#2F2F2F] ${ALERT_TIER_STYLE[a.tier].box}`}>
+                                    <p className="font-inter text-[11px] font-bold text-[#555]">{ALERT_TIER_STYLE[a.tier].label.toUpperCase()}</p>
                                     <p className="mt-0.5 font-inter text-sm font-semibold">{a.title}</p>
-                                    <p className="mt-0.5 font-inter text-xs opacity-90">{a.detail}</p>
+                                    <p className="mt-0.5 font-inter text-xs text-[#555]">{a.detail}</p>
                                     <p className="mt-1.5 flex items-start gap-1 font-inter text-xs font-medium">
                                         <ChevronRight size={14} className="mt-px shrink-0" /> {a.action}
                                     </p>
@@ -240,9 +235,6 @@ export default function KandangRingkasan({ data, onEditCycle, onEditRoom }: Prop
                         <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Eco-Advisor</p>
                     </div>
                     <div className="mt-4 space-y-2.5">
-                        {live && live.pf > 0 && live.pf < 0.85 && (
-                            <EcoTip title="Power factor rendah" detail={`PF terukur ${live.pf.toFixed(2)}. Periksa beban motor/kipas, pertimbangkan kapasitor bank.`} />
-                        )}
                         {insights.waterDeviation?.direction === "naik" && insights.waterDeviation.tier !== "normal" && (
                             <EcoTip title="Indikasi kebocoran air" detail="Konsumsi air di atas pola normal. Cek jalur nipple dan tandon." />
                         )}

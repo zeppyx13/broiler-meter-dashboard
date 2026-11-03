@@ -134,33 +134,19 @@ export default function RoomFormModal({ open, editData, onClose, onSubmit }: Roo
                 </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-                <Field label="Fase listrik panel" hint="1 atau 3 fase.">
-                    <select
-                        title="Fase listrik"
-                        value={extra.phase_count ?? ""}
-                        onChange={(e) => setExtra((prev) => ({ ...prev, phase_count: e.target.value ? Number(e.target.value) : undefined }))}
-                        suppressHydrationWarning
-                        className={inputClass}
-                    >
-                        <option value="">Pilih</option>
-                        <option value="1">1 fase</option>
-                        <option value="3">3 fase</option>
-                    </select>
-                </Field>
-                <Field label="Daya terpasang (kW)" hint="Total kipas, lampu, pemanas saat menyala.">
-                    <input
-                        type="number"
-                        step="0.1"
-                        inputMode="decimal"
-                        value={extra.expected_power_kw ?? ""}
-                        onChange={(e) => setExtra((prev) => ({ ...prev, expected_power_kw: e.target.value ? Number(e.target.value) : undefined }))}
-                        placeholder="cth. 6.0"
-                        suppressHydrationWarning
-                        className={inputClass}
-                    />
-                </Field>
-            </div>
+            <Field label="Fase listrik panel" hint="Kipas, lampu, dan pemanas diisi di tab Peralatan kandang.">
+                <select
+                    title="Fase listrik"
+                    value={extra.phase_count ?? ""}
+                    onChange={(e) => setExtra((prev) => ({ ...prev, phase_count: e.target.value ? Number(e.target.value) : undefined }))}
+                    suppressHydrationWarning
+                    className={inputClass}
+                >
+                    <option value="">Pilih</option>
+                    <option value="1">1 fase</option>
+                    <option value="3">3 fase</option>
+                </select>
+            </Field>
 
             <button
                 type="button"

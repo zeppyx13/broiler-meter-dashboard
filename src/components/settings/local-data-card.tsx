@@ -52,7 +52,7 @@ export default function LocalDataCard() {
                 <div>
                     <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">Data di Perangkat Ini</h3>
                     <p className="mt-1 font-inter text-sm text-[#666]">
-                        Populasi, catatan harian, data siklus, dan daya terpasang disimpan di browser ini.
+                        Populasi, catatan harian, data siklus, peralatan kandang, pengaturan Guard, dan riwayat peringatan disimpan di browser ini.
                         Cadangkan secara berkala, lalu impor di perangkat lain bila perlu.
                     </p>
                 </div>

@@ -1,3 +1,5 @@
+import { getGuardSettings, type GuardSettings } from "@/lib/guard-settings";
+
 // Kurva referensi konsumsi air broiler per ekor per hari umur.
 // Estimasi umum (bukan data strain spesifik) dikalibrasi mendekati pola pada
 // literatur manajemen broiler (mis. Aviagen Ross Broiler Management Handbook):
@@ -21,7 +23,7 @@ export function expectedWaterRangeLPerDay(ageDays: number, tolerance = 0.15) {
 
 export type DeviationTier = "normal" | "waspada" | "kritis";
 
-export function classifyWaterDeviation(actualPerBirdL: number, ageDays: number): {
+export function classifyWaterDeviation(actualPerBirdL: number, ageDays: number, s: GuardSettings = getGuardSettings()): {
     pct: number;
     tier: DeviationTier;
     direction: "turun" | "naik" | "normal";
@@ -31,13 +33,13 @@ export function classifyWaterDeviation(actualPerBirdL: number, ageDays: number):
 
     const pct = ((actualPerBirdL - expected) / expected) * 100;
 
-    if (pct <= -25) return { pct, tier: "kritis", direction: "turun" };
-    if (pct <= -10) return { pct, tier: "waspada", direction: "turun" };
-    if (pct >= 40) return { pct, tier: "waspada", direction: "naik" }; // indikasi kebocoran / rembes
+    if (pct <= -s.waterCritPct) return { pct, tier: "kritis", direction: "turun" };
+    if (pct <= -s.waterWarnPct) return { pct, tier: "waspada", direction: "turun" };
+    if (pct >= s.waterLeakPct) return { pct, tier: "waspada", direction: "naik" }; // indikasi kebocoran / rembes
     return { pct, tier: "normal", direction: pct >= 0 ? "naik" : "turun" };
 }
 
-export function classifyPowerDeviation(actualKw: number, expectedKw: number, deviceOnline: boolean): {
+export function classifyPowerDeviation(actualKw: number, expectedKw: number, deviceOnline: boolean, s: GuardSettings = getGuardSettings()): {
     pct: number;
     tier: DeviationTier;
 } {
@@ -45,8 +47,8 @@ export function classifyPowerDeviation(actualKw: number, expectedKw: number, dev
     if (expectedKw <= 0) return { pct: 0, tier: "normal" };
 
     const pct = ((actualKw - expectedKw) / expectedKw) * 100;
-    if (pct <= -30) return { pct, tier: "kritis" };
-    if (pct <= -15) return { pct, tier: "waspada" };
+    if (pct <= -s.powerCritPct) return { pct, tier: "kritis" };
+    if (pct <= -s.powerWarnPct) return { pct, tier: "waspada" };
     return { pct, tier: "normal" };
 }
 
@@ -62,12 +64,10 @@ export function daysUntilHarvest(ageDays: number, harvestTargetDays: number): nu
     return Math.max(0, harvestTargetDays - ageDays);
 }
 
-export const TELEMETRY_FRESH_WINDOW_MS = 2 * 60 * 1000;
-
-export function isTelemetryFresh(recordedAt: string | null | undefined): boolean {
+export function isTelemetryFresh(recordedAt: string | null | undefined, offlineMinutes = getGuardSettings().offlineMinutes): boolean {
     if (!recordedAt) return false;
     const diff = Date.now() - new Date(recordedAt).getTime();
-    return diff >= 0 && diff < TELEMETRY_FRESH_WINDOW_MS;
+    return diff >= 0 && diff < offlineMinutes * 60_000;
 }
 
 export function formatRupiah(value: number): string {

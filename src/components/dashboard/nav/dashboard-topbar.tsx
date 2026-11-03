@@ -13,6 +13,7 @@ type DashboardTopbarProps = {
 const PAGE_TITLES: { path: string; label: string; title: string }[] = [
     { path: "/dashboard/kamar/", label: "Kandang", title: "Detail Kandang" },
     { path: "/dashboard/kamar", label: "Kelola", title: "Kandang" },
+    { path: "/dashboard/peringatan", label: "Guard", title: "Peringatan" },
     { path: "/dashboard/tagihan", label: "Efisiensi", title: "Laporan" },
     { path: "/dashboard/settings", label: "Akun & Tarif", title: "Pengaturan" },
     { path: "/dashboard/iot", label: "Teknis", title: "Alat IoT" },

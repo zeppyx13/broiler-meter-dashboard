@@ -9,7 +9,7 @@ import type { KandangData } from "./use-kandang-data";
 
 export default function KandangSettingsTab({ data, onEditRoom }: { data: KandangData; onEditRoom: () => void }) {
     const router = useRouter();
-    const { room, roomExtra, activeCycle } = data;
+    const { room, roomExtra, expectedPowerKw, activeCycle } = data;
     if (!room) return null;
 
     async function handleDelete() {
@@ -36,7 +36,7 @@ export default function KandangSettingsTab({ data, onEditRoom }: { data: Kandang
         ["Nomor kandang", room.number],
         ["Blok", room.floor != null ? `Blok ${room.floor}` : "—"],
         ["Fase listrik panel", roomExtra.phase_count ? `${roomExtra.phase_count} fase` : "—"],
-        ["Daya terpasang", roomExtra.expected_power_kw ? `${roomExtra.expected_power_kw} kW` : "—"],
+        ["Daya seharusnya", expectedPowerKw ? `${expectedPowerKw.toFixed(2)} kW (dari tab Peralatan)` : "—"],
         ["Deskripsi", room.description || "—"],
     ];
 

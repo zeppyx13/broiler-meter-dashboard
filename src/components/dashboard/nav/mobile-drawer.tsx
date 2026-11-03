@@ -7,6 +7,8 @@ import Link from "next/link";
 import Swal from "sweetalert2";
 import type { SidebarMenuItem } from "@/types/dashboard";
 import { NAV_ICONS, isNavActive } from "./nav-icons";
+import { NavBadge } from "./sidebar-item";
+import { useGuard } from "../guard/guard-monitor";
 import { clearAuth, getUser } from "@/lib/auth";
 import Image from "next/image";
 
@@ -19,6 +21,7 @@ type MobileDrawerProps = {
 export default function MobileDrawer({ menus, open, onClose }: MobileDrawerProps) {
     const router = useRouter();
     const pathname = usePathname();
+    const { counts } = useGuard();
 
     const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
 
@@ -121,7 +124,8 @@ export default function MobileDrawer({ menus, open, onClose }: MobileDrawerProps
                                                 }`}
                                         >
                                             <Icon size={18} />
-                                            <span className="font-inter text-sm font-medium">{menu.label}</span>
+                                            <span className="flex-1 font-inter text-sm font-medium">{menu.label}</span>
+                                            {menu.alertBadge && counts.unchecked > 0 && <NavBadge count={counts.unchecked} />}
                                         </Link>
                                     );
                                 })}

@@ -8,7 +8,7 @@ import { getTariff } from "@/lib/tariff-api";
 import { socket } from "@/lib/socket";
 import { getAllLiveStatus, type LiveStatus } from "@/lib/live-status-api";
 import {
-    ensureCycleBaseline, getCycleState, getCycleUsage, getRoomExtra, getTodayUsage,
+    ensureCycleBaseline, getCycleState, getCycleUsage, getExpectedPowerKw, getRoomExtra, getTodayUsage, localDateKey,
 } from "@/lib/broiler-local-store";
 import { ageDaysFromChickIn, daysUntilHarvest, isTelemetryFresh } from "@/lib/broiler-reference";
 import { computeKandangInsights } from "@/lib/kandang-insights";
@@ -107,17 +107,20 @@ export function useKandangData(roomId: number) {
         [roomId, live?.water_total_liter, live?.energy_kwh_total]
     );
     const cycleUsage = cycle ? getCycleUsage(cycle.extra, live?.water_total_liter, live?.energy_kwh_total) : null;
+    const expectedPowerKw = getExpectedPowerKw(roomExtra);
 
     const insights = computeKandangInsights({
         hasActiveCycle: Boolean(activeCycle),
         ageDays,
         daysToHarvest,
+        harvestTargetDays,
         populationNow: cycle?.populationNow,
+        recordedToday: cycle ? cycle.records.some((r) => r.date === localDateKey()) : undefined,
         online,
         live,
         todayUsage,
         cycleUsage,
-        expectedPowerKw: roomExtra.expected_power_kw,
+        expectedPowerKw,
         tariff,
     });
 
@@ -138,6 +141,7 @@ export function useKandangData(roomId: number) {
         activeCycle,
         cycle,
         roomExtra,
+        expectedPowerKw,
         ageDays,
         harvestTargetDays,
         daysToHarvest,

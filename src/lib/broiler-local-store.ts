@@ -4,12 +4,34 @@
 // per entitas dan digabung ke data API saat ditampilkan. Data ini per perangkat —
 // gunakan Cadangkan/Impor di Pengaturan untuk memindahkannya.
 
+export type EquipmentType = "kipas" | "lampu" | "pemanas" | "pompa" | "lainnya";
+
+export type Equipment = {
+    id: string;
+    type: EquipmentType;
+    name?: string;
+    count: number;
+    watt: number;
+    /** Ikut dihitung sebagai beban yang seharusnya menyala sekarang. */
+    active: boolean;
+};
+
 export type RoomExtra = {
     population?: number; // lama — dipakai hanya jika siklus belum punya populasi awal
     strain?: string;
     phase_count?: number;
-    expected_power_kw?: number;
+    expected_power_kw?: number; // total manual, dipakai bila daftar peralatan kosong
+    equipment?: Equipment[];
 };
+
+/** Daya seharusnya (kW): dari peralatan yang aktif, atau total manual bila belum dirinci. */
+export function getExpectedPowerKw(extra: RoomExtra): number | undefined {
+    if (extra.equipment && extra.equipment.length > 0) {
+        const watt = extra.equipment.filter((e) => e.active).reduce((sum, e) => sum + e.count * e.watt, 0);
+        return watt > 0 ? watt / 1000 : undefined;
+    }
+    return extra.expected_power_kw || undefined;
+}
 
 export type CycleExtra = {
     population_start?: number;

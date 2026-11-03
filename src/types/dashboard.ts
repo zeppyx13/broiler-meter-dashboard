@@ -7,7 +7,7 @@ export type StatItem = {
     icon: LucideIcon;
 };
 
-export type SidebarIconName = "home" | "kandang" | "report" | "settings" | "cpu" | "terminal";
+export type SidebarIconName = "home" | "kandang" | "alert" | "report" | "settings" | "cpu" | "terminal";
 
 export type SidebarMenuItem = {
     label: string;
@@ -15,4 +15,6 @@ export type SidebarMenuItem = {
     href: string;
     group?: "teknis";
     mobile?: boolean;
+    /** Tampilkan jumlah peringatan yang belum dicek. */
+    alertBadge?: boolean;
 };

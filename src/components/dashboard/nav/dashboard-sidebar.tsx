@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import SidebarItem from "./sidebar-item";
 import { NAV_ICONS, isNavActive } from "./nav-icons";
+import { useGuard } from "../guard/guard-monitor";
 import type { SidebarMenuItem } from "@/types/dashboard";
 import { clearAuth, getUser } from "@/lib/auth";
 import Image from "next/image";
@@ -17,6 +18,7 @@ type DashboardSidebarProps = {
 export default function DashboardSidebar({ menus }: DashboardSidebarProps) {
     const router = useRouter();
     const pathname = usePathname();
+    const { counts } = useGuard();
 
     const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
 
@@ -80,6 +82,7 @@ export default function DashboardSidebar({ menus }: DashboardSidebarProps) {
                             label={menu.label}
                             href={menu.href}
                             active={isNavActive(menu.href, pathname)}
+                            badge={menu.alertBadge ? counts.unchecked : undefined}
                         />
                     ))}
                 </div>

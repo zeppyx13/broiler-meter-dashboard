@@ -70,7 +70,7 @@ export default function EfficiencyReportGenerator() {
 }
 
 function EfficiencyReport({ roomId }: { roomId: number }) {
-    const { room, isLoading, activeCycle, cycle, roomExtra, ageDays, harvestTargetDays, daysToHarvest, cycleUsage, insights } = useKandangData(roomId);
+    const { room, isLoading, activeCycle, cycle, expectedPowerKw, ageDays, harvestTargetDays, daysToHarvest, cycleUsage, insights } = useKandangData(roomId);
 
     if (isLoading) return <div className="h-64 animate-pulse rounded-3xl border border-[#EAEAEA] bg-white" />;
     if (!room) return null;
@@ -127,7 +127,7 @@ function EfficiencyReport({ roomId }: { roomId: number }) {
                             </p>
                             <p className="font-inter text-xs text-[#666]">
                                 {cycleUsage && populationNow ? `${((cycleUsage.energyKwh * 1000) / populationNow).toFixed(0)} Wh/ekor` : "Butuh populasi & data perangkat"}
-                                {roomExtra.expected_power_kw ? ` · daya terpasang ${roomExtra.expected_power_kw} kW` : ""}
+                                {expectedPowerKw ? ` · daya seharusnya ${expectedPowerKw.toFixed(2)} kW` : ""}
                             </p>
                         </Block>
                     </div>

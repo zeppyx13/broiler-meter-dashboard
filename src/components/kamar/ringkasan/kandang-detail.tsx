@@ -11,15 +11,17 @@ import RoomFormModal from "../room-form-modal";
 import { useKandangData } from "./use-kandang-data";
 import KandangRingkasan from "./kandang-ringkasan";
 import CatatHarianTab from "./catat-harian-tab";
+import PeralatanTab from "./peralatan-tab";
 import KandangSettingsTab from "./kandang-settings-tab";
 import DailyRecordModal from "./daily-record-modal";
 import { CycleCloseModal, CycleStartModal } from "./cycle-modals";
 
-type Tab = "ringkasan" | "harian" | "pengaturan";
+type Tab = "ringkasan" | "harian" | "peralatan" | "pengaturan";
 
 const TABS: { key: Tab; label: string }[] = [
     { key: "ringkasan", label: "Ringkasan" },
     { key: "harian", label: "Catat Harian" },
+    { key: "peralatan", label: "Peralatan" },
     { key: "pengaturan", label: "Pengaturan" },
 ];
 
@@ -164,9 +166,10 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
             </div>
 
             {tab === "ringkasan" && (
-                <KandangRingkasan data={data} onEditCycle={() => setEditCycleOpen(true)} onEditRoom={() => setRoomFormOpen(true)} />
+                <KandangRingkasan data={data} onEditCycle={() => setEditCycleOpen(true)} onOpenEquipment={() => setTab("peralatan")} />
             )}
             {tab === "harian" && <CatatHarianTab data={data} onOpenRecord={(date) => setRecordDate(date ?? localDateKey())} />}
+            {tab === "peralatan" && <PeralatanTab data={data} />}
             {tab === "pengaturan" && <KandangSettingsTab data={data} onEditRoom={() => setRoomFormOpen(true)} />}
 
             {/* Modals */}
