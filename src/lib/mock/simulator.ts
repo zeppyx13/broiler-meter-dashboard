@@ -5,17 +5,20 @@
 // - Air minum mengikuti kurva L/ekor/hari menurut hari umur × populasi, sedikit
 //   naik di siang hari (panas) dan turun di dini hari.
 // - Daya mengikuti peralatan yang menyala (bohlam brooder, LED, kipas dinding) dan relay.
-// - Ada "kejadian" terjadwal supaya Guard punya sesuatu untuk ditangkap: kipas
-//   mati sebentar di Kandang 1, tegangan turun di Kandang 3, dan konsumsi air
-//   Kandang 2 sedikit di bawah pola.
+// - Kejadian terjadwal (lihat incidents.ts) supaya Guard punya sesuatu untuk
+//   ditangkap: kipas trip siang hari di A01, tegangan turun saat beban puncak di
+//   B01, WiFi putus sebentar, listrik padam sesekali; air A02 sedikit di bawah pola.
 // Meter bersifat kumulatif dan terus bertambah selama waktu berjalan — termasuk
 // saat tab ditutup (dikejar ulang saat dibuka).
 
 import type { LiveStatus } from "@/lib/live-status-api";
 import { expectedWaterPerBirdLPerDay } from "@/lib/broiler-reference";
-import { getCycleState, getRoomExtra, localDateKey, type Equipment } from "@/lib/broiler-local-store";
+import { getCycleState, getRoomExtra, localDateKey, recordDailyWater, type Equipment } from "@/lib/broiler-local-store";
 import type { Lease } from "@/types/lease";
 import type { Room } from "@/types/room";
+import { fanFailure, gapAt, voltageDip } from "./incidents";
+
+export { fanFailure, voltageDip };
 
 export const SAMPLE_MS = 5_000;
 export const DAY_MS = 86_400_000;
@@ -28,6 +31,7 @@ export type DeviceState = {
     relayOn: boolean;
     offlineUntil: number; // reboot → tidak mengirim data sampai waktu ini
     sample: LiveStatus | null;
+    reboots?: number[]; // waktu restart dari Terminal (untuk angka keandalan data)
 };
 
 export type SimState = { devices: Record<string, DeviceState> };
@@ -111,29 +115,15 @@ function profile(roomId: number) {
     };
 }
 
-function minuteOfDay(t: number) {
-    const d = new Date(t);
-    return d.getHours() * 60 + d.getMinutes();
-}
-
-/** Kandang 1: kipas mati / steker lepas ±18 menit setiap 4 jam. */
-export function fanFailure(roomId: number, t: number) {
-    const m = minuteOfDay(t) % 240;
-    return roomId === 1 && m >= 100 && m < 118;
-}
-
-/** Kandang 3: tegangan PLN turun ±10 menit setiap 2 jam. */
-export function voltageDip(roomId: number, t: number) {
-    const m = minuteOfDay(t) % 120;
-    return roomId === 3 && m >= 50 && m < 60;
-}
-
 export type Rates = { powerKw: number; flowLpm: number; voltage: number; pf: number; frequency: number };
 
 export function ratesAt(roomId: number, t: number, ctx: CycleCtx | null, relayOn: boolean): Rates {
     const p = profile(roomId);
     const hour = new Date(t).getHours() + new Date(t).getMinutes() / 60;
     const n = (k: number) => noise(roomId * 1_000_003 + Math.floor(t / SAMPLE_MS) * 7 + k);
+
+    // Listrik padam: semua beban & alat mati, meter tidak menghitung.
+    if (gapAt(roomId, t)?.reason === "padam") return { powerKw: 0, flowLpm: 0, voltage: 0, pf: 0, frequency: 0 };
 
     const voltage = voltageDip(roomId, t)
         ? 191 + n(1) * 1.5
@@ -190,11 +180,11 @@ function startOfLocalDay(t: number) {
 }
 
 /**
- * Majukan satu alat sampai `now`. Saat melewati tengah malam hari ini, angka
- * meter saat itu dicatat sebagai titik awal "pemakaian hari ini".
+ * Majukan satu alat sampai `now`. Setiap melewati tengah malam: pemakaian air hari
+ * sebelumnya dicatat (rasio air : pakan) dan angka meter saat itu menjadi titik
+ * awal "pemakaian hari ini".
  */
 export function advanceDevice(dev: DeviceState, roomId: number, ctx: CycleCtx | null, now: number, onStep?: (t: number) => void) {
-    const today = localDateKey(new Date(now));
     while (dev.t < now) {
         const gap = now - dev.t;
         let dt = gap > 15 * 60_000 ? 10 * 60_000 : Math.min(gap, SAMPLE_MS);
@@ -208,15 +198,29 @@ export function advanceDevice(dev: DeviceState, roomId: number, ctx: CycleCtx | 
         dev.t += dt;
         onStep?.(dev.t);
 
-        if (dev.t === nextMidnight && localDateKey(new Date(dev.t)) === today) {
-            writeDailyBaseline(roomId, today, dev.t, dev);
+        if (dev.t === nextMidnight) {
+            const prevDate = localDateKey(new Date(dev.t - 1));
+            const prev = readBaseline(roomId);
+            if (prev?.date === prevDate) recordDailyWater(roomId, prevDate, dev.water - prev.waterLiter);
+            writeDailyBaseline(roomId, localDateKey(new Date(dev.t)), dev.t, dev);
         }
+    }
+}
+
+function readBaseline(roomId: number): { date: string; waterLiter: number } | null {
+    try {
+        const raw = window.localStorage.getItem(`${BASELINE_PREFIX}${roomId}`);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
     }
 }
 
 export function takeSample(dev: DeviceState, room: Room, ctx: CycleCtx | null, now: number): LiveStatus | null {
     if (now < dev.offlineUntil) return null;
     const sampleAt = Math.floor(now / SAMPLE_MS) * SAMPLE_MS;
+    // WiFi putus / listrik padam → tidak ada data baru (WiFi: dikirim ulang setelah tersambung).
+    if (gapAt(room.id, sampleAt)) return null;
     if (dev.sample && Date.parse(dev.sample.recorded_at) >= sampleAt) return null;
 
     const r = ratesAt(room.id, sampleAt, ctx, dev.relayOn);

@@ -58,59 +58,40 @@ export default function MobileDrawer({ menus, open, onClose }: MobileDrawerProps
         <>
             <div
                 onClick={onClose}
-                className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 lg:hidden ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+                className={`fixed inset-0 z-[55] bg-black/40 transition-opacity duration-300 lg:hidden ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
                     }`}
             />
+            {/* Lembar "Lainnya": hanya menu yang tidak ada di navigasi bawah, plus akun. */}
             <aside
-                className={`fixed left-0 top-0 z-50 flex h-full w-72 flex-col border-r border-[#EAEAEA] bg-white shadow-xl transition-transform duration-300 lg:hidden ${open ? "translate-x-0" : "-translate-x-full"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Menu lainnya"
+                className={`fixed inset-x-0 bottom-0 z-[60] flex max-h-[85dvh] flex-col rounded-t-3xl border-t border-[#EAEAEA] bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl transition-transform duration-300 lg:hidden ${open ? "translate-y-0" : "translate-y-full"
                     }`}
             >
-                <div className="flex items-center justify-between border-b border-[#EAEAEA] px-6 py-5">
-                    <div className="flex items-center gap-3">
-                        <Image
-                            src="/coasther.png"
-                            alt="Coasther Broiler Logo"
-                            width={40}
-                            height={40}
-                            className="rounded-xl object-contain shadow-sm"
-                            priority
-                        />
-                        <div>
-                            <div className="flex items-center gap-1.5">
-                                <p className="font-inter text-xs font-bold uppercase tracking-[0.18em] text-[#7B1113]">
-                                    Coasther
-                                </p>
-                                <span className="rounded bg-emerald-100 px-1 py-0.2 text-[9px] font-semibold text-emerald-800">
-                                    IoT
-                                </span>
-                            </div>
-                            <h1 className="mt-0.5 font-poppins text-base font-bold text-[#2F2F2F] leading-tight">
-                                Broiler Monitor
-                            </h1>
-                        </div>
+                <div className="flex items-center justify-between px-6 pb-2 pt-4">
+                    <div className="flex items-center gap-2.5">
+                        <Image src="/coasther.png" alt="" width={28} height={28} className="rounded-lg object-contain" />
+                        <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Lainnya</p>
                     </div>
-                    <button
-                        title="close"
-                        onClick={onClose}
-                        className="rounded-xl p-2 transition hover:bg-[#F0F0F0]"
-                    >
+                    <button title="Tutup" onClick={onClose} className="rounded-xl p-2 transition hover:bg-[#F0F0F0]">
                         <X size={18} className="text-[#666]" />
                     </button>
                 </div>
 
                 {/* Nav */}
-                <nav className="flex-1 overflow-y-auto px-4 py-6">
+                <nav className="overflow-y-auto px-4 py-2">
                     {[
-                        { title: null, items: menus.filter((m) => !m.group) },
-                        { title: "Teknis", items: menus.filter((m) => m.group === "teknis") },
-                    ].map((section) => (
-                        <div key={section.title ?? "utama"} className={section.title ? "mt-8" : ""}>
+                        { title: null, items: menus.filter((m) => !m.group && !m.mobile) },
+                        { title: "Teknis", items: menus.filter((m) => m.group === "teknis" && !m.mobile) },
+                    ].filter((s) => s.items.length > 0).map((section) => (
+                        <div key={section.title ?? "utama"} className={section.title ? "mt-4" : ""}>
                             {section.title && (
-                                <p className="mb-2 px-4 font-inter text-[11px] font-semibold uppercase tracking-[0.18em] text-[#AAA]">
+                                <p className="mb-1.5 px-4 font-inter text-[11px] font-semibold uppercase tracking-[0.18em] text-[#AAA]">
                                     {section.title}
                                 </p>
                             )}
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                                 {section.items.map((menu) => {
                                     const Icon = NAV_ICONS[menu.iconName];
                                     const isActive = isNavActive(menu.href, pathname);
@@ -133,21 +114,19 @@ export default function MobileDrawer({ menus, open, onClose }: MobileDrawerProps
                         </div>
                     ))}
                 </nav>
-                <div className="border-t border-[#EAEAEA] p-4">
-                    <div className="rounded-2xl bg-[#F8F8F8] p-4">
-                        <p className="font-inter text-xs text-[#666]">Login sebagai</p>
-                        <p className="mt-1 font-poppins text-sm font-semibold text-[#2F2F2F]">
-                            {user?.name ?? "Admin"}
-                        </p>
-                        <p className="mt-1 font-inter text-xs text-[#7B1113]">
-                            {user?.email ?? "-"}
-                        </p>
+                <div className="px-4 pb-4 pt-3">
+                    <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#F8F8F8] p-4">
+                        <div className="min-w-0">
+                            <p className="font-inter text-xs text-[#666]">Login sebagai</p>
+                            <p className="mt-0.5 truncate font-poppins text-sm font-semibold text-[#2F2F2F]">{user?.name ?? "Admin"}</p>
+                            <p className="truncate font-inter text-xs text-[#7B1113]">{user?.email ?? "-"}</p>
+                        </div>
                         <button
                             type="button"
                             onClick={handleLogout}
-                            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-red-50 px-4 py-3 font-inter text-sm font-medium text-red-600 transition hover:bg-red-100"
+                            className="flex shrink-0 items-center gap-2 rounded-2xl bg-red-50 px-4 py-2.5 font-inter text-sm font-medium text-red-600 transition hover:bg-red-100"
                         >
-                            <LogOut size={18} />
+                            <LogOut size={16} />
                             Logout
                         </button>
                     </div>

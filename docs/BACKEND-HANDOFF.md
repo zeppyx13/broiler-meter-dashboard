@@ -30,7 +30,10 @@ Semua key memakai awalan `coasther_` di `localStorage`, dan bisa diekspor lewat 
 | `coasther_daily_records_<leaseId>` | `[{ date, dead, culled, avg_weight_g?, feed_kg?, note? }]` | Tabel `daily_records (lease_id, date UNIQUE, …)` |
 | `coasther_daily_baseline_<roomId>` | Angka meter pertama hari ini (untuk "pemakaian hari ini") | Tidak perlu jika backend menyediakan agregat harian (lihat 3.3) |
 | `coasther_guard_settings` | Ambang Guard dan preferensi notifikasi | Tabel `settings` per peternak |
-| `coasther_alert_log` | Riwayat peringatan (muncul, dicek, selesai) | Tabel `alerts` (lihat 3.2) |
+| `coasther_alert_log` | Riwayat peringatan (muncul, dicek, selesai, waktu deteksi) | Tabel `alerts` (lihat 3.2) |
+| `coasther_daily_water_<roomId>` | Liter air per tanggal (untuk rasio air : pakan) | Agregat harian dari telemetri (lihat 3.3) |
+| `coasther_calibration` | Uji akurasi sensor: nilai alat acuan vs pembacaan alat | Tabel `calibrations (room_id, type, reference, sensor, at)` |
+| `coasther_impact_settings` | Asumsi kartu dampak (harga ayam, % kematian dicegah, biaya alat) | Tabel `settings` |
 
 Selain itu, sampel grafik real-time 30 menit disimpan di `sessionStorage` (`coasther-rt-<roomId>`). Ini hanya cache tampilan dan **tidak** perlu dipindah.
 
@@ -81,6 +84,16 @@ Endpoint ini dipakai untuk:
 - grafik real-time yang langsung terisi saat dibuka, tanpa harus menunggu data terkumpul di browser;
 - "pemakaian hari ini" yang akurat sejak tengah malam (sekarang dihitung sejak pembacaan pertama yang terlihat browser);
 - konsumsi per siklus tanpa perlu angka meter awal/akhir di browser.
+
+Untuk panel **Validasi alat** (Laporan) frontend juga sudah memanggil:
+
+```
+GET /api/iot/health?days=7
+→ [{ room_id, number, expected, received, resent, uptime_pct,
+     gaps: [{ start, end, reason: "wifi" | "padam" | "restart", buffered }] }]
+```
+
+`expected` adalah jumlah paket yang seharusnya masuk (1 per 5 detik), `received` termasuk paket yang dikirim ulang dari offline buffer ESP32, dan `resent` adalah paket yang terlambat karena WiFi putus. Fungsinya ada di `src/lib/device-health-api.ts`. Selama endpoint ini belum ada, panel menampilkan pesan bahwa endpoint dibutuhkan.
 
 ### 3.4 Status relay (prioritas sedang)
 

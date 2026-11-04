@@ -7,7 +7,7 @@ import type { Lease } from "@/types/lease";
 import type { Room } from "@/types/room";
 import type { Meter } from "@/types/meter";
 import { DEMO_USER, getDB, saveDB } from "./db";
-import { isDeviceCommand, liveStatusList, runDeviceCommand, startTicker } from "./runtime";
+import { deviceHealth, isDeviceCommand, liveStatusList, runDeviceCommand, startTicker } from "./runtime";
 import { copilotAnswer } from "./copilot";
 
 class HttpError extends Error {
@@ -212,6 +212,9 @@ async function route(method: string, path: string, params: Body, rawData: unknow
     if (method === "get" && path === "/api/iot/live-status") {
         startTicker();
         return ok(liveStatusList());
+    }
+    if (method === "get" && path === "/api/iot/health") {
+        return ok(deviceHealth(Math.min(30, Math.max(1, Number(params.days ?? 7) || 7))));
     }
     if (method === "post" && (m = path.match(/^\/api\/iot\/relay\/(\d+)$/))) {
         if (!isDeviceCommand(body.command)) throw new HttpError(400, "Perintah tidak dikenal.");

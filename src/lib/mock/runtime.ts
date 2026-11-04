@@ -2,7 +2,9 @@
 // Socket.IO), dan menjalankan perintah dari Alat IoT / Terminal / tombol relay.
 
 import type { LiveStatus } from "@/lib/live-status-api";
+import type { DeviceGap, DeviceHealth } from "@/lib/device-health-api";
 import { getDB, getSim, saveSim } from "./db";
+import { gapsBetween } from "./incidents";
 import { SAMPLE_MS, advanceDevice, fanFailure, liveCycleCtx, takeSample, voltageDip, type DeviceState } from "./simulator";
 
 type Listener = (...args: unknown[]) => void;
@@ -135,6 +137,7 @@ export function runDeviceCommand(roomId: number, command: DeviceCommand): string
             break;
         case "reboot":
             dev.offlineUntil = now + 25_000;
+            dev.reboots = [...(dev.reboots ?? []), now].slice(-20);
             log("WARN", `${tag} Restart diminta, perangkat offline sebentar...`);
             setTimeout(() => {
                 log("SYSTEM", `${tag} Boot OK · WiFi terhubung · MQTT tersambung.`);
@@ -143,6 +146,39 @@ export function runDeviceCommand(roomId: number, command: DeviceCommand): string
     }
     saveSim();
     return `Perintah ${command} terkirim ke ${tag.slice(1, -1)}.`;
+}
+
+/** Keandalan data per alat untuk `days` hari terakhir (endpoint /api/iot/health). */
+export function deviceHealth(days: number): DeviceHealth[] {
+    const now = Date.now();
+    syncDevices(now);
+    const sim = getSim();
+    return getDB().rooms.map((room) => {
+        const from = Math.max(now - days * 86_400_000, Date.parse(room.created_at) || now);
+        const gaps: DeviceGap[] = gapsBetween(room.id, from, now).map((g) => ({
+            start: new Date(g.start).toISOString(),
+            end: new Date(g.end).toISOString(),
+            reason: g.reason,
+            buffered: g.reason === "wifi",
+        }));
+        (sim.devices[room.id]?.reboots ?? []).filter((t) => t >= from).forEach((t) => {
+            gaps.push({ start: new Date(t).toISOString(), end: new Date(t + 25_000).toISOString(), reason: "restart", buffered: false });
+        });
+        const secs = (g: DeviceGap) => (Date.parse(g.end) - Date.parse(g.start)) / 1000;
+        const expected = Math.max(1, Math.round((now - from) / SAMPLE_MS));
+        const lost = Math.round(gaps.filter((g) => !g.buffered).reduce((s, g) => s + secs(g), 0) / (SAMPLE_MS / 1000));
+        const resent = Math.round(gaps.filter((g) => g.buffered).reduce((s, g) => s + secs(g), 0) / (SAMPLE_MS / 1000));
+        const received = expected - lost;
+        return {
+            room_id: room.id,
+            number: room.number,
+            expected,
+            received,
+            resent,
+            uptime_pct: Math.round((received / expected) * 10_000) / 100,
+            gaps: gaps.sort((a, b) => a.start.localeCompare(b.start)),
+        };
+    });
 }
 
 /** Status relay terakhir (alat asli belum melaporkannya; di demo kita tahu). */

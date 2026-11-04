@@ -31,11 +31,11 @@ export default function DashboardShell({ menus, children }: DashboardShellProps)
                     />
 
                     <section className="flex-1 min-w-0">
-                        <DashboardTopbar onMenuClick={() => setDrawerOpen(true)} />
+                        <DashboardTopbar />
                         <div className="space-y-6 p-4 pb-28 sm:p-6 sm:pb-28 lg:pb-6">{children}</div>
                     </section>
                 </div>
-                <MobileBottomNav menus={menus} />
+                <MobileBottomNav menus={menus} moreOpen={drawerOpen} onMoreClick={() => setDrawerOpen((v) => !v)} />
                 <AdminChat />
             </main>
         </GuardMonitorProvider>

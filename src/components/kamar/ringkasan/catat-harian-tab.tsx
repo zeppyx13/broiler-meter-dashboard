@@ -3,8 +3,9 @@
 import Swal from "sweetalert2";
 import { ClipboardPlus, Pencil, Trash2 } from "lucide-react";
 import SectionCard from "@/components/dashboard/section-card";
-import { deleteDailyRecord, localDateKey } from "@/lib/broiler-local-store";
+import { deleteDailyRecord, getDailyWater, localDateKey } from "@/lib/broiler-local-store";
 import type { KandangData } from "./use-kandang-data";
+import WaterFeedCard from "./water-feed-card";
 
 type Props = {
     data: KandangData;
@@ -17,7 +18,7 @@ function dayNumber(date: string, startDate: string) {
 }
 
 export default function CatatHarianTab({ data, onOpenRecord }: Props) {
-    const { activeCycle, cycle, refreshLocal } = data;
+    const { room, activeCycle, cycle, refreshLocal } = data;
 
     if (!activeCycle || !cycle) {
         return (
@@ -65,6 +66,8 @@ export default function CatatHarianTab({ data, onOpenRecord }: Props) {
                 <ClipboardPlus size={20} />
                 {recordedToday ? "Ubah Catatan Hari Ini" : "Catat Hari Ini"}
             </button>
+
+            {room && <WaterFeedCard records={cycle.records} dailyWater={getDailyWater(room.id)} />}
 
             <SectionCard className="overflow-hidden p-0!">
                 {cycle.records.length === 0 ? (

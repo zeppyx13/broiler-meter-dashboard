@@ -109,6 +109,33 @@ describe("data demo", () => {
         expect(months.filter((m) => m.energyKwh > 0).length).toBeGreaterThanOrEqual(3);
     });
 
+    it("keandalan data ≥ 98% dan riwayat kejadian punya waktu deteksi", async () => {
+        const { runtime } = await load();
+        const health = runtime.deviceHealth(7);
+        expect(health).toHaveLength(4);
+        health.forEach((h) => expect(h.uptime_pct).toBeGreaterThanOrEqual(98));
+
+        const { getAlertLog } = await import("@/lib/alert-log");
+        const { guardStats } = await import("@/lib/guard-performance");
+        const log = getAlertLog();
+        expect(log.length).toBeGreaterThan(5);
+        const stats = guardStats(log, NOW.getTime() - 7 * 86_400_000);
+        expect(stats.detectionSec.power!).toBeLessThanOrEqual(60);
+        expect(stats.detectionSec.offline!).toBeLessThanOrEqual(60);
+    });
+
+    it("rasio air : pakan kandang sehat berada di rentang normal", async () => {
+        const { db } = await load();
+        const { getDailyWater, getDailyRecords } = await import("@/lib/broiler-local-store");
+        const { waterFeedSeries } = await import("@/lib/water-feed");
+        const a01 = db.getDB().leases.find((l) => l.room_id === 1 && l.status === "active")!;
+        const series = waterFeedSeries(getDailyRecords(a01.id), getDailyWater(1), 14);
+        expect(series.length).toBeGreaterThanOrEqual(10);
+        const avg = series.reduce((s, p) => s + p.ratio, 0) / series.length;
+        expect(avg).toBeGreaterThan(1.6);
+        expect(avg).toBeLessThan(2.2);
+    });
+
     it("perintah relay & reboot dijalankan oleh alat", async () => {
         const { runtime } = await load();
         runtime.liveStatusList();

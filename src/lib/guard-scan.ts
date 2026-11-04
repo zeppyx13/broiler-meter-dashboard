@@ -5,11 +5,12 @@ import type { GuardSettings } from "@/lib/guard-settings";
 import type { KandangAlert } from "@/lib/kandang-insights";
 import { buildSnapshots, type KandangSnapshot } from "@/lib/kandang-snapshot";
 
-export type RoomAlert = KandangAlert & { roomId: number; roomNumber: string };
+/** `dataAt`: waktu pembacaan alat yang dinilai — dipakai menghitung waktu deteksi. */
+export type RoomAlert = KandangAlert & { roomId: number; roomNumber: string; dataAt?: string };
 
 export function alertsFromSnapshots(snapshots: KandangSnapshot[]): RoomAlert[] {
     return snapshots.flatMap((s) =>
-        s.insights.alerts.map((a) => ({ ...a, roomId: s.room.id, roomNumber: s.room.number }))
+        s.insights.alerts.map((a) => ({ ...a, roomId: s.room.id, roomNumber: s.room.number, dataAt: s.live?.recorded_at }))
     );
 }
 

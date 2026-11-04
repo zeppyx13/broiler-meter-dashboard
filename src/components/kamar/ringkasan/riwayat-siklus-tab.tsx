@@ -171,6 +171,7 @@ export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
                                             r.lastWeightG != null && `bobot terakhir ${num(r.lastWeightG)} g`,
                                             r.waterLiter != null && `air ${num(r.waterLiter)} L`,
                                             r.energyKwh != null && `listrik ${num(r.energyKwh, 1)} kWh`,
+                                            r.waterLiter != null && r.feedKg && `rasio air:pakan ${num(r.waterLiter / r.feedKg, 2)}`,
                                             `${r.recordCount} catatan harian`,
                                         ].filter(Boolean).join(" · ")}
                                     </p>

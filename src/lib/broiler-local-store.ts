@@ -202,6 +202,12 @@ export function getTodayUsage(roomId: number, currentWaterLiter?: number, curren
 
     if (!stored || stored.date !== today || meterReset) {
         const now = new Date();
+        // Hari berganti: pemakaian kemarin = selisih dari pembacaan pertama kemarin,
+        // dinormalkan ke 24 jam (bila jaraknya wajar). Dipakai rasio air : pakan.
+        if (stored && stored.date !== today && !meterReset && stored.at) {
+            const hours = (now.getTime() - new Date(stored.at).getTime()) / 3_600_000;
+            if (hours >= 20 && hours <= 30) recordDailyWater(roomId, stored.date, ((currentWaterLiter - stored.waterLiter) * 24) / hours, false);
+        }
         writeJSON(key, { date: today, at: now.toISOString(), waterLiter: currentWaterLiter, energyKwh: currentEnergyKwh });
         return { waterTodayLiter: 0, energyTodayKwh: 0, since: now, ready: true };
     }
@@ -212,6 +218,26 @@ export function getTodayUsage(roomId: number, currentWaterLiter?: number, curren
         since: stored.at ? new Date(stored.at) : new Date(`${stored.date}T00:00:00`),
         ready: true,
     };
+}
+
+// ── Air per hari (untuk rasio air : pakan) ─────────────────────────────────
+
+const DAILY_WATER_PREFIX = "coasther_daily_water_";
+const DAILY_WATER_KEEP_DAYS = 90;
+
+/** Liter air per tanggal (YYYY-MM-DD) untuk satu kandang. */
+export function getDailyWater(roomId: number): Record<string, number> {
+    return readJSON<Record<string, number>>(`${DAILY_WATER_PREFIX}${roomId}`) ?? {};
+}
+
+/** Simpan pemakaian air satu hari. `overwrite=false` → tidak menimpa angka yang sudah ada. */
+export function recordDailyWater(roomId: number, date: string, liters: number, overwrite = true) {
+    if (!Number.isFinite(liters) || liters < 0) return;
+    const data = getDailyWater(roomId);
+    if (!overwrite && data[date] != null) return;
+    data[date] = Math.round(liters * 10) / 10;
+    const kept = Object.keys(data).sort().slice(-DAILY_WATER_KEEP_DAYS);
+    writeJSON(`${DAILY_WATER_PREFIX}${roomId}`, Object.fromEntries(kept.map((d) => [d, data[d]])));
 }
 
 // ── Cadangan ───────────────────────────────────────────────────────────────

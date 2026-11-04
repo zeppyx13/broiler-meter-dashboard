@@ -8,7 +8,8 @@ import type { Lease } from "@/types/lease";
 import type { Meter } from "@/types/meter";
 import type { Tenant } from "@/types/tenant";
 import type { Tariff } from "@/lib/tariff-api";
-import { localDateKey, type CycleExtra, type DailyRecord, type RoomExtra } from "@/lib/broiler-local-store";
+import { getExpectedPowerKw, localDateKey, type CycleExtra, type DailyRecord, type RoomExtra } from "@/lib/broiler-local-store";
+import { seedAlertHistory, seedCalibrations } from "./seed-events";
 import {
     DAY_MS, advanceDevice, ageAt, cumulativeMortality, mulberry32, round, templateEquipment,
     type CycleCtx, type DeviceState, type SimState,
@@ -19,7 +20,7 @@ const SIM_KEY = "coasther-demo-sim";
 /** Data lokal milik backend asli yang disisihkan saat demo pertama kali dibuat. */
 export const BACKUP_KEY = "coasther-backup-before-demo";
 // Naikkan bila bentuk data seed berubah → data demo dibuat ulang.
-const DEMO_VERSION = 2;
+const DEMO_VERSION = 3;
 
 export type DemoDB = {
     version: number;
@@ -251,7 +252,8 @@ function makeRecords(c: PlannedCycle, now: number): DailyRecord[] {
             date: dateKey(c.startMs + d * DAY_MS),
             dead,
             culled,
-            feed_kg: Math.round((feedIntakeG(d) * alive * (1.02 - (c.perf - 1) * 0.6)) / 1000),
+            // Pakan ditimbang per setengah kilo (karung 50 kg dibagi ember takar).
+            feed_kg: Math.round(((feedIntakeG(d) * alive * (1.02 - (c.perf - 1) * 0.6)) / 1000) * 2) / 2,
         };
         if (d % 7 === 0 || isFinal) record.avg_weight_g = Math.round(weightAt(d) * c.perf * (0.98 + rand() * 0.04));
         if (dead >= Math.max(3, alive * 0.005)) record.note = "Kematian di atas biasa, sudah dicek suhu brooder & tempat minum.";
@@ -270,7 +272,7 @@ function seed() {
     const stale: string[] = [];
     for (let i = 0; i < window.localStorage.length; i++) {
         const key = window.localStorage.key(i);
-        if (key && /^coasther_(room_extra|cycle_extra|daily_records|daily_baseline|alert_log)/.test(key)) stale.push(key);
+        if (key && /^coasther_(room_extra|cycle_extra|daily_records|daily_baseline|daily_water|alert_log|calibration)/.test(key)) stale.push(key);
     }
     if (stale.length > 0 && !window.localStorage.getItem(BACKUP_KEY)) {
         const data = Object.fromEntries(stale.map((k) => [k, read(k)]));
@@ -362,6 +364,13 @@ function seed() {
         });
         devices[p.id] = dev;
     });
+
+    // Riwayat peringatan 7 hari & uji kalibrasi yang sudah dilakukan.
+    const activeKandang = planned
+        .filter((c) => c.endMs == null)
+        .map((c) => ({ roomId: c.room.id, number: c.room.number, startMs: c.startMs, expectedKw: getExpectedPowerKw(read<RoomExtra>(`coasther_room_extra_${c.room.id}`) ?? {}) ?? 0.1 }));
+    write("coasther_alert_log", seedAlertHistory(activeKandang, now));
+    write("coasther_calibration", seedCalibrations(now));
 
     const meters: Meter[] = PLANS.flatMap((p, i) => (["water", "electricity"] as const).map((type, j) => ({
         id: i * 2 + j + 1,

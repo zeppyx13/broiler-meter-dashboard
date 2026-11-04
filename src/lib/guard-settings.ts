@@ -21,7 +21,9 @@ export const DEFAULT_GUARD_SETTINGS: GuardSettings = {
     waterLeakPct: 40,
     powerWarnPct: 15,
     powerCritPct: 30,
-    offlineMinutes: 2,
+    // Alat mengirim tiap ±5 detik. 45 detik tanpa data + jeda pemeriksaan ±10 detik
+    // → padam terdeteksi < 1 menit (target proposal).
+    offlineMinutes: 0.75,
     voltageMin: 198,
     voltageMax: 231,
     notifyBrowser: false,

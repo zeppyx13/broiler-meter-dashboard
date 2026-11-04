@@ -18,7 +18,15 @@ export type LoggedAlert = {
     lastSeen: string;
     resolvedAt?: string;
     acknowledgedAt?: string;
+    /**
+     * Detik dari data alat ke peringatan muncul. Untuk "offline" = lama tanpa data
+     * sampai Guard menyimpulkan perangkat/listrik mati. Hanya untuk aturan seketika.
+     */
+    detectionSec?: number;
 };
+
+/** Aturan yang dinilai dari satu pembacaan (bukan akumulasi harian seperti air). */
+export const INSTANT_ALERT_IDS = ["offline", "power", "voltage"] as const;
 
 const KEY = "coasther_alert_log";
 const MAX_RESOLVED = 200;
@@ -79,6 +87,10 @@ export function reconcileAlerts(current: RoomAlert[], now = new Date()): { log: 
                 tier: alert.tier, title: alert.title, detail: alert.detail, action: alert.action,
                 firstSeen: nowIso, lastSeen: nowIso,
             };
+            if (alert.dataAt && (INSTANT_ALERT_IDS as readonly string[]).includes(alert.id)) {
+                const sec = (now.getTime() - new Date(alert.dataAt).getTime()) / 1000;
+                if (sec >= 0 && sec < 3600) entry.detectionSec = Math.round(sec);
+            }
             log.push(entry);
             raised.push(entry);
         }

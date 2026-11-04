@@ -14,7 +14,12 @@ Dashboard admin untuk **satu peternak** yang memantau air minum dan listrik tiap
   - **Mulai / Tutup Siklus** — Chick-in (populasi awal, strain, target panen) sampai panen.
 - **Guard** — Peringatan berjenjang (info/waspada/kritis) dengan notifikasi browser & suara: air turun atau naik dari pola normal, daya di bawah daya seharusnya (kipas mati), perangkat offline, tegangan tidak stabil, PF rendah, lewat target panen, catatan harian belum diisi.
 - **Copilot** — Chat AI yang otomatis menerima ringkasan kondisi kandang & peringatan aktif; tombol *Tanya Copilot* di setiap kartu peringatan.
-- **Laporan** — Laporan efisiensi per kandang (air & listrik per ekor, biaya energi siklus, proyeksi) yang bisa dicetak/PDF.
+- **Rasio air : pakan** — Grafik harian di Catat Harian (liter air dari meter ÷ kg pakan), dengan pita normal 1,6–2,2 dan saran saat rendah atau tinggi.
+- **Linimasa kejadian** — Di Peringatan → Linimasa: kejadian 7 hari terakhir dengan waktu deteksi, waktu dicek peternak, dan lama kejadian.
+- **Laporan**:
+  - Laporan efisiensi per kandang (air & listrik per ekor, biaya energi siklus, proyeksi) yang bisa dicetak/PDF.
+  - **Dampak & balik modal**: nilai kematian yang dicegah per siklus vs biaya perangkat, dengan asumsi yang bisa diubah dan tabel sensitivitas.
+  - **Validasi alat** mengikuti Tabel 4 proposal: akurasi sensor (form uji kalibrasi), keandalan data (≥ 98% diterima), respons Guard (target vs terukur), dan status uji lapangan.
 - **Pengaturan** — Profil peternak, ambang Guard & notifikasi, tarif listrik & air, cadangkan/impor data lokal.
 - **Teknis** — Alat IoT (meter & kontrol relay) dan IoT Terminal.
 - **Bisa dipasang di HP** — Manifest PWA (ikon di layar utama, tampilan tanpa address bar).
@@ -43,7 +48,14 @@ Secara default dashboard berjalan **tanpa backend**. Semua pemanggilan API (`src
 
 - Skala peternak UMKM: 4 kandang panggung/postal, yaitu A01 (600 ekor, hari ke-23), A02 (350, hari ke-31), B01 (250, hari ke-9, masa brooding), dan B02 (istirahat). Peralatannya bohlam brooder 100 W, LED 10 W, dan kipas dinding ±45 W. Listrik rumah tangga Rp 1.444,70/kWh (1.300–2.200 VA), total beban < 1 kW, dan tagihan ±Rp 500–600 rb/bulan. Masing-masing punya riwayat ±3 siklus sebelumnya beserta catatan harian, FCR, dan IP.
 - Telemetri bergerak setiap 5 detik. Air mengikuti kurva hari umur × populasi, dan daya mengikuti peralatan & relay. Meter terus bertambah, termasuk saat tab ditutup.
-- Kejadian terjadwal untuk Guard: kipas A01 trip ±18 menit tiap 4 jam (kritis), tegangan B01 turun ±10 menit tiap 2 jam (waspada), dan air minum A02 sedikit di bawah pola (waspada).
+- Kejadian terjadwal untuk Guard:
+  - kipas A01 trip tiap hari 13.40–13.58 (kritis);
+  - tegangan B01 turun saat beban puncak 18.20–18.35 (waspada);
+  - air minum A02 sedikit di bawah pola (waspada, rasio air:pakan ±1,5);
+  - WiFi kandang putus 2–4 menit di sebagian hari;
+  - listrik padam sesekali di hari-hari sebelumnya.
+
+  Riwayat 7 hari terakhir dan uji kalibrasi sudah terisi.
 - Semua fitur bisa dipakai: login (email & password apa saja), tambah/ubah/hapus kandang, mulai/tutup siklus, catat harian, relay & perintah Terminal, Copilot, tarif, dan profil.
 - Data tersimpan di browser. *Pengaturan → Reset data demo* mengembalikan semuanya ke kondisi awal.
 

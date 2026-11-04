@@ -5,6 +5,7 @@ import Link from "next/link";
 import Swal from "sweetalert2";
 import { ShieldCheck, ChevronRight, Check, BellOff, Bot } from "lucide-react";
 import { askCopilot } from "@/lib/copilot-context";
+import KejadianTimeline from "./kejadian-timeline";
 import { useGuard } from "@/components/dashboard/guard/guard-monitor";
 import { getGuardSettings } from "@/lib/guard-settings";
 import { notificationSupported } from "@/lib/alert-notify";
@@ -33,6 +34,8 @@ export default function PeringatanSection() {
     const { ready, error, active, history, counts, acknowledge, clearHistory } = useGuard();
     const [tab, setTab] = useState<"aktif" | "riwayat">("aktif");
     const [notifyOff, setNotifyOff] = useState(false);
+    // Jendela linimasa: 7 hari terakhir sejak halaman dibuka.
+    const [sinceMs] = useState(() => Date.now() - 7 * 86_400_000);
 
     useEffect(() => {
         const s = getGuardSettings();
@@ -85,7 +88,7 @@ export default function PeringatanSection() {
                         suppressHydrationWarning
                         className={`flex-1 rounded-xl px-5 py-2.5 font-inter text-sm font-medium transition sm:flex-none ${tab === t ? "bg-[#7B1113] text-white" : "text-[#666] hover:bg-[#F8F8F8]"}`}
                     >
-                        {t === "aktif" ? `Aktif (${active.length})` : "Riwayat"}
+                        {t === "aktif" ? `Aktif (${active.length})` : "Linimasa"}
                     </button>
                 ))}
             </div>
@@ -117,33 +120,16 @@ export default function PeringatanSection() {
                 </div>
             ))}
 
-            {tab === "riwayat" && (history.length === 0 ? (
-                <div className="rounded-3xl border border-[#EAEAEA] bg-white px-6 py-14 text-center">
-                    <p className="font-inter text-sm text-[#999]">Belum ada peringatan yang selesai.</p>
-                </div>
-            ) : (
+            {tab === "riwayat" && (
                 <>
-                    <div className="divide-y divide-[#F0F0F0] overflow-hidden rounded-3xl border border-[#EAEAEA] bg-white">
-                        {history.map((a) => (
-                            <Link key={`${a.key}-${a.firstSeen}`} href={`/dashboard/kamar/${a.roomId}`} className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-[#FAFAFA]">
-                                <div className="min-w-0">
-                                    <p className="font-inter text-sm text-[#2F2F2F]">
-                                        <span className={`mr-2 rounded-full px-2 py-0.5 text-[11px] font-semibold ${ALERT_TIER_STYLE[a.tier].badge}`}>{ALERT_TIER_STYLE[a.tier].label}</span>
-                                        <span className="font-semibold">Kandang {a.roomNumber}</span> · {a.title}
-                                    </p>
-                                    <p className="mt-1 font-inter text-xs text-[#999]">
-                                        {new Date(a.firstSeen).toLocaleDateString("id-ID", { day: "2-digit", month: "short" })} · {clock(a.firstSeen)}–{clock(a.resolvedAt!)} · {duration(a.firstSeen, a.resolvedAt)}
-                                    </p>
-                                </div>
-                                <ChevronRight size={16} className="shrink-0 text-[#CCC]" />
-                            </Link>
-                        ))}
-                    </div>
-                    <button onClick={handleClearHistory} suppressHydrationWarning className="font-inter text-sm text-[#999] hover:text-[#B42318]">
-                        Hapus riwayat
-                    </button>
+                    <KejadianTimeline active={active} history={history} sinceMs={sinceMs} />
+                    {history.length > 0 && (
+                        <button onClick={handleClearHistory} suppressHydrationWarning className="font-inter text-sm text-[#999] hover:text-[#B42318]">
+                            Hapus riwayat
+                        </button>
+                    )}
                 </>
-            ))}
+            )}
         </div>
     );
 }

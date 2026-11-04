@@ -147,6 +147,7 @@ export default function GuardSettingsCard() {
                                             type="number"
                                             inputMode="decimal"
                                             min={0}
+                                            step="any"
                                             value={form[f.key]}
                                             onChange={(e) => setForm({ ...form, [f.key]: Number(e.target.value) })}
                                             suppressHydrationWarning
