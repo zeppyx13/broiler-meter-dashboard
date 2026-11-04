@@ -22,6 +22,11 @@ export const metadata = {
     ],
     apple: "/coasther.png",
   },
+  appleWebApp: { capable: true, title: "Coasther", statusBarStyle: "default" as const },
+};
+
+export const viewport = {
+  themeColor: "#7B1113",
 };
 
 export default function RootLayout({

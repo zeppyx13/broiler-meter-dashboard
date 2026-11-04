@@ -1,12 +1,3 @@
-import type { LucideIcon } from "lucide-react";
-
-export type StatItem = {
-    title: string;
-    value: string;
-    desc: string;
-    icon: LucideIcon;
-};
-
 export type SidebarIconName = "home" | "kandang" | "alert" | "report" | "settings" | "cpu" | "terminal";
 
 export type SidebarMenuItem = {

@@ -12,6 +12,7 @@ import { getCycleState, setRoomExtra, type RoomExtra } from "@/lib/broiler-local
 import { ageDaysFromChickIn, isTelemetryFresh } from "@/lib/broiler-reference";
 import type { RoomFormPayload } from "@/types/room";
 import RoomFormModal from "./room-form-modal";
+import { apiErrorMessage } from "@/lib/api-error";
 
 type Filter = "all" | "aktif" | "istirahat";
 
@@ -64,8 +65,8 @@ export default function RoomOverviewSection() {
             queryClient.invalidateQueries({ queryKey: ["rooms"] });
             setFormOpen(false);
             Swal.fire({ icon: "success", title: "Kandang ditambahkan", timer: 1300, showConfirmButton: false });
-        } catch (err: any) {
-            Swal.fire({ icon: "error", title: "Gagal menyimpan", text: err?.response?.data?.message || "Terjadi kesalahan.", confirmButtonColor: "#7B1113" });
+        } catch (err) {
+            Swal.fire({ icon: "error", title: "Gagal menyimpan", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
         }
     }
 

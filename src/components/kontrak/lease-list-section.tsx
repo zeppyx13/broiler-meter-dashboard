@@ -8,6 +8,7 @@ import LeaseTable from "./lease-table";
 import LeaseFormModal from "./lease-form-modal";
 import { getLeases, updateLease, deleteLease } from "@/lib/lease-api";
 import type { Lease, LeaseUpdatePayload } from "@/types/lease";
+import { apiErrorMessage } from "@/lib/api-error";
 
 const LIMIT = 10;
 
@@ -49,8 +50,8 @@ export default function LeaseListSection() {
             await deleteLease(lease.id);
             invalidateCycleQueries(queryClient);
             Swal.fire({ icon: "success", title: "Siklus dihapus", timer: 1500, showConfirmButton: false });
-        } catch (err: any) {
-            Swal.fire({ icon: "error", title: "Gagal menghapus", text: err?.response?.data?.message || "Terjadi kesalahan.", confirmButtonColor: "#7B1113" });
+        } catch (err) {
+            Swal.fire({ icon: "error", title: "Gagal menghapus", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
         }
     }
 
@@ -61,8 +62,8 @@ export default function LeaseListSection() {
             invalidateCycleQueries(queryClient);
             setEditData(null);
             Swal.fire({ icon: "success", title: "Siklus diperbarui", timer: 1500, showConfirmButton: false });
-        } catch (err: any) {
-            Swal.fire({ icon: "error", title: "Gagal menyimpan", text: err?.response?.data?.message || "Terjadi kesalahan.", confirmButtonColor: "#7B1113" });
+        } catch (err) {
+            Swal.fire({ icon: "error", title: "Gagal menyimpan", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
         }
     }, [editData, queryClient]);
 

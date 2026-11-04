@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Swal from "sweetalert2";
 import { getDailyRecords, localDateKey, upsertDailyRecord } from "@/lib/broiler-local-store";
 import { CancelButton, Field, ModalShell, NumberStepper, PrimaryButton, inputClass } from "./form-parts";
@@ -14,50 +14,57 @@ type Props = {
     onSaved: () => void;
 };
 
-export default function DailyRecordModal({ open, onClose, leaseId, startDate, initialDate, onSaved }: Props) {
-    const [date, setDate] = useState(localDateKey());
-    const [dead, setDead] = useState(0);
-    const [culled, setCulled] = useState(0);
-    const [weight, setWeight] = useState("");
-    const [feed, setFeed] = useState("");
-    const [note, setNote] = useState("");
-    const [isExisting, setIsExisting] = useState(false);
+type FormValues = {
+    date: string;
+    isExisting: boolean;
+    dead: number;
+    culled: number;
+    weight: string;
+    feed: string;
+    note: string;
+};
 
-    useEffect(() => {
-        if (open) setDate(initialDate ?? localDateKey());
-    }, [open, initialDate]);
+/** Isi form dari catatan yang sudah ada di tanggal itu (mode edit), atau kosong. */
+function loadForm(leaseId: number, date: string): FormValues {
+    const existing = getDailyRecords(leaseId).find((r) => r.date === date);
+    return {
+        date,
+        isExisting: Boolean(existing),
+        dead: existing?.dead ?? 0,
+        culled: existing?.culled ?? 0,
+        weight: existing?.avg_weight_g != null ? String(existing.avg_weight_g) : "",
+        feed: existing?.feed_kg != null ? String(existing.feed_kg) : "",
+        note: existing?.note ?? "",
+    };
+}
 
-    // Ganti tanggal → muat catatan yang sudah ada di tanggal itu (mode edit).
-    useEffect(() => {
-        if (!open) return;
-        const existing = getDailyRecords(leaseId).find((r) => r.date === date);
-        setIsExisting(Boolean(existing));
-        setDead(existing?.dead ?? 0);
-        setCulled(existing?.culled ?? 0);
-        setWeight(existing?.avg_weight_g != null ? String(existing.avg_weight_g) : "");
-        setFeed(existing?.feed_kg != null ? String(existing.feed_kg) : "");
-        setNote(existing?.note ?? "");
-    }, [open, date, leaseId]);
+export default function DailyRecordModal(props: Props) {
+    // Form dilepas saat modal ditutup, jadi setiap dibuka mulai dari data terbaru.
+    if (!props.open) return null;
+    return <DailyRecordForm {...props} />;
+}
+
+function DailyRecordForm({ onClose, leaseId, startDate, initialDate, onSaved }: Props) {
+    const [form, setForm] = useState(() => loadForm(leaseId, initialDate ?? localDateKey()));
+    const set = <K extends keyof FormValues>(key: K, value: FormValues[K]) => setForm((f) => ({ ...f, [key]: value }));
 
     function handleSave() {
         upsertDailyRecord(leaseId, {
-            date,
-            dead,
-            culled,
-            avg_weight_g: weight ? Number(weight) : undefined,
-            feed_kg: feed ? Number(feed) : undefined,
-            note: note.trim() || undefined,
+            date: form.date,
+            dead: form.dead,
+            culled: form.culled,
+            avg_weight_g: form.weight ? Number(form.weight) : undefined,
+            feed_kg: form.feed ? Number(form.feed) : undefined,
+            note: form.note.trim() || undefined,
         });
         onSaved();
         onClose();
         Swal.fire({ icon: "success", title: "Catatan tersimpan", timer: 1200, showConfirmButton: false });
     }
 
-    if (!open) return null;
-
     return (
         <ModalShell
-            title={isExisting ? "Ubah Catatan Harian" : "Catat Harian"}
+            title={form.isExisting ? "Ubah Catatan Harian" : "Catat Harian"}
             subtitle="Deplesi dipakai untuk menghitung populasi dan konsumsi per ekor."
             onClose={onClose}
             footer={
@@ -70,10 +77,10 @@ export default function DailyRecordModal({ open, onClose, leaseId, startDate, in
             <Field label="Tanggal" required>
                 <input
                     type="date"
-                    value={date}
+                    value={form.date}
                     min={startDate.slice(0, 10)}
                     max={localDateKey()}
-                    onChange={(e) => setDate(e.target.value)}
+                    onChange={(e) => setForm(loadForm(leaseId, e.target.value))}
                     suppressHydrationWarning
                     className={inputClass}
                 />
@@ -81,10 +88,10 @@ export default function DailyRecordModal({ open, onClose, leaseId, startDate, in
 
             <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Ayam mati (ekor)">
-                    <NumberStepper value={dead} onChange={setDead} />
+                    <NumberStepper value={form.dead} onChange={(v) => set("dead", v)} />
                 </Field>
                 <Field label="Afkir / culling (ekor)">
-                    <NumberStepper value={culled} onChange={setCulled} />
+                    <NumberStepper value={form.culled} onChange={(v) => set("culled", v)} />
                 </Field>
             </div>
 
@@ -94,8 +101,8 @@ export default function DailyRecordModal({ open, onClose, leaseId, startDate, in
                         type="number"
                         inputMode="decimal"
                         min={0}
-                        value={weight}
-                        onChange={(e) => setWeight(e.target.value)}
+                        value={form.weight}
+                        onChange={(e) => set("weight", e.target.value)}
                         placeholder="cth. 850"
                         suppressHydrationWarning
                         className={inputClass}
@@ -106,8 +113,8 @@ export default function DailyRecordModal({ open, onClose, leaseId, startDate, in
                         type="number"
                         inputMode="decimal"
                         min={0}
-                        value={feed}
-                        onChange={(e) => setFeed(e.target.value)}
+                        value={form.feed}
+                        onChange={(e) => set("feed", e.target.value)}
                         placeholder="cth. 450"
                         suppressHydrationWarning
                         className={inputClass}
@@ -118,8 +125,8 @@ export default function DailyRecordModal({ open, onClose, leaseId, startDate, in
             <Field label="Catatan">
                 <textarea
                     rows={2}
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
+                    value={form.note}
+                    onChange={(e) => set("note", e.target.value)}
                     placeholder="Opsional — cth. ayam lesu di sisi barat, nipple bocor"
                     className={`${inputClass} resize-none`}
                 />

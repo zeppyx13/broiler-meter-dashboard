@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Swal from "sweetalert2";
 import { Fan, Lightbulb, Flame, Droplets, Plug, Plus, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -24,15 +24,10 @@ function newId() {
 
 export default function PeralatanTab({ data }: { data: KandangData }) {
     const { room, roomExtra, live, insights, refreshLocal } = data;
-    const [items, setItems] = useState<Equipment[]>([]);
-    const [manualKw, setManualKw] = useState("");
+    // Tab dipasang ulang setiap dibuka, jadi cukup diisi dari data tersimpan saat pertama render.
+    const [items, setItems] = useState<Equipment[]>(() => roomExtra.equipment ?? []);
+    const [manualKw, setManualKw] = useState(() => (roomExtra.expected_power_kw != null ? String(roomExtra.expected_power_kw) : ""));
     const [dirty, setDirty] = useState(false);
-
-    useEffect(() => {
-        setItems(roomExtra.equipment ?? []);
-        setManualKw(roomExtra.expected_power_kw != null ? String(roomExtra.expected_power_kw) : "");
-        setDirty(false);
-    }, [roomExtra]);
 
     if (!room) return null;
 

@@ -3,18 +3,13 @@
 import { useState, useRef, useEffect } from "react";
 import { MessageSquare, X, Send, LoaderCircle, Bot, User, Trash2 } from "lucide-react";
 import { sendAdminChat, type ChatMessage } from "@/lib/admin-chat-api";
+import { renderSafeMarkdown } from "@/lib/safe-markdown";
+import { usePathname } from "next/navigation";
+import { buildFarmContext, COPILOT_ASK_EVENT, focusRoomIdFromPath, KANDANG_QUESTIONS } from "@/lib/copilot-context";
+import { useGuard } from "../guard/guard-monitor";
+import { apiErrorMessage } from "@/lib/api-error";
 
-// Render markdown sederhana — bold, bullet, newline
-function renderMarkdown(text: string) {
-    return text
-        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\*(.*?)\*/g, "<em>$1</em>")
-        .replace(/^[\*\-] (.+)$/gm, "<li>$1</li>")
-        .replace(/(<li>[\s\S]*<\/li>)/g, "<ul>$1</ul>")
-        .replace(/\n/g, "<br/>");
-}
-
-const SUGGESTED_QUESTIONS = [
+const FARM_QUESTIONS = [
     "Kandang mana yang konsumsi airnya paling tidak normal hari ini?",
     "Siklus mana yang sebentar lagi panen?",
     "Berikan ringkasan pemakaian listrik dan biaya energi bulan ini",
@@ -28,15 +23,20 @@ export default function AdminChat() {
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
+    const { snapshots, active } = useGuard();
+    // Di halaman detail kandang, Copilot otomatis fokus ke kandang tersebut.
+    const focusRoomId = focusRoomIdFromPath(usePathname());
+    const focusRoom = focusRoomId != null ? snapshots.find((s) => s.room.id === focusRoomId)?.room : undefined;
+    const suggestions = focusRoomId != null ? KANDANG_QUESTIONS : FARM_QUESTIONS;
 
     useEffect(() => {
-        if (open && messages.length === 0) {
-            setMessages([{
-                role: "assistant",
-                content: "Halo! Saya Copilot Coasther. Saya bisa bantu menjelaskan kondisi kandang, konsumsi air & listrik, dan biaya energi siklus. Apa yang ingin Anda ketahui?",
-                timestamp: new Date().toISOString(),
-            }]);
-        }
+        if (!open) return;
+        // Sapaan selalu di urutan pertama — pertanyaan dari tombol "Tanya Copilot" bisa masuk lebih dulu.
+        setMessages((prev) => prev[0]?.role === "assistant" ? prev : [{
+            role: "assistant",
+            content: "Halo! Saya Copilot Coasther. Saya bisa bantu menjelaskan kondisi kandang, konsumsi air & listrik, dan biaya energi siklus. Apa yang ingin Anda ketahui?",
+            timestamp: new Date().toISOString(),
+        }, ...prev]);
     }, [open]);
 
     useEffect(() => {
@@ -46,6 +46,19 @@ export default function AdminChat() {
     useEffect(() => {
         if (open) inputRef.current?.focus();
     }, [open]);
+
+    // Tombol "Tanya Copilot" di halaman lain (kartu peringatan, detail kandang).
+    const handleSendRef = useRef<(q: string) => void>(() => {});
+    useEffect(() => {
+        const onAsk = (e: Event) => {
+            const question = (e as CustomEvent<{ question?: string }>).detail?.question;
+            setOpen(true);
+            if (question) handleSendRef.current(question);
+            else setTimeout(() => inputRef.current?.focus(), 0);
+        };
+        window.addEventListener(COPILOT_ASK_EVENT, onAsk);
+        return () => window.removeEventListener(COPILOT_ASK_EVENT, onAsk);
+    }, []);
 
     async function handleSend(question?: string) {
         const text = (question ?? input).trim();
@@ -66,7 +79,9 @@ export default function AdminChat() {
                 .slice(1)
                 .map((m) => ({ role: m.role, content: m.content }));
 
-            const result = await sendAdminChat(text, historyToSend);
+            // Konteks hanya ikut dikirim, tidak ditampilkan di gelembung chat.
+            const context = buildFarmContext(snapshots, active, focusRoomId);
+            const result = await sendAdminChat(context ? `${context}\n\nPertanyaan: ${text}` : text, historyToSend);
 
             setMessages((prev) => [
                 ...prev,
@@ -76,8 +91,8 @@ export default function AdminChat() {
                     timestamp: result.timestamp,
                 },
             ]);
-        } catch (err: any) {
-            console.error("[AdminChat] Error:", err?.response?.data || err.message);
+        } catch (err) {
+            console.error("[AdminChat] Error:", apiErrorMessage(err));
             setMessages((prev) => [
                 ...prev,
                 {
@@ -90,6 +105,10 @@ export default function AdminChat() {
             setLoading(false);
         }
     }
+
+    useEffect(() => {
+        handleSendRef.current = handleSend;
+    });
 
     function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
         if (e.key === "Enter" && !e.shiftKey) {
@@ -129,10 +148,10 @@ export default function AdminChat() {
 
             {/* Chat panel */}
             {open && (
-                <div className="fixed bottom-40 left-4 right-4 z-50 flex flex-col overflow-hidden rounded-3xl border border-[#EAEAEA] bg-white shadow-2xl sm:left-auto sm:w-96 lg:bottom-24 lg:right-6">
+                <div className="fixed bottom-40 left-4 right-4 z-50 flex max-h-[calc(100dvh-11rem)] flex-col overflow-hidden rounded-3xl border border-[#EAEAEA] bg-white shadow-2xl sm:left-auto sm:w-96 lg:bottom-24 lg:right-6 lg:max-h-[calc(100dvh-7.5rem)]">
 
                     {/* Header */}
-                    <div className="flex items-center justify-between bg-[#7B1113] px-5 py-4">
+                    <div className="flex shrink-0 items-center justify-between bg-[#7B1113] px-5 py-4">
                         <div className="flex items-center gap-3">
                             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20">
                                 <Bot size={18} className="text-white" />
@@ -142,7 +161,7 @@ export default function AdminChat() {
                                     Copilot Coasther
                                 </p>
                                 <p className="font-inter text-xs text-white/70">
-                                    Asisten kandang broiler
+                                    {focusRoom ? `Fokus: Kandang ${focusRoom.number}` : "Semua kandang"}
                                 </p>
                             </div>
                         </div>
@@ -157,7 +176,8 @@ export default function AdminChat() {
                     </div>
 
                     {/* Messages */}
-                    <div className="flex h-96 flex-col gap-3 overflow-y-auto px-4 py-4">
+                    {/* Area pesan menyusut lebih dulu bila layar pendek, header & input tetap terlihat. */}
+                    <div className="flex h-96 min-h-24 flex-col gap-3 overflow-y-auto px-4 py-4">
                         {messages.map((msg, i) => (
                             <div
                                 key={i}
@@ -181,7 +201,7 @@ export default function AdminChat() {
                                     }`}>
                                     {msg.role === "assistant" ? (
                                         <div
-                                            dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+                                            dangerouslySetInnerHTML={{ __html: renderSafeMarkdown(msg.content) }}
                                             className="[&_ul]:mt-1 [&_ul]:space-y-1 [&_li]:ml-3 [&_li]:list-disc"
                                         />
                                     ) : (
@@ -211,10 +231,10 @@ export default function AdminChat() {
 
                     {/* Suggested questions — hanya tampil saat baru mulai */}
                     {messages.length <= 1 && !loading && (
-                        <div className="border-t border-[#EAEAEA] px-4 py-3">
+                        <div className="max-h-40 shrink-0 overflow-y-auto border-t border-[#EAEAEA] px-4 py-3">
                             <p className="mb-2 font-inter text-xs text-[#999]">Pertanyaan populer:</p>
                             <div className="flex flex-wrap gap-1.5">
-                                {SUGGESTED_QUESTIONS.map((q) => (
+                                {suggestions.map((q) => (
                                     <button
                                         key={q}
                                         onClick={() => handleSend(q)}
@@ -229,7 +249,7 @@ export default function AdminChat() {
                     )}
 
                     {/* Input */}
-                    <div className="border-t border-[#EAEAEA] px-4 py-3">
+                    <div className="shrink-0 border-t border-[#EAEAEA] px-4 py-3">
                         <div className="flex items-end gap-2">
                             <textarea
                                 ref={inputRef}

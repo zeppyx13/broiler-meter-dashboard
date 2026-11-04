@@ -1,18 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import {
     ComposedChart, Line, ReferenceDot, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
-    Droplets, Zap, Wallet, TrendingUp, ShieldAlert, Leaf, Lightbulb, Send, LoaderCircle, Bot, AlertCircle, ChevronRight,
+    Droplets, Zap, Wallet, TrendingUp, ShieldAlert, Leaf, Lightbulb, Bot, AlertCircle, ChevronRight, MessageSquare,
 } from "lucide-react";
 import SectionCard from "@/components/dashboard/section-card";
-import { sendAdminChat } from "@/lib/admin-chat-api";
+import { askCopilot, KANDANG_QUESTIONS } from "@/lib/copilot-context";
 import { expectedWaterRangeLPerDay, formatRupiah, type DeviationTier } from "@/lib/broiler-reference";
 import { ALERT_TIER_STYLE } from "@/components/peringatan/peringatan-section";
 import type { KandangData } from "./use-kandang-data";
+import RealtimeCharts from "./realtime-charts";
 
 const TONE_TEXT: Record<DeviationTier, string> = {
     kritis: "text-red-600",
@@ -54,34 +55,6 @@ export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }:
         && cycleUsage.since.getTime() - new Date(activeCycle.start_date).getTime() > 36 * 3_600_000
         ? `sejak ${cycleUsage.since.toLocaleDateString("id-ID", { day: "2-digit", month: "short" })}`
         : null;
-
-    // ── Copilot ──
-    const [copilotInput, setCopilotInput] = useState("");
-    const [copilotAnswer, setCopilotAnswer] = useState<string | null>(null);
-    const [copilotLoading, setCopilotLoading] = useState(false);
-
-    async function askCopilot(question: string) {
-        if (!question.trim() || copilotLoading) return;
-        setCopilotLoading(true);
-        setCopilotAnswer(null);
-        try {
-            const facts = [
-                `Kandang ${room?.number}`,
-                ageDays != null && `siklus hari ke-${ageDays}`,
-                populationNow && `populasi ${populationNow} ekor`,
-                cycle?.extra.strain && `strain ${cycle.extra.strain}`,
-                insights.waterPerBirdPace != null && `laju air ${insights.waterPerBirdPace.toFixed(3)} L/ekor/hari`,
-                `daya ${insights.actualPowerKw.toFixed(2)} kW`,
-                insights.alerts.length > 0 && `peringatan: ${insights.alerts.map((a) => a.title).join("; ")}`,
-            ].filter(Boolean).join(", ");
-            const result = await sendAdminChat(`Konteks: ${facts}. ${question}`, []);
-            setCopilotAnswer(result.answer);
-        } catch {
-            setCopilotAnswer("Maaf, terjadi kesalahan saat menghubungi Copilot. Coba lagi.");
-        } finally {
-            setCopilotLoading(false);
-        }
-    }
 
     // ── Chart ──
     const chartMaxDay = Math.max(harvestTargetDays, (ageDays ?? 0) + 3, 14);
@@ -158,6 +131,8 @@ export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }:
                             ].filter(Boolean).join(" · ")}
                 />
             </div>
+
+            <RealtimeCharts samples={data.samples} expectedPowerKw={expectedPowerKw} online={data.online} />
 
             {/* Chart + Peringatan */}
             <div className="grid gap-6 xl:grid-cols-3">
@@ -248,17 +223,29 @@ export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }:
                 </SectionCard>
             </div>
 
-            {/* Copilot */}
+            {/* Copilot — pintasan ke chat Copilot (pojok kanan bawah), yang otomatis fokus ke kandang ini. */}
             <SectionCard>
-                <div className="flex items-center gap-2">
-                    <Bot size={18} className="text-[#7B1113]" />
-                    <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Copilot</p>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <Bot size={18} className="text-[#7B1113]" />
+                        <div>
+                            <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Tanya Copilot</p>
+                            <p className="font-inter text-xs text-[#999]">Copilot membaca data terkini Kandang {room?.number}.</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => askCopilot()}
+                        suppressHydrationWarning
+                        className="flex items-center gap-1.5 rounded-2xl bg-[#7B1113] px-4 py-2.5 font-inter text-sm font-medium text-white transition hover:opacity-90"
+                    >
+                        <MessageSquare size={15} /> Buka chat
+                    </button>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                    {["Kenapa air minum turun hari ini?", "Bagaimana kondisi kandang ini?", "Apa yang perlu saya lakukan sekarang?"].map((q) => (
+                    {KANDANG_QUESTIONS.map((q) => (
                         <button
                             key={q}
-                            onClick={() => { setCopilotInput(q); askCopilot(q); }}
+                            onClick={() => askCopilot(q)}
                             suppressHydrationWarning
                             className="rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] px-4 py-2 font-inter text-xs font-medium text-[#555] transition hover:border-[#7B1113]/30 hover:text-[#7B1113]"
                         >
@@ -266,31 +253,6 @@ export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }:
                         </button>
                     ))}
                 </div>
-                <div className="mt-3 flex items-center gap-2">
-                    <input
-                        type="text"
-                        value={copilotInput}
-                        onChange={(e) => setCopilotInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && askCopilot(copilotInput)}
-                        placeholder="Tanya Copilot tentang kandang ini..."
-                        suppressHydrationWarning
-                        className="flex-1 rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] px-4 py-2.5 font-inter text-sm outline-none transition focus:border-[#7B1113]"
-                    />
-                    <button
-                        title="Kirim"
-                        onClick={() => askCopilot(copilotInput)}
-                        disabled={copilotLoading || !copilotInput.trim()}
-                        suppressHydrationWarning
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#7B1113] disabled:opacity-40"
-                    >
-                        {copilotLoading ? <LoaderCircle size={15} className="animate-spin text-white" /> : <Send size={15} className="text-white" />}
-                    </button>
-                </div>
-                {copilotAnswer && (
-                    <div className="mt-3 rounded-2xl bg-[#F8F8F8] p-4 font-inter text-sm leading-relaxed text-[#2F2F2F]">
-                        {copilotAnswer}
-                    </div>
-                )}
             </SectionCard>
         </div>
     );

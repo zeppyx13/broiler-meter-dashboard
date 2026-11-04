@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Printer, FileText, Droplets, Zap, Wallet, TrendingUp, ShieldAlert } from "lucide-react";
 import { getRooms } from "@/lib/room-api";
@@ -8,8 +9,13 @@ import { formatRupiah } from "@/lib/broiler-reference";
 import { useKandangData } from "@/components/kamar/ringkasan/use-kandang-data";
 
 export default function EfficiencyReportGenerator() {
-    const [roomId, setRoomId] = useState<number | "">("");
-    const [generatedFor, setGeneratedFor] = useState<number | null>(null);
+    // Dari tombol "Laporan" di detail kandang: /dashboard/tagihan?kandang=<id>
+    // langsung pilih kandangnya dan buat laporan.
+    const searchParams = useSearchParams();
+    const fromLink = Number(searchParams.get("kandang"));
+    const initialId = Number.isInteger(fromLink) && fromLink > 0 ? fromLink : null;
+    const [roomId, setRoomId] = useState<number | "">(initialId ?? "");
+    const [generatedFor, setGeneratedFor] = useState<number | null>(initialId);
 
     const { data: roomData } = useQuery({
         queryKey: ["rooms-overview"],

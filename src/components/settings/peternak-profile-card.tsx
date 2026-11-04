@@ -5,6 +5,7 @@ import { LoaderCircle, User } from "lucide-react";
 import Swal from "sweetalert2";
 import { getUser, getToken, setAuth } from "@/lib/auth";
 import { updateTenant } from "@/lib/tenant-api";
+import { apiErrorMessage } from "@/lib/api-error";
 
 type ProfileUser = {
     id: number | string;
@@ -37,11 +38,11 @@ export default function PeternakProfileCard() {
             if (token) setAuth(token, updatedUser);
             setUser(updatedUser);
             Swal.fire({ icon: "success", title: "Profil diperbarui", timer: 1500, showConfirmButton: false });
-        } catch (err: any) {
+        } catch (err) {
             Swal.fire({
                 icon: "error",
                 title: "Gagal menyimpan",
-                text: err?.response?.data?.message || "Terjadi kesalahan.",
+                text: apiErrorMessage(err),
                 confirmButtonColor: "#7B1113",
             });
         } finally {

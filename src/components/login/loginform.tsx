@@ -6,6 +6,7 @@ import Swal from "sweetalert2";
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { login } from "@/lib/auth-api";
 import { setAuth } from "@/lib/auth";
+import { apiErrorMessage } from "@/lib/api-error";
 
 export default function LoginForm() {
     const router = useRouter();
@@ -51,11 +52,9 @@ export default function LoginForm() {
 
             router.push("/dashboard");
             router.refresh();
-        } catch (error: any) {
+        } catch (error) {
             const message =
-                error?.response?.data?.message ||
-                error?.message ||
-                "Terjadi kesalahan saat login.";
+                apiErrorMessage(error, "Terjadi kesalahan saat login.");
 
             await Swal.fire({
                 icon: "error",

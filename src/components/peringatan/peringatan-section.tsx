@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
-import { ShieldCheck, ChevronRight, Check, BellOff } from "lucide-react";
+import { ShieldCheck, ChevronRight, Check, BellOff, Bot } from "lucide-react";
+import { askCopilot } from "@/lib/copilot-context";
 import { useGuard } from "@/components/dashboard/guard/guard-monitor";
 import { getGuardSettings } from "@/lib/guard-settings";
 import { notificationSupported } from "@/lib/alert-notify";
@@ -175,6 +176,13 @@ function ActiveAlertCard({ alert, onAcknowledge }: { alert: LoggedAlert; onAckno
                         <Check size={15} /> Sudah dicek
                     </button>
                 )}
+                <button
+                    onClick={() => askCopilot(`Kandang ${alert.roomNumber} sedang ada peringatan "${alert.title}" (${alert.detail}). Apa kemungkinan penyebabnya dan langkah apa yang harus saya lakukan sekarang?`)}
+                    suppressHydrationWarning
+                    className="flex items-center gap-1.5 rounded-xl px-3 py-2 font-inter text-sm font-medium text-[#7B1113] transition hover:bg-white/60"
+                >
+                    <Bot size={15} /> Tanya Copilot
+                </button>
                 <Link
                     href={`/dashboard/kamar/${alert.roomId}`}
                     className="flex items-center gap-1 rounded-xl px-3 py-2 font-inter text-sm font-medium text-[#7B1113] transition hover:bg-white/60"

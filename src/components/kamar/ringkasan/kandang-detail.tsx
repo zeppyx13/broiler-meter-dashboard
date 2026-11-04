@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
-import { ArrowLeft, Wifi, WifiOff, ClipboardPlus, Flag, Pencil, Sprout, AlertTriangle } from "lucide-react";
-import { updateRoom } from "@/lib/room-api";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Wifi, WifiOff, ClipboardPlus, Flag, Pencil, Sprout, AlertTriangle, Power, Bot, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { getRooms, updateRoom } from "@/lib/room-api";
 import { localDateKey, setRoomExtra, type RoomExtra } from "@/lib/broiler-local-store";
 import type { RoomFormPayload } from "@/types/room";
 import RoomFormModal from "../room-form-modal";
@@ -15,12 +16,17 @@ import PeralatanTab from "./peralatan-tab";
 import KandangSettingsTab from "./kandang-settings-tab";
 import DailyRecordModal from "./daily-record-modal";
 import { CycleCloseModal, CycleStartModal } from "./cycle-modals";
+import RelayModal from "./relay-modal";
+import { askCopilot } from "@/lib/copilot-context";
+import RiwayatSiklusTab from "./riwayat-siklus-tab";
+import { apiErrorMessage } from "@/lib/api-error";
 
-type Tab = "ringkasan" | "harian" | "peralatan" | "pengaturan";
+type Tab = "ringkasan" | "harian" | "riwayat" | "peralatan" | "pengaturan";
 
 const TABS: { key: Tab; label: string }[] = [
     { key: "ringkasan", label: "Ringkasan" },
     { key: "harian", label: "Catat Harian" },
+    { key: "riwayat", label: "Riwayat" },
     { key: "peralatan", label: "Peralatan" },
     { key: "pengaturan", label: "Pengaturan" },
 ];
@@ -35,6 +41,7 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
     const [closeOpen, setCloseOpen] = useState(false);
     const [recordDate, setRecordDate] = useState<string | null>(null);
     const [roomFormOpen, setRoomFormOpen] = useState(false);
+    const [relayOpen, setRelayOpen] = useState(false);
 
     if (isLoading) return <div className="h-96 animate-pulse rounded-3xl border border-[#EAEAEA] bg-white" />;
     if (isError || !room) {
@@ -56,16 +63,19 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
             data.refreshAll();
             setRoomFormOpen(false);
             Swal.fire({ icon: "success", title: "Kandang diperbarui", timer: 1300, showConfirmButton: false });
-        } catch (err: any) {
-            Swal.fire({ icon: "error", title: "Gagal menyimpan", text: err?.response?.data?.message || "Terjadi kesalahan.", confirmButtonColor: "#7B1113" });
+        } catch (err) {
+            Swal.fire({ icon: "error", title: "Gagal menyimpan", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
         }
     }
 
     return (
         <div className="space-y-5">
-            <Link href="/dashboard/kamar" className="inline-flex items-center gap-1.5 font-inter text-sm text-[#777] hover:text-[#7B1113]">
-                <ArrowLeft size={14} /> Semua kandang
-            </Link>
+            <div className="flex items-center justify-between gap-3">
+                <Link href="/dashboard/kamar" className="inline-flex items-center gap-1.5 font-inter text-sm text-[#777] hover:text-[#7B1113]">
+                    <ArrowLeft size={14} /> Semua kandang
+                </Link>
+                <KandangPager roomId={room.id} />
+            </div>
 
             {/* Header + siklus */}
             <div className="rounded-3xl border border-[#EAEAEA] bg-white p-5 sm:p-6">
@@ -109,28 +119,23 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
                             </p>
                         )}
 
-                        <div className="mt-4 flex flex-wrap gap-2">
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
                             <button
                                 onClick={() => setRecordDate(localDateKey())}
                                 suppressHydrationWarning
-                                className="relative flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#7B1113] px-5 py-3 font-poppins text-sm font-semibold text-[#C6A971] transition hover:opacity-90 sm:flex-none"
+                                className="relative flex w-full items-center justify-center gap-2 rounded-2xl bg-[#7B1113] px-5 py-3 font-poppins text-sm font-semibold text-[#C6A971] transition hover:opacity-90 sm:w-auto"
                             >
                                 <ClipboardPlus size={17} /> Catat Harian
                                 {!recordedToday && <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#C6A971]" title="Belum dicatat hari ini" />}
                             </button>
-                            <button
-                                onClick={() => setCloseOpen(true)}
-                                suppressHydrationWarning
-                                className="flex items-center gap-2 rounded-2xl border border-[#EAEAEA] px-4 py-3 font-inter text-sm font-medium text-[#555] transition hover:bg-[#F8F8F8]"
-                            >
-                                <Flag size={15} /> Tutup Siklus
+                            <SecondaryActions roomId={room.id} onRelay={() => setRelayOpen(true)} onCopilot={() => askCopilot()} showReport />
+                        </div>
+                        <div className="mt-3 flex gap-4 font-inter text-sm">
+                            <button onClick={() => setEditCycleOpen(true)} suppressHydrationWarning className="flex items-center gap-1.5 text-[#777] hover:text-[#7B1113]">
+                                <Pencil size={14} /> Edit siklus
                             </button>
-                            <button
-                                onClick={() => setEditCycleOpen(true)}
-                                suppressHydrationWarning
-                                className="flex items-center gap-2 rounded-2xl border border-[#EAEAEA] px-4 py-3 font-inter text-sm font-medium text-[#555] transition hover:bg-[#F8F8F8]"
-                            >
-                                <Pencil size={15} /> Edit Siklus
+                            <button onClick={() => setCloseOpen(true)} suppressHydrationWarning className="flex items-center gap-1.5 text-[#777] hover:text-[#7B1113]">
+                                <Flag size={14} /> Tutup siklus (panen)
                             </button>
                         </div>
                     </div>
@@ -147,6 +152,11 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
                         >
                             <Sprout size={17} /> Mulai Siklus Baru
                         </button>
+                    </div>
+                )}
+                {!activeCycle && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        <SecondaryActions roomId={room.id} onRelay={() => setRelayOpen(true)} onCopilot={() => askCopilot()} />
                     </div>
                 )}
             </div>
@@ -169,6 +179,7 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
                 <KandangRingkasan data={data} onEditCycle={() => setEditCycleOpen(true)} onOpenEquipment={() => setTab("peralatan")} />
             )}
             {tab === "harian" && <CatatHarianTab data={data} onOpenRecord={(date) => setRecordDate(date ?? localDateKey())} />}
+            {tab === "riwayat" && <RiwayatSiklusTab data={data} />}
             {tab === "peralatan" && <PeralatanTab data={data} />}
             {tab === "pengaturan" && <KandangSettingsTab data={data} onEditRoom={() => setRoomFormOpen(true)} />}
 
@@ -197,6 +208,58 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
                 </>
             )}
             <RoomFormModal open={roomFormOpen} editData={room} onClose={() => setRoomFormOpen(false)} onSubmit={handleRoomUpdate} />
+            <RelayModal open={relayOpen} onClose={() => setRelayOpen(false)} roomId={room.id} roomNumber={room.number} online={online} />
         </div>
+    );
+}
+
+/** Pindah ke kandang sebelumnya/berikutnya (urut nama kandang) tanpa kembali ke daftar. */
+function KandangPager({ roomId }: { roomId: number }) {
+    const { data } = useQuery({ queryKey: ["rooms-overview"], queryFn: () => getRooms({ limit: 100 }), staleTime: 60_000 });
+    const rooms = [...(data?.rooms ?? [])].sort((a, b) => a.number.localeCompare(b.number, "id", { numeric: true }));
+    const index = rooms.findIndex((r) => r.id === roomId);
+    if (index < 0 || rooms.length < 2) return null;
+    const prev = rooms[index - 1];
+    const next = rooms[index + 1];
+
+    const cls = "flex items-center gap-1 rounded-xl border border-[#EAEAEA] bg-white px-3 py-1.5 font-inter text-sm font-medium text-[#555] transition hover:border-[#7B1113]/30 hover:text-[#7B1113]";
+    const disabled = "flex items-center gap-1 rounded-xl border border-[#F0F0F0] px-3 py-1.5 font-inter text-sm text-[#CCC]";
+    return (
+        <nav aria-label="Kandang lain" className="flex items-center gap-2">
+            {prev ? (
+                <Link href={`/dashboard/kamar/${prev.id}`} className={cls} aria-label={`Kandang sebelumnya: ${prev.number}`}>
+                    <ChevronLeft size={15} /> {prev.number}
+                </Link>
+            ) : (
+                <span className={disabled} aria-hidden><ChevronLeft size={15} /> Awal</span>
+            )}
+            <span className="hidden font-inter text-xs text-[#999] sm:inline">{index + 1} / {rooms.length}</span>
+            {next ? (
+                <Link href={`/dashboard/kamar/${next.id}`} className={cls} aria-label={`Kandang berikutnya: ${next.number}`}>
+                    {next.number} <ChevronRight size={15} />
+                </Link>
+            ) : (
+                <span className={disabled} aria-hidden>Akhir <ChevronRight size={15} /></span>
+            )}
+        </nav>
+    );
+}
+
+function SecondaryActions({ roomId, onRelay, onCopilot, showReport }: { roomId: number; onRelay: () => void; onCopilot: () => void; showReport?: boolean }) {
+    const cls = "flex flex-1 items-center justify-center gap-2 rounded-2xl border border-[#EAEAEA] bg-white px-4 py-3 font-inter text-sm font-medium text-[#555] transition hover:bg-[#F8F8F8] sm:flex-none";
+    return (
+        <>
+            <button onClick={onRelay} suppressHydrationWarning className={cls}>
+                <Power size={15} /> Relay
+            </button>
+            <button onClick={onCopilot} suppressHydrationWarning className={cls}>
+                <Bot size={15} /> Copilot
+            </button>
+            {showReport && (
+                <Link href={`/dashboard/tagihan?kandang=${roomId}`} className={cls}>
+                    <FileText size={15} /> Laporan
+                </Link>
+            )}
+        </>
     );
 }

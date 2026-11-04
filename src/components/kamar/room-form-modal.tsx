@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { getRoomExtra, type RoomExtra } from "@/lib/broiler-local-store";
 import { CancelButton, Field, ModalShell, PrimaryButton, inputClass } from "./ringkasan/form-parts";
+import { apiErrorMessage } from "@/lib/api-error";
 
 type RoomFormModalProps = {
     open: boolean;
@@ -51,7 +52,7 @@ export default function RoomFormModal({ open, editData, onClose, onSubmit }: Roo
         setExtra(editData ? getRoomExtra(editData.id) : {});
         setShowMore(false);
         const img = editData?.main_image_url;
-        setPreviewUrl(img ? (img.startsWith("http") ? img : `${BASE_URL}${img}`) : null);
+        setPreviewUrl(img ? (/^(https?:|data:|blob:)/.test(img) ? img : `${BASE_URL}${img}`) : null);
     }, [editData, open]);
 
     async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -65,8 +66,8 @@ export default function RoomFormModal({ open, editData, onClose, onSubmit }: Roo
         try {
             setUploadLoading(true);
             setImageUrl(await uploadRoomImage(file));
-        } catch (err: any) {
-            alert("Gagal mengupload foto: " + (err?.response?.data?.message || err.message));
+        } catch (err) {
+            alert("Gagal mengupload foto: " + apiErrorMessage(err));
             setPreviewUrl(null);
         } finally {
             setUploadLoading(false);

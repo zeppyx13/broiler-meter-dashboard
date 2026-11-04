@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Droplets, Zap, Save, RefreshCw } from "lucide-react";
 import Swal from "sweetalert2";
 import { getTariff, updateTariff, type Tariff } from "@/lib/tariff-api";
+import { apiErrorMessage } from "@/lib/api-error";
 
 type FieldConfig = {
     key: keyof Omit<Tariff, "id" | "updated_at">;
@@ -62,8 +63,8 @@ export default function TariffSettingsCard() {
                 electricity_free_quota: String(data.electricity_free_quota),
                 late_fee_flat: String(data.late_fee_flat),
             });
-        } catch (e: any) {
-            setError(e?.response?.data?.message ?? e?.message ?? "Gagal memuat tarif");
+        } catch (e) {
+            setError(apiErrorMessage(e, "Gagal memuat tarif"));
         } finally {
             setLoading(false);
         }
@@ -98,10 +99,10 @@ export default function TariffSettingsCard() {
                 icon: "success",
                 confirmButtonColor: "#7B1113",
             });
-        } catch (e: any) {
+        } catch (e) {
             Swal.fire({
                 title: "Gagal",
-                text: e?.response?.data?.message ?? "Terjadi kesalahan.",
+                text: apiErrorMessage(e),
                 icon: "error",
                 confirmButtonColor: "#7B1113",
             });
@@ -122,7 +123,7 @@ export default function TariffSettingsCard() {
     }
 
     const isDirty = tariff && fields.some(
-        (f) => String((tariff as any)[f.key]) !== form[f.key]
+        (f) => String(tariff[f.key]) !== form[f.key]
     );
 
     const lastUpdated = tariff?.updated_at

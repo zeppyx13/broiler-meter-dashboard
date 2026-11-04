@@ -4,16 +4,20 @@ Dashboard admin untuk **satu peternak** yang memantau air minum dan listrik tiap
 
 ## Fitur
 
-- **Beranda** — Ringkasan semua kandang (aktif/istirahat, siklus berjalan, pemakaian air & listrik) dan peringatan Guard lintas kandang.
-- **Kandang** — Daftar kandang dengan status Aktif (hari ke-N, populasi) atau Istirahat, plus Riwayat Siklus.
+- **Beranda** — Status lebih dulu: berapa kandang kritis/waspada/normal, total air & daya hari ini, grafik efisiensi bulanan semua kandang (biaya listrik, listrik/ekor/hari, air/ekor/hari, 6 bulan), dan kartu tiap kandang aktif (diurutkan dari yang paling butuh tindakan).
+- **Kandang** — Daftar kandang dengan status Aktif (hari ke-N, populasi) atau Istirahat.
 - **Detail kandang**
-  - **Ringkasan** — KPI air hari ini (L/ekor vs pola normal), daya saat ini, energi siklus berjalan, prediksi s.d. panen; kurva air per ekor menurut hari umur; Guard, Forecast, Eco-Advisor, dan Copilot.
+  - **Bar aksi** — Catat Harian, Kontrol Relay (dengan konfirmasi), Tanya Copilot, Laporan.
+  - **Ringkasan** — KPI air hari ini (L/ekor vs pola normal), daya saat ini, energi siklus, prediksi s.d. panen; grafik real-time daya & debit 30 menit; Guard, Forecast, Eco-Advisor, dan Copilot.
   - **Catat Harian** — Deplesi (mati, afkir), bobot sampel, pakan; populasi dihitung otomatis.
+  - **Riwayat** — Perbandingan antar siklus: deplesi, air & listrik per ekor, biaya energi per ekor, FCR, Indeks Performa; tanda terbaik/terburuk; bisa dicetak.
   - **Mulai / Tutup Siklus** — Chick-in (populasi awal, strain, target panen) sampai panen.
-- **Guard** — Peringatan berjenjang (waspada/kritis): air turun atau naik dari pola normal, daya di bawah daya terpasang (kipas mati), perangkat offline (listrik padam), tegangan tidak stabil.
+- **Guard** — Peringatan berjenjang (info/waspada/kritis) dengan notifikasi browser & suara: air turun atau naik dari pola normal, daya di bawah daya seharusnya (kipas mati), perangkat offline, tegangan tidak stabil, PF rendah, lewat target panen, catatan harian belum diisi.
+- **Copilot** — Chat AI yang otomatis menerima ringkasan kondisi kandang & peringatan aktif; tombol *Tanya Copilot* di setiap kartu peringatan.
 - **Laporan** — Laporan efisiensi per kandang (air & listrik per ekor, biaya energi siklus, proyeksi) yang bisa dicetak/PDF.
-- **Pengaturan** — Profil peternak, tarif listrik & air, cadangkan/impor data lokal.
+- **Pengaturan** — Profil peternak, ambang Guard & notifikasi, tarif listrik & air, cadangkan/impor data lokal.
 - **Teknis** — Alat IoT (meter & kontrol relay) dan IoT Terminal.
+- **Bisa dipasang di HP** — Manifest PWA (ikon di layar utama, tampilan tanpa address bar).
 
 ## Tech Stack
 
@@ -33,6 +37,22 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:5000
 
 REST API dan Socket.IO memakai URL yang sama.
 
+### Mode demo (default)
+
+Secara default dashboard berjalan **tanpa backend**. Semua pemanggilan API (`src/lib/*-api.ts`) dan Socket.IO dijawab oleh backend tiruan di browser (`src/lib/mock/`), dengan bentuk respons yang sama seperti backend asli.
+
+- Skala peternak UMKM: 4 kandang panggung/postal, yaitu A01 (600 ekor, hari ke-23), A02 (350, hari ke-31), B01 (250, hari ke-9, masa brooding), dan B02 (istirahat). Peralatannya bohlam brooder 100 W, LED 10 W, dan kipas dinding ±45 W. Listrik rumah tangga Rp 1.444,70/kWh (1.300–2.200 VA), total beban < 1 kW, dan tagihan ±Rp 500–600 rb/bulan. Masing-masing punya riwayat ±3 siklus sebelumnya beserta catatan harian, FCR, dan IP.
+- Telemetri bergerak setiap 5 detik. Air mengikuti kurva hari umur × populasi, dan daya mengikuti peralatan & relay. Meter terus bertambah, termasuk saat tab ditutup.
+- Kejadian terjadwal untuk Guard: kipas A01 trip ±18 menit tiap 4 jam (kritis), tegangan B01 turun ±10 menit tiap 2 jam (waspada), dan air minum A02 sedikit di bawah pola (waspada).
+- Semua fitur bisa dipakai: login (email & password apa saja), tambah/ubah/hapus kandang, mulai/tutup siklus, catat harian, relay & perintah Terminal, Copilot, tarif, dan profil.
+- Data tersimpan di browser. *Pengaturan → Reset data demo* mengembalikan semuanya ke kondisi awal.
+
+Untuk memakai backend asli, tambahkan di `.env`:
+
+```env
+NEXT_PUBLIC_USE_MOCK_API=false
+```
+
 ```bash
 npm run dev
 ```
@@ -46,25 +66,33 @@ npm run build
 npm start
 ```
 
+Tes otomatis (aturan Guard, forecast, riwayat siklus, keamanan Copilot):
+
+```bash
+npm test
+```
+
 ## Struktur Halaman
 
 | Route | Isi |
 | --- | --- |
 | `/` | Login |
 | `/dashboard` | Beranda |
-| `/dashboard/kamar` | Daftar kandang & riwayat siklus |
-| `/dashboard/kamar/[id]` | Detail kandang (Ringkasan · Catat Harian · Pengaturan) |
-| `/dashboard/tagihan` | Laporan efisiensi |
+| `/dashboard/kamar` | Daftar kandang |
+| `/dashboard/kamar/[id]` | Detail kandang (Ringkasan · Catat Harian · Riwayat · Peralatan · Pengaturan) |
+| `/dashboard/peringatan` | Peringatan Guard aktif & riwayat |
+| `/dashboard/tagihan` | Laporan efisiensi (`?kandang=<id>` langsung membuat laporan kandang itu) |
 | `/dashboard/settings` | Pengaturan |
 | `/dashboard/iot` | Alat IoT |
 | `/dashboard/terminal` | IoT Terminal |
 
 ## Catatan untuk Backend
 
-Backend masih memakai skema kost lama; frontend menyesuaikan tanpa mengubah API.
+Backend masih memakai skema kost lama; frontend menyesuaikan tanpa mengubah API. Rincian lengkap (data di browser, endpoint yang dibutuhkan, aturan Guard, rumus metrik) ada di [docs/BACKEND-HANDOFF.md](docs/BACKEND-HANDOFF.md).
 
 - **Data yang masih di browser (localStorage)** — populasi awal, strain, target panen, deplesi harian, angka meter awal/akhir siklus, fase listrik, dan daya terpasang. Lihat `src/lib/broiler-local-store.ts`. Data ini tidak sinkron antar perangkat; gunakan *Pengaturan → Cadangkan/Impor*. Idealnya dipindah ke kolom/tabel backend.
 - **Field lama yang diisi otomatis** — `rooms.price_monthly` (1 saat tambah), `rooms.deposit`, `rooms.is_available`, `leases.monthly_rent_snapshot`, `leases.user_id` (akun yang login), serta kuota gratis & denda di `/api/tariff`. Sebaiknya dijadikan opsional.
 - **Pemetaan istilah** — `rooms` = kandang (`floor` = blok), `leases` = siklus produksi (`start_date` = chick-in, `end_date` = panen). Status Aktif/Istirahat ditentukan dari ada-tidaknya siklus `active`.
 - **Endpoint yang tidak dipakai lagi** — invoices, payments-admin, announcements, complaints, facilities, reviews, serta daftar/hapus users-admin.
-- **Ambang Guard & kurva referensi air** masih konstanta di `src/lib/broiler-reference.ts` dan `src/lib/kandang-insights.ts`; sebaiknya disediakan lewat endpoint pengaturan.
+- **Ambang Guard** bisa diubah di Pengaturan (disimpan lokal); kurva referensi air masih konstanta di `src/lib/broiler-reference.ts`. Guard hanya berjalan selama dashboard terbuka — push saat aplikasi tertutup butuh Guard di backend.
+- **`/api/rooms/all` bisa diakses tanpa login** — mohon diberi proteksi token.

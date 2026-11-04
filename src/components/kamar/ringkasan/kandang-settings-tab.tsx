@@ -6,6 +6,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import SectionCard from "@/components/dashboard/section-card";
 import { deleteRoom } from "@/lib/room-api";
 import type { KandangData } from "./use-kandang-data";
+import { apiErrorMessage } from "@/lib/api-error";
 
 export default function KandangSettingsTab({ data, onEditRoom }: { data: KandangData; onEditRoom: () => void }) {
     const router = useRouter();
@@ -27,8 +28,8 @@ export default function KandangSettingsTab({ data, onEditRoom }: { data: Kandang
             await deleteRoom(room!.id);
             data.refreshAll();
             router.push("/dashboard/kamar");
-        } catch (err: any) {
-            Swal.fire({ icon: "error", title: "Gagal menghapus", text: err?.response?.data?.message || "Terjadi kesalahan.", confirmButtonColor: "#7B1113" });
+        } catch (err) {
+            Swal.fire({ icon: "error", title: "Gagal menghapus", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
         }
     }
 

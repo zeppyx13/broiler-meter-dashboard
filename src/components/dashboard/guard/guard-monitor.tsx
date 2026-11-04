@@ -6,7 +6,8 @@ import { getRooms } from "@/lib/room-api";
 import { getLeases } from "@/lib/lease-api";
 import { getAllLiveStatus } from "@/lib/live-status-api";
 import { DEFAULT_GUARD_SETTINGS, GUARD_SETTINGS_EVENT, getGuardSettings } from "@/lib/guard-settings";
-import { scanAllKandang } from "@/lib/guard-scan";
+import { alertsFromSnapshots } from "@/lib/guard-scan";
+import { buildSnapshots, type KandangSnapshot } from "@/lib/kandang-snapshot";
 import { acknowledgeAlert, clearAlertHistory, getAlertLog, reconcileAlerts, type LoggedAlert } from "@/lib/alert-log";
 import { ALERT_TIER_ORDER } from "@/lib/kandang-insights";
 import { playAlertSound, showAlertNotification } from "@/lib/alert-notify";
@@ -18,6 +19,8 @@ type GuardContextValue = {
     ready: boolean;
     /** Data kandang/siklus/alat gagal dimuat — Guard berhenti sampai data kembali. */
     error: boolean;
+    /** Kondisi tiap kandang dari pindaian terakhir (kosong sebelum data siap). */
+    snapshots: KandangSnapshot[];
     active: LoggedAlert[];
     history: LoggedAlert[];
     counts: { kritis: number; waspada: number; info: number; unchecked: number };
@@ -36,6 +39,7 @@ export function useGuard() {
 export function GuardMonitorProvider({ children }: { children: ReactNode }) {
     const [settings, setSettings] = useState(DEFAULT_GUARD_SETTINGS);
     const [log, setLog] = useState<LoggedAlert[]>([]);
+    const [snapshots, setSnapshots] = useState<KandangSnapshot[]>([]);
     const [tick, setTick] = useState(0);
     // Pindaian pertama setelah halaman dibuka hanya mencatat (tanpa notifikasi),
     // agar peringatan yang sudah ada tidak berbunyi ulang di setiap pindah halaman.
@@ -68,8 +72,9 @@ export function GuardMonitorProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (!ready) return;
-        const current = scanAllKandang(roomData!.rooms, leaseData!.leases, liveList!, settings);
-        const { log: next, raised } = reconcileAlerts(current);
+        const nextSnapshots = buildSnapshots(roomData!.rooms, leaseData!.leases, liveList!, settings);
+        const { log: next, raised } = reconcileAlerts(alertsFromSnapshots(nextSnapshots));
+        setSnapshots(nextSnapshots);
         setLog(next);
 
         if (!firstScanDone.current) {
@@ -92,6 +97,7 @@ export function GuardMonitorProvider({ children }: { children: ReactNode }) {
         return {
             ready,
             error,
+            snapshots,
             active,
             history,
             counts: {
@@ -103,7 +109,7 @@ export function GuardMonitorProvider({ children }: { children: ReactNode }) {
             acknowledge,
             clearHistory,
         };
-    }, [log, ready, error, acknowledge, clearHistory]);
+    }, [log, snapshots, ready, error, acknowledge, clearHistory]);
 
     return <GuardContext.Provider value={value}>{children}</GuardContext.Provider>;
 }

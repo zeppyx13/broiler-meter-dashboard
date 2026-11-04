@@ -13,11 +13,39 @@ import {
 import { ageDaysFromChickIn, daysUntilHarvest, isTelemetryFresh } from "@/lib/broiler-reference";
 import { computeKandangInsights } from "@/lib/kandang-insights";
 
+export type RealtimeSample = { t: number; powerKw: number; flowLpm: number };
+
+// Grafik real-time mengumpulkan sampel sendiri di browser (tidak ada riwayat dari backend).
+export const REALTIME_WINDOW_MS = 30 * 60 * 1000;
+
+const realtimeKey = (roomId: number) => `coasther-rt-${roomId}`;
+
+function readRealtimeSamples(roomId: number): RealtimeSample[] {
+    if (typeof window === "undefined") return [];
+    try {
+        const raw = window.sessionStorage.getItem(realtimeKey(roomId));
+        const parsed = raw ? (JSON.parse(raw) as RealtimeSample[]) : [];
+        // Jendela 30 menit dihitung dari sampel terakhir — grafik memperlihatkan data terakhir yang ada.
+        return Array.isArray(parsed) ? parsed.filter((s) => typeof s?.t === "number") : [];
+    } catch {
+        return [];
+    }
+}
+
+function writeRealtimeSamples(roomId: number, samples: RealtimeSample[]) {
+    try {
+        window.sessionStorage.setItem(realtimeKey(roomId), JSON.stringify(samples));
+    } catch {
+        // abaikan (private mode / storage penuh)
+    }
+}
+
 export function useKandangData(roomId: number) {
     const queryClient = useQueryClient();
     const [localVersion, setLocalVersion] = useState(0);
     const refreshLocal = useCallback(() => setLocalVersion((v) => v + 1), []);
-    const [liveData, setLiveData] = useState<Record<number, LiveStatus>>({});
+    const [pushed, setPushed] = useState<Record<number, LiveStatus>>({});
+    const [realtime, setRealtime] = useState(() => ({ roomId, samples: readRealtimeSamples(roomId) }));
 
     const roomQuery = useQuery({
         queryKey: ["room-detail", roomId],
@@ -45,18 +73,11 @@ export function useKandangData(roomId: number) {
     });
 
     useEffect(() => {
-        if (!liveStatusList) return;
-        const map: Record<number, LiveStatus> = {};
-        liveStatusList.forEach((d) => { map[d.room_id] = d; });
-        setLiveData(map);
-    }, [liveStatusList]);
-
-    useEffect(() => {
         socket.connect();
         const onTelemetry = (payload: Partial<LiveStatus> & { room_id: number | string }) => {
             const rid = Number(payload.room_id);
             if (!rid) return;
-            setLiveData((prev) => {
+            setPushed((prev) => {
                 const existing = prev[rid] ?? ({} as LiveStatus);
                 return {
                     ...prev,
@@ -77,13 +98,45 @@ export function useKandangData(roomId: number) {
     }, []);
 
     const room = roomQuery.data?.room;
-    const live = liveData[roomId];
+
+    // Data alat = hasil polling, ditimpa data socket bila socket lebih baru.
+    const polled = useMemo(() => liveStatusList?.find((d) => d.room_id === roomId), [liveStatusList, roomId]);
+    const pushedForRoom = pushed[roomId];
+    const live = useMemo<LiveStatus | undefined>(() => {
+        if (!pushedForRoom) return polled;
+        if (!polled) return pushedForRoom;
+        return Date.parse(pushedForRoom.recorded_at) >= Date.parse(polled.recorded_at) ? { ...polled, ...pushedForRoom } : polled;
+    }, [polled, pushedForRoom]);
     const online = isTelemetryFresh(live?.recorded_at);
 
     const activeCycle = useMemo(() => {
         const mine = (leaseData?.leases ?? []).filter((l) => l.room_id === roomId && l.status === "active");
         return mine.sort((a, b) => b.start_date.localeCompare(a.start_date))[0] ?? null;
     }, [leaseData, roomId]);
+
+    // Satu sampel per pembacaan alat baru (recorded_at berubah). Diperbarui saat render
+    // (pola "state dari render sebelumnya"), jadi tidak ada render ganda lewat effect.
+    let rt = realtime;
+    if (rt.roomId !== roomId) rt = { roomId, samples: readRealtimeSamples(roomId) };
+    const t = live?.recorded_at ? Date.parse(live.recorded_at) : NaN;
+    const lastSample = rt.samples[rt.samples.length - 1];
+    if (!Number.isNaN(t) && (!lastSample || t > lastSample.t)) {
+        rt = {
+            roomId,
+            samples: [
+                ...rt.samples.filter((s) => s.t >= t - REALTIME_WINDOW_MS),
+                { t, powerKw: (live?.power ?? 0) / 1000, flowLpm: live?.flow_rate_lpm ?? 0 },
+            ],
+        };
+    }
+    if (rt !== realtime) setRealtime(rt);
+    const samples = rt.samples;
+
+    // Sampel disimpan di sessionStorage tab ini agar grafik tidak kosong lagi setelah reload.
+    // Sengaja bukan prefix "coasther_" supaya tidak ikut file cadangan.
+    useEffect(() => {
+        if (samples.length > 0) writeRealtimeSamples(roomId, samples);
+    }, [roomId, samples]);
 
     // Siklus yang dimulai sebelum alat tercatat: angka meter pertama yang terlihat dijadikan titik awal.
     useEffect(() => {
@@ -92,9 +145,11 @@ export function useKandangData(roomId: number) {
     }, [activeCycle, live, refreshLocal]);
 
     // localVersion memaksa baca ulang localStorage setelah data lokal berubah.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const roomExtra = useMemo(() => getRoomExtra(roomId), [roomId, localVersion]);
     const cycle = useMemo(
         () => (activeCycle ? getCycleState(activeCycle.id, roomId) : null),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         [activeCycle, roomId, localVersion]
     );
 
@@ -126,7 +181,7 @@ export function useKandangData(roomId: number) {
 
     const refreshAll = useCallback(() => {
         refreshLocal();
-        ["room-detail", "leases-active-all", "leases", "leases-active-count", "rooms", "rooms-overview"].forEach((key) =>
+        ["room-detail", "leases-active-all", "leases-ended-all", "leases", "leases-active-count", "rooms", "rooms-overview"].forEach((key) =>
             queryClient.invalidateQueries({ queryKey: [key] })
         );
     }, [queryClient, refreshLocal]);
@@ -148,6 +203,7 @@ export function useKandangData(roomId: number) {
         todayUsage,
         cycleUsage,
         insights,
+        samples,
         refreshLocal,
         refreshAll,
     };
