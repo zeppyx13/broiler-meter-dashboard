@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { Fan, Lightbulb, Flame, Droplets, Plug, Plus, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import SectionCard from "@/components/dashboard/section-card";
-import { getExpectedPowerKw, type Equipment, type EquipmentType } from "@/lib/broiler-local-store";
+import { type Equipment, type EquipmentType } from "@/lib/broiler-local-store";
 import { writeData } from "@/lib/broiler-api";
 import { apiErrorMessage } from "@/lib/api-error";
 import { equipmentToServer } from "@/lib/broiler-adapters";
@@ -31,10 +31,26 @@ export default function PeralatanTab({ data }: { data: KandangData }) {
     const [items, setItems] = useState<Equipment[]>(() => roomExtra.equipment ?? []);
     const [dirty, setDirty] = useState(false);
     const [saving, setSaving] = useState(false);
+    const baseline = useRef(new Map((roomExtra.equipment ?? []).map((e) => [e.id, e])));
+    const savingNow = useRef(false);
+    useEffect(() => {
+        if (dirty || savingNow.current) return;
+        setItems(roomExtra.equipment ?? []);
+        baseline.current = new Map((roomExtra.equipment ?? []).map((e) => [e.id, e]));
+    // A server refresh updates the baseline; typing must not reset the draft.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [roomExtra.equipment]);
 
     if (!room) return null;
 
-    const expectedKw = getExpectedPowerKw({ equipment: items });
+    const clock = new Intl.DateTimeFormat("en-GB", { timeZone: data.timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
+    const expectedKw = items.length ? items.filter((e) => e.schedule ? (e.schedule.start <= e.schedule.end ? clock >= e.schedule.start && clock < e.schedule.end : clock >= e.schedule.start || clock < e.schedule.end) : e.active).reduce((sum, e) => sum + e.count * e.watt, 0) / 1000 : undefined;
+    async function editSchedule(e: Equipment) {
+        if (!canManage || saving) return;
+        const result = await Swal.fire({ title: "Jadwal deklaratif", text: `${e.name ?? TYPES[e.type].label} · zona ${data.timezone}. Mengubah perkiraan beban, tidak mengendalikan relay.`, input: "text", inputValue: e.schedule ? `${e.schedule.start}-${e.schedule.end}` : "", inputPlaceholder: "06:00-18:00", inputValidator: (value) => /^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/.test(value.trim()) ? undefined : "Gunakan HH:mm-HH:mm (24 jam).", showCancelButton: true, showDenyButton: true, confirmButtonText: "Simpan jadwal", denyButtonText: "Tanpa jadwal", cancelButtonText: "Batal", confirmButtonColor: "#7B1113" });
+        if (result.isDenied) update(e.id, { schedule: null });
+        if (result.isConfirmed) { const [start, end] = String(result.value).trim().split("-"); update(e.id, { schedule: { start, end } }); }
+    }
 
     function update(id: string, patch: Partial<Equipment>) {
         setItems((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
@@ -52,27 +68,37 @@ export default function PeralatanTab({ data }: { data: KandangData }) {
     }
 
     async function handleSave() {
+        if (!canManage || savingNow.current) return;
+        savingNow.current = true;
         const base = `/api/coops/${room!.id}/equipment`;
-        const original = new Map((roomExtra.equipment ?? []).map((e) => [e.id, e]));
+        const original = baseline.current;
         const keep = items.filter((e) => e.count > 0);
-        const keepIds = new Set(keep.map((e) => e.id));
+        const removed = [...original.keys()].filter((id) => !keep.some((e) => e.id === id));
         setSaving(true);
         try {
             for (const e of keep) {
                 const before = original.get(e.id);
-                if (!before) await writeData("post", base, equipmentToServer(e));
+                if (!before) {
+                    const created = await writeData<{ equipment: { id: number } }>("post", base, equipmentToServer(e));
+                    const saved = { ...e, id: String(created.equipment.id) };
+                    original.set(saved.id, saved);
+                    setItems((prev) => prev.map((item) => item.id === e.id ? saved : item));
+                }
                 else if (JSON.stringify(equipmentToServer(before)) !== JSON.stringify(equipmentToServer(e))) {
                     await writeData("patch", `${base}/${e.id}`, equipmentToServer(e));
+                    original.set(e.id, e);
                 }
             }
-            for (const id of original.keys()) {
-                if (!keepIds.has(id)) await writeData("delete", `${base}/${id}`);
+            for (const id of removed) {
+                await writeData("delete", `${base}/${id}`);
+                original.delete(id);
             }
             setDirty(false);
             Swal.fire({ icon: "success", title: "Peralatan tersimpan", timer: 1200, showConfirmButton: false });
         } catch (err) {
             Swal.fire({ icon: "error", title: "Gagal menyimpan", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
         } finally {
+            savingNow.current = false;
             setSaving(false);
             refreshAll();
         }
@@ -85,12 +111,12 @@ export default function PeralatanTab({ data }: { data: KandangData }) {
                     <div>
                         <p className="font-inter text-xs text-[#999]">Daya seharusnya</p>
                         <p className="mt-1 font-poppins text-2xl font-bold text-[#2F2F2F]">{expectedKw != null ? `${expectedKw.toFixed(2)} kW` : "—"}</p>
-                        <p className="mt-1 font-inter text-xs text-[#999]">Jumlah dari peralatan yang ditandai menyala.</p>
+                        <p className="mt-1 font-inter text-xs text-[#999]">Deklarasi dan jadwal zona {data.timezone}; klik ikon alat untuk mengatur jadwal.</p>
                     </div>
                     <div>
                         <p className="font-inter text-xs text-[#999]">Daya terukur sekarang</p>
-                        <p className="mt-1 font-poppins text-2xl font-bold text-[#2F2F2F]">{live ? `${insights.actualPowerKw.toFixed(2)} kW` : "—"}</p>
-                        <p className="mt-1 font-inter text-xs text-[#999]">Guard memberi peringatan bila jauh di bawah daya seharusnya (misal kipas mati).</p>
+                        <p className="mt-1 font-poppins text-2xl font-bold text-[#2F2F2F]">{live && insights.actualPowerKw != null ? `${insights.actualPowerKw.toFixed(2)} kW` : "—"}</p>
+                        <p className="mt-1 font-inter text-xs text-[#999]">Daya panel agregat. Guard memakai aturan server; deklarasi tidak membuktikan keadaan masing-masing kipas.</p>
                     </div>
                 </div>
             </SectionCard>
@@ -99,7 +125,7 @@ export default function PeralatanTab({ data }: { data: KandangData }) {
                 {items.length === 0 ? (
                     <div className="px-6 py-8">
                         <p className="font-inter text-sm text-[#777]">
-                            Belum ada peralatan. Tambahkan kipas, lampu, dan pemanas di kandang ini agar Guard bisa membandingkan daya seharusnya dengan daya terukur.
+                            Belum ada deklarasi peralatan. Catat kipas, lampu, dan pemanas sebagai konteks operator; aturan Guard diatur terpisah di server.
                         </p>
                     </div>
                 ) : (
@@ -109,9 +135,9 @@ export default function PeralatanTab({ data }: { data: KandangData }) {
                             return (
                                 <li key={e.id} className={`px-5 py-4 ${e.active ? "" : "opacity-60"}`}>
                                     <div className="flex items-center gap-3">
-                                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#7B1113]/10">
+                                        <button type="button" disabled={!canManage} onClick={() => editSchedule(e)} title={`Jadwal deklaratif · ${data.timezone}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#7B1113]/10">
                                             <Icon size={17} className="text-[#7B1113]" />
-                                        </span>
+                                        </button>
                                         <input
                                             value={e.name ?? ""}
                                             onChange={(ev) => update(e.id, { name: ev.target.value || undefined })}
@@ -153,17 +179,17 @@ export default function PeralatanTab({ data }: { data: KandangData }) {
                                             />
                                         </label>
                                         <label className="flex flex-col font-inter text-xs text-[#999]">
-                                            Menyala
+                                            Deklarasi aktif
                                             <button
                                                 type="button"
                                                 role="switch"
                                                 aria-checked={e.active}
-                                                onClick={() => update(e.id, { active: !e.active })}
+                                                onClick={() => e.schedule ? void editSchedule(e) : update(e.id, { active: !e.active })}
                                                 disabled={!canManage}
                                                 suppressHydrationWarning
                                                 className={`mt-1 flex h-[42px] items-center justify-center rounded-2xl border font-inter text-sm font-medium transition ${e.active ? "border-green-200 bg-green-50 text-green-700" : "border-[#EAEAEA] bg-[#FAFAFA] text-[#999]"}`}
                                             >
-                                                {e.active ? "Ya" : "Tidak"}
+                                                {e.schedule ? `${e.schedule.start}–${e.schedule.end}` : e.active ? "Ya" : "Tidak"}
                                             </button>
                                         </label>
                                     </div>

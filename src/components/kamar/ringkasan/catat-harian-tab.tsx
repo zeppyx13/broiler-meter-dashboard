@@ -3,7 +3,6 @@
 import Swal from "sweetalert2";
 import { ClipboardPlus, Pencil, Trash2 } from "lucide-react";
 import SectionCard from "@/components/dashboard/section-card";
-import { localDateKey } from "@/lib/broiler-local-store";
 import { writeData } from "@/lib/broiler-api";
 import { apiErrorMessage } from "@/lib/api-error";
 import { recordDate } from "@/lib/broiler-adapters";
@@ -40,7 +39,7 @@ export default function CatatHarianTab({ data, onOpenRecord }: Props) {
         );
     }
 
-    const today = localDateKey();
+    const today = data.localDate;
     const recordedToday = cycle.records.some((r) => r.date === today);
 
     async function handleDelete(date: string) {

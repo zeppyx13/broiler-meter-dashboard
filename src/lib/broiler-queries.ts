@@ -5,12 +5,20 @@
 
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useBroiler } from "@/components/broiler/broiler-provider";
-import { readData, stream, type Cycle, type DailyMetric, type ServerAlert, type Source, type Summary } from "@/lib/broiler-api";
+import { allPages, readData, stream, type Cycle, type DailyMetric, type ServerAlert, type Source, type Summary } from "@/lib/broiler-api";
 import type { ServerDailyRecord, ServerEquipment } from "@/lib/broiler-adapters";
 
 export type TelemetrySample = { recorded_at: string; power_w: number | null; flow_rate_lpm: number | null };
 export type CycleProfile = { flock_cycle_id?: number; strain?: string | null; harvest_target_days?: number | null };
 export type AlertWithType = ServerAlert & { alert_type?: string };
+export type ForecastSnapshot = {
+    state: string; source: Source; flock_cycle_id?: number | null; as_of?: string;
+    forecasts: { id?: number; metric: string; horizon: string; predicted_value: number | null; confidence: string; details_json?: { estimated_water_cost_idr?: number | null } }[];
+};
+export type EcoRecommendation = {
+    id: number; title: string; description?: string; recommendation_text?: string; message?: string;
+    status: string; is_current: boolean; estimated_savings_idr: number | null; evidence_json: unknown;
+};
 export type CycleReport = {
     cycle: Cycle;
     totals: DailyMetric;
@@ -33,7 +41,7 @@ export function useCoopSummary(coopId: number | undefined, interval = 10_000) {
     const { userId, enabled } = useScope();
     return useQuery({
         queryKey: ["broiler", userId, coopId, "summary"],
-        queryFn: () => readData<Summary>("/api/dashboard/summary", { coop_id: coopId, include_simulation: true }),
+        queryFn: ({ signal }) => readData<Summary>("/api/dashboard/summary", { coop_id: coopId, include_simulation: true }, { signal }),
         enabled: enabled && Boolean(coopId),
         refetchInterval: interval,
     });
@@ -45,7 +53,7 @@ export function useAllSummaries(coopIds: number[], interval = 20_000) {
     return useQueries({
         queries: coopIds.map((id) => ({
             queryKey: ["broiler", userId, id, "summary"],
-            queryFn: () => readData<Summary>("/api/dashboard/summary", { coop_id: id, include_simulation: true }),
+            queryFn: ({ signal }) => readData<Summary>("/api/dashboard/summary", { coop_id: id, include_simulation: true }, { signal }),
             enabled,
             refetchInterval: interval,
         })),
@@ -61,7 +69,7 @@ export function useActiveCycle(coopId: number | undefined) {
     const { userId, enabled } = useScope();
     return useQuery({
         queryKey: ["broiler", userId, coopId, "active-cycle"],
-        queryFn: () => readData<{ cycle: Cycle | null }>("/api/flock-cycles/active", { coop_id: coopId }),
+        queryFn: ({ signal }) => readData<{ cycle: Cycle | null }>("/api/flock-cycles/active", { coop_id: coopId }, { signal }),
         enabled: enabled && Boolean(coopId),
     });
 }
@@ -70,7 +78,14 @@ export function useCycles(coopId: number | undefined, limit = 50) {
     const { userId, enabled } = useScope();
     return useQuery({
         queryKey: ["broiler", userId, coopId, "cycles", limit],
-        queryFn: () => readData<{ cycles: Cycle[] }>("/api/flock-cycles", { coop_id: coopId, limit }),
+        queryFn: async ({ signal }) => {
+            const cycles: Cycle[] = [];
+            for (let offset = 0; ; offset += limit) {
+                const page = await readData<{ cycles: Cycle[] }>("/api/flock-cycles", { coop_id: coopId, limit, offset }, { signal });
+                cycles.push(...page.cycles);
+                if (page.cycles.length < limit) return { cycles };
+            }
+        },
         enabled: enabled && Boolean(coopId),
     });
 }
@@ -79,7 +94,7 @@ export function useCycleProfile(cycleId: number | undefined, coopId: number | un
     const { userId, enabled } = useScope();
     return useQuery({
         queryKey: ["broiler", userId, coopId, "cycle-profile", cycleId],
-        queryFn: () => readData<{ profile: CycleProfile | null }>(`/api/flock-cycles/${cycleId}/profile`),
+        queryFn: ({ signal }) => readData<{ profile: CycleProfile | null }>(`/api/flock-cycles/${cycleId}/profile`, undefined, { signal }),
         enabled: enabled && Boolean(cycleId),
     });
 }
@@ -88,7 +103,7 @@ export function useDailyRecords(cycleId: number | undefined, coopId: number | un
     const { userId, enabled } = useScope();
     return useQuery({
         queryKey: ["broiler", userId, coopId, "daily-records", cycleId],
-        queryFn: () => readData<{ records: ServerDailyRecord[] }>(`/api/flock-cycles/${cycleId}/daily-records`),
+        queryFn: ({ signal }) => readData<{ records: ServerDailyRecord[] }>(`/api/flock-cycles/${cycleId}/daily-records`, undefined, { signal }),
         enabled: enabled && Boolean(cycleId),
     });
 }
@@ -97,7 +112,7 @@ export function useEquipment(coopId: number | undefined) {
     const { userId, enabled } = useScope();
     return useQuery({
         queryKey: ["broiler", userId, coopId, "equipment"],
-        queryFn: () => readData<{ equipment: ServerEquipment[]; expected_power_w: number | string | null }>(`/api/coops/${coopId}/equipment`),
+        queryFn: ({ signal }) => readData<{ equipment: ServerEquipment[]; expected_power_w: number | string | null }>(`/api/coops/${coopId}/equipment`, undefined, { signal }),
         enabled: enabled && Boolean(coopId),
     });
 }
@@ -106,7 +121,7 @@ export function useTelemetryHistory(coopId: number | undefined, source: Source, 
     const { userId, enabled } = useScope();
     return useQuery({
         queryKey: ["broiler", userId, coopId, "telemetry-history", source, minutes],
-        queryFn: () => readData<{ samples: TelemetrySample[]; state?: string }>(`/api/coops/${coopId}/telemetry-history`, { source, minutes, bucket_seconds: 30 }),
+        queryFn: ({ signal }) => readData<{ samples: TelemetrySample[]; state?: string }>(`/api/coops/${coopId}/telemetry-history`, { source, minutes, bucket_seconds: 30 }, { signal }),
         enabled: enabled && Boolean(coopId),
         refetchInterval: 15_000,
     });
@@ -116,7 +131,7 @@ export function useCoopAlerts(coopId: number | undefined, source: Source, status
     const { userId, enabled } = useScope();
     return useQuery({
         queryKey: ["broiler", userId, coopId, "alerts", source, status ?? "all", limit],
-        queryFn: () => readData<{ alerts: AlertWithType[] }>("/api/alerts", { coop_id: coopId, source, status, page: 1, limit }),
+        queryFn: async ({ signal }) => status === "open" ? { alerts: (await Promise.all(["active", "acknowledged"].map((state) => allPages<AlertWithType>("/api/alerts", "alerts", { coop_id: coopId, source, status: state }, { signal })))).flat() } : readData<{ alerts: AlertWithType[] }>("/api/alerts", { coop_id: coopId, source, status, page: 1, limit }, { signal }),
         enabled: enabled && Boolean(coopId),
         refetchInterval: 15_000,
     });
@@ -128,7 +143,7 @@ export function useAllAlerts(coopIds: number[], source: Source, limit = 50) {
     return useQueries({
         queries: coopIds.map((id) => ({
             queryKey: ["broiler", userId, id, "alerts", source, "all", limit],
-            queryFn: () => readData<{ alerts: AlertWithType[] }>("/api/alerts", { coop_id: id, source, page: 1, limit }),
+            queryFn: async ({ signal }) => ({ alerts: await allPages<AlertWithType>("/api/alerts", "alerts", { coop_id: id, source }, { signal }) }),
             enabled,
             refetchInterval: 15_000,
         })),
@@ -139,7 +154,7 @@ export function useCycleReport(cycleId: number | undefined, coopId: number | und
     const { userId, enabled } = useScope();
     return useQuery({
         queryKey: ["broiler", userId, coopId, "cycle-report", cycleId, source],
-        queryFn: () => readData<CycleReport>(`/api/flock-cycles/${cycleId}/report`, { source }),
+        queryFn: ({ signal }) => readData<CycleReport>(`/api/flock-cycles/${cycleId}/report`, { source }, { signal }),
         enabled: enabled && Boolean(cycleId),
     });
 }
@@ -148,7 +163,25 @@ export function useMonthly(coopId: number | undefined, source: Source) {
     const { userId, enabled } = useScope();
     return useQuery({
         queryKey: ["broiler", userId, coopId, "monthly", source],
-        queryFn: () => readData<{ series: (DailyMetric & { month: string })[] }>(`/api/coops/${coopId}/reports/monthly`, { source }),
+        queryFn: ({ signal }) => readData<{ series: (DailyMetric & { month: string })[] }>(`/api/coops/${coopId}/reports/monthly`, { source }, { signal }),
         enabled: enabled && Boolean(coopId),
+    });
+}
+
+export function useForecastCurrent(coopId: number | undefined, source: Source) {
+    const { userId, enabled } = useScope();
+    return useQuery({
+        queryKey: ["broiler", userId, coopId, "forecast-current", source],
+        queryFn: ({ signal }) => readData<ForecastSnapshot>("/api/forecasts/current", { coop_id: coopId, source, window_days: 7 }, { signal }),
+        enabled: enabled && Boolean(coopId), refetchInterval: 60_000, retry: false,
+    });
+}
+
+export function useEcoRecommendations(coopId: number | undefined, source: Source) {
+    const { userId, enabled } = useScope();
+    return useQuery({
+        queryKey: ["broiler", userId, coopId, "eco-current", source],
+        queryFn: ({ signal }) => readData<{ state: string; recommendations: EcoRecommendation[] }>("/api/eco-recommendations", { coop_id: coopId, source, page: 1, limit: 20 }, { signal }),
+        enabled: enabled && Boolean(coopId), refetchInterval: 60_000, retry: false,
     });
 }

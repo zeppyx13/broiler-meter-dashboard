@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import Swal from "sweetalert2";
 import { CheckCircle2, CircleDashed, ClipboardCheck, Gauge, Radar, ShieldCheck, Sprout, Wifi, XCircle } from "lucide-react";
@@ -8,26 +8,25 @@ import { readData, writeData } from "@/lib/broiler-api";
 import { apiErrorMessage } from "@/lib/api-error";
 import { useBroiler } from "@/components/broiler/broiler-provider";
 import { useKandangSnapshots } from "@/lib/kandang-snapshot";
-import { DEFAULT_GUARD_SETTINGS, getGuardSettings } from "@/lib/guard-settings";
-import { formatSeconds, guardStats } from "@/lib/guard-performance";
-import { useGuard } from "@/components/dashboard/guard/guard-monitor";
+import { formatSeconds } from "@/lib/guard-performance";
 import {
     CALIBRATION_LIMIT_PCT, CALIBRATION_UNIT, MIN_REPEATS, errorPct, summarizeCalibrations,
     type CalibrationEntry, type CalibrationType,
 } from "@/lib/calibration";
 
 const num = (v: number, d = 1) => v.toLocaleString("id-ID", { maximumFractionDigits: d, minimumFractionDigits: d });
-const HEALTH_DAYS = 7;
 const UPTIME_TARGET = 98;
 
 type Status = "lulus" | "belum" | "kurang-data";
 
 type ServerCalibration = {
     id: number; coop_id: number; type: "water" | "electricity"; reference_value: number; sensor_value: number;
-    measured_at: string; note?: string | null; verification_state: string; instrument_id: string;
+    measured_at: string; note?: string | null; verification_state: string; instrument_id: string; recorded_by: number; source: string;
 };
 type ValidationReport = {
-    telemetry_reliability?: { state: string; received_pct: number | null; reason: string; observations: { evidence_id: number; received_packets: number; expected_packets: number; received_pct: number }[] };
+    telemetry_reliability?: { state: string; received_pct?: number | null; reason?: string; observations?: { evidence_id: number; received_packets: number; expected_packets: number; received_pct: number }[] };
+    guard_response?: { state: string; observations?: { evidence_id: number; alert_id: number; response_seconds: number }[] };
+    evidence?: { id: number; kind: string; source: string; verification_state: string; recorded_by: number; observed_start: string; observed_end: string; evidence: { reference?: string } }[];
 };
 
 const INSTRUMENT: Record<CalibrationType, { id: string; method: string }> = {
@@ -52,7 +51,7 @@ export default function ValidationPanel() {
             <div className="mt-5 space-y-6">
                 <AccuracySection rooms={rooms} roomName={roomName} />
                 <ReliabilitySection rooms={rooms} />
-                <GuardResponseSection />
+                <GuardResponseSection rooms={rooms} />
                 <FieldTestSection />
             </div>
         </section>
@@ -70,7 +69,7 @@ function AccuracySection({ rooms, roomName }: { rooms: { id: number; number: str
         })),
     });
     const calibrationKey = calibrationQueries.map((q) => q.dataUpdatedAt).join(",");
-    const entries = useMemo<(CalibrationEntry & { verified: boolean })[]>(() => calibrationQueries.flatMap((q) => (q.data?.calibrations ?? []).map((c) => ({
+    const entries = useMemo<(CalibrationEntry & { verified: boolean; recordedBy: number })[]>(() => calibrationQueries.flatMap((q) => (q.data?.calibrations ?? []).map((c) => ({
         id: String(c.id),
         roomId: c.coop_id,
         type: c.type === "electricity" ? "listrik" as const : "air" as const,
@@ -78,11 +77,15 @@ function AccuracySection({ rooms, roomName }: { rooms: { id: number; number: str
         sensor: Number(c.sensor_value),
         at: c.measured_at,
         note: c.note ?? undefined,
-        verified: c.verification_state === "independently_verified",
+        verified: c.source === "real" && c.verification_state === "independently_verified",
+        recordedBy: c.recorded_by,
     }))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [calibrationKey]);
     const [saving, setSaving] = useState(false);
+    const adding = useRef(false);
+    const scope = useRef("");
+    scope.current = `${b.user?.id}:${b.source}`;
     const { snapshots } = useKandangSnapshots();
     const [roomId, setRoomId] = useState<number | "">("");
     const [type, setType] = useState<CalibrationType>("listrik");
@@ -90,27 +93,34 @@ function AccuracySection({ rooms, roomName }: { rooms: { id: number; number: str
     const [sensor, setSensor] = useState("");
 
     const summaries = useMemo(() => summarizeCalibrations(entries).sort((a, b) => roomName(a.roomId).localeCompare(roomName(b.roomId), "id", { numeric: true }) || a.type.localeCompare(b.type)), [entries, roomName]);
-    const status: Status = summaries.length === 0 ? "kurang-data" : summaries.every((s) => s.passed && s.enoughRepeats) ? "lulus" : "belum";
+    const verifiedSummaries = summarizeCalibrations(entries.filter((e) => e.verified));
+    const status: Status = verifiedSummaries.length === 0 ? "kurang-data" : verifiedSummaries.every((s) => s.passed && s.enoughRepeats) && verifiedSummaries.length === summaries.length ? "lulus" : "belum";
     const selectedRoom = roomId || rooms[0]?.id;
     const live = snapshots.find((x) => x.room.id === selectedRoom && x.online)?.live;
 
     async function handleAdd(e: React.FormEvent) {
         e.preventDefault();
+        if (adding.current) return;
         const ref = Number(reference);
         const sen = Number(sensor);
-        if (!selectedRoom || !(ref > 0) || !(sen >= 0)) {
+        if (!selectedRoom || !reference.trim() || !sensor.trim() || !(ref > 0) || !(sen >= 0)) {
             Swal.fire({ icon: "warning", title: "Lengkapi data uji", text: "Isi nilai alat acuan dan pembacaan COASTHER.", confirmButtonColor: "#7B1113" });
             return;
         }
+        adding.current = true;
+        const requestedScope = scope.current;
         setSaving(true);
         try {
+            const instrument = await Swal.fire({ title: "Provenance pengukuran", text: "Baris pertama: identitas unik instrumen acuan. Baris berikutnya: metode dan kondisi pengukuran (minimal 8 karakter).", input: "textarea", inputPlaceholder: `${INSTRUMENT[type].id} · ID/nomor seri\n${INSTRUMENT[type].method}`, inputValidator: (value) => { const [id, ...method] = value.trim().split("\n"); return id?.trim() && method.join("\n").trim().length >= 8 ? undefined : "Isi identitas instrumen dan metode pada baris terpisah."; }, showCancelButton: true, confirmButtonText: "Simpan uji", cancelButtonText: "Batal", confirmButtonColor: "#7B1113" });
+            if (!instrument.isConfirmed || scope.current !== requestedScope) return;
+            const [instrumentId, ...method] = String(instrument.value).trim().split("\n");
             await writeData("post", `/api/coops/${selectedRoom}/calibrations`, {
                 type: type === "listrik" ? "electricity" : "water",
                 reference_value: ref,
                 sensor_value: sen,
                 unit: type === "listrik" ? "W" : "L",
-                instrument_id: INSTRUMENT[type].id,
-                method: INSTRUMENT[type].method,
+                instrument_id: instrumentId.trim(),
+                method: method.join("\n").trim(),
                 measured_at: new Date().toISOString(),
                 source: b.source,
                 note: null,
@@ -121,6 +131,7 @@ function AccuracySection({ rooms, roomName }: { rooms: { id: number; number: str
         } catch (err) {
             Swal.fire({ icon: "error", title: "Gagal menyimpan uji", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
         } finally {
+            adding.current = false;
             setSaving(false);
         }
     }
@@ -154,12 +165,12 @@ function AccuracySection({ rooms, roomName }: { rooms: { id: number; number: str
                                         {num(s.meanErrorPct)}% <span className="text-xs text-[#999]">/ ≤ {CALIBRATION_LIMIT_PCT[s.type]}%</span>
                                     </td>
                                     <td className="py-2.5 text-right">
-                                        {s.passed && s.enoughRepeats ? (
+                                        {s.passed && s.enoughRepeats && s.entries.filter((entry) => entries.find((item) => item.id === entry.id)?.verified).length >= MIN_REPEATS ? (
                                             <span className="font-medium text-green-700">Lulus</span>
                                         ) : !s.passed ? (
                                             <span className="font-medium text-[#B42318]">Perlu kalibrasi</span>
                                         ) : (
-                                            <span className="text-[#B76E00]">Kurang ulangan</span>
+                                            <span className="text-[#B76E00]">Kurang ulangan / verifikasi independen</span>
                                         )}
                                         {!s.passed && (
                                             <p className="mt-0.5 text-[11px] font-normal text-[#777]">
@@ -193,7 +204,7 @@ function AccuracySection({ rooms, roomName }: { rooms: { id: number; number: str
                 <Field label={`COASTHER (${CALIBRATION_UNIT[type]})`}>
                     <div className="flex gap-1">
                         <input type="number" step="any" min={0} value={sensor} onChange={(e) => setSensor(e.target.value)} suppressHydrationWarning className={inputCls} />
-                        {type === "listrik" && live && (
+                        {type === "listrik" && live?.power != null && (
                             <button type="button" onClick={() => setSensor(String(live.power))} title="Pakai daya terukur alat sekarang" className="shrink-0 rounded-xl border border-[#EAEAEA] bg-white px-2 font-inter text-[11px] text-[#7B1113] hover:bg-[#F8F1E7]">
                                 Alat
                             </button>
@@ -220,7 +231,7 @@ function AccuracySection({ rooms, roomName }: { rooms: { id: number; number: str
                                     {new Date(e.at).toLocaleDateString("id-ID", { day: "2-digit", month: "short" })} · {roomName(e.roomId)} · {e.type} · acuan {num(e.reference, 2)} vs alat {num(e.sensor, 2)} {CALIBRATION_UNIT[e.type]}
                                     <span className="ml-1 font-medium text-[#2F2F2F]">({num(errorPct(e))}%)</span>
                                 </span>
-                                {e.verified && <span title="Diverifikasi independen" className="flex shrink-0 items-center gap-1 text-[11px] text-green-700"><ShieldCheck size={13} /> Terverifikasi</span>}
+                                {e.verified ? <span title="Diverifikasi independen" className="flex shrink-0 items-center gap-1 text-[11px] text-green-700"><ShieldCheck size={13} /> Terverifikasi</span> : b.canManage && b.source === "real" && e.recordedBy !== b.user?.id && <button className="text-[11px] text-[#7B1113] underline" onClick={async () => { const result = await Swal.fire({ title: "Verifikasi independen", input: "textarea", inputLabel: "Rujukan pemeriksaan minimal 8 karakter", inputValidator: (value) => value.trim().length >= 8 ? undefined : "Lengkapi rujukan pemeriksaan.", showCancelButton: true, confirmButtonColor: "#7B1113" }); if (!result.isConfirmed) return; try { await writeData("patch", `/api/coops/${e.roomId}/calibrations/${e.id}`, { verification_state: "independently_verified", evidence_note: String(result.value).trim() }); await b.refresh(); } catch (error) { await Swal.fire({ icon: "error", title: "Verifikasi ditolak", text: apiErrorMessage(error), confirmButtonColor: "#7B1113" }); } }}>Verifikasi independen</button>}
                             </li>
                         ))}
                     </ul>
@@ -245,20 +256,20 @@ function ReliabilitySection({ rooms }: { rooms: { id: number; number: string }[]
     const isError = reports.length > 0 && reports.every((q) => q.isError);
     const rows = rooms
         .map((r, i) => ({ room: r, rel: reports[i]?.data?.telemetry_reliability }))
-        .filter((x) => x.rel && x.rel.received_pct != null)
+        .filter((x) => x.rel?.state === "independently_attested" && x.rel.observations?.length)
         .map(({ room, rel }) => ({
             room_id: room.id,
             number: room.number,
-            uptime_pct: Number(rel!.received_pct),
-            expected: rel!.observations.reduce((s, o) => s + o.expected_packets, 0),
-            received: rel!.observations.reduce((s, o) => s + o.received_packets, 0),
-            tests: rel!.observations.length,
+            uptime_pct: rel!.observations!.reduce((s, o) => s + o.received_packets, 0) / rel!.observations!.reduce((s, o) => s + o.expected_packets, 0) * 100,
+            expected: rel!.observations!.reduce((s, o) => s + o.expected_packets, 0),
+            received: rel!.observations!.reduce((s, o) => s + o.received_packets, 0),
+            tests: rel!.observations!.length,
             attested: rel!.state === "independently_attested",
         }));
     const status: Status = rows.length === 0 ? "kurang-data" : rows.every((r) => r.uptime_pct >= UPTIME_TARGET) ? "lulus" : "belum";
 
     return (
-        <Block icon={<Wifi size={16} />} title="2 · Keandalan data" target={`≥ ${UPTIME_TARGET}% data diterima (${HEALTH_DAYS} hari terakhir), termasuk saat internet putus`} status={status}>
+        <Block icon={<Wifi size={16} />} title="2 · Keandalan data" target={`≥ ${UPTIME_TARGET}% paket pada evidence independen; durasi dan gangguan mengikuti catatan operator`} status={status}>
             {isLoading ? (
                 <div className="h-24 animate-pulse rounded-2xl bg-[#FAFAFA]" />
             ) : isError ? (
@@ -289,7 +300,7 @@ function ReliabilitySection({ rooms }: { rooms: { id: number; number: string }[]
                             </div>
                         );
                     })}
-                    <p className="font-inter text-[11px] text-[#AAA]">Saat WiFi putus, ESP32 menyimpan data dan mengirim ulang setelah tersambung. Data hanya hilang bila alat ikut mati (listrik padam) atau restart.</p>
+                    <p className="font-inter text-[11px] text-[#AAA]">Keandalan berasal dari hitungan paket dengan sequence tepercaya dan review independen, bukan frekuensi heartbeat atau koneksi browser.</p>
                 </div>
             )}
         </Block>
@@ -298,39 +309,14 @@ function ReliabilitySection({ rooms }: { rooms: { id: number; number: string }[]
 
 // ── 3. Respons Guard ───────────────────────────────────────────────────────
 
-function GuardResponseSection() {
-    const { active, history } = useGuard();
-    const [sinceMs] = useState(() => Date.now() - HEALTH_DAYS * 86_400_000);
-    const stats = useMemo(() => guardStats([...active, ...history], sinceMs), [active, history, sinceMs]);
-    const [offlineMinutes, setOfflineMinutes] = useState(DEFAULT_GUARD_SETTINGS.offlineMinutes);
-    useEffect(() => setOfflineMinutes(getGuardSettings().offlineMinutes), []);
-
-    const rows: { label: string; target: string; value: string; samples: number; ok: boolean | null; note?: string }[] = [
-        {
-            label: "Kipas mati / daya turun",
-            target: "≤ 1 menit",
-            value: formatSeconds(stats.detectionSec.power),
-            samples: stats.detectionSamples.power,
-            ok: stats.detectionSec.power != null ? stats.detectionSec.power <= 60 : null,
-        },
-        {
-            label: "Listrik padam / alat offline",
-            target: "≤ 1 menit",
-            value: formatSeconds(stats.detectionSec.offline),
-            samples: stats.detectionSamples.offline,
-            ok: stats.detectionSec.offline != null ? stats.detectionSec.offline <= 60 : null,
-            note: `Ambang offline ${Math.round(offlineMinutes * 60)} detik tanpa data (bisa diubah di Pengaturan).`,
-        },
-        {
-            label: "Air bocor (keran terbuka)",
-            target: "≤ 15 menit",
-            value: "≥ 2 jam",
-            samples: 0,
-            ok: false,
-            note: "Guard menilai laju air harian setelah ≥ 2 jam data; aturan debit tinggi seketika belum dibuat.",
-        },
-    ];
-    const status: Status = rows.every((r) => r.ok) ? "lulus" : rows.some((r) => r.ok) ? "belum" : "kurang-data";
+function GuardResponseSection({ rooms }: { rooms: { id: number; number: string }[] }) {
+    const b = useBroiler();
+    const reports = useQueries({ queries: rooms.map((r) => ({ queryKey: ["broiler", b.user?.id, r.id, "validation-report", b.source], queryFn: () => readData<ValidationReport>(`/api/coops/${r.id}/validation-report`, { source: b.source }), staleTime: 60_000 })) });
+    const values = reports.flatMap((q) => q.data?.guard_response?.state === "independently_attested" ? q.data.guard_response.observations ?? [] : []).map((v) => v.response_seconds).filter((v) => Number.isFinite(v) && v >= 0).sort((a, b) => a - b);
+    const middle = Math.floor(values.length / 2);
+    const median = values.length ? values.length % 2 ? values[middle] : (values[middle - 1] + values[middle]) / 2 : null;
+    const rows: { label: string; target: string; value: string; samples: number; ok: boolean | null; note?: string }[] = [{ label: "Guard · onset fisik independen", target: "Sesuai jenis insiden", value: formatSeconds(median), samples: values.length, ok: null, note: "Median evidence independen dari server; tidak disimpulkan dari umur alert atau heartbeat. Penilaian target harus sesuai jenis insiden." }];
+    const status: Status = values.length ? "belum" : "kurang-data";
 
     return (
         <Block icon={<Radar size={16} />} title="3 · Respons Guard" target="Notifikasi ≤ 1 menit (kipas mati, padam); ≤ 15 menit (bocor)" status={status}>
@@ -357,14 +343,14 @@ function GuardResponseSection() {
                                     {r.samples > 0 && <p className="text-[11px] text-[#999]">{r.samples} kejadian</p>}
                                 </td>
                                 <td className="py-2.5 text-right">
-                                    {r.ok == null ? <span className="text-[#999]">Belum ada kejadian</span> : r.ok ? <span className="font-medium text-green-700">Memenuhi</span> : <span className="font-medium text-[#B42318]">Belum</span>}
+                                    {r.ok == null ? <span className="text-[#999]">{r.samples ? "Perlu penilaian per jenis insiden" : "Insufficient evidence"}</span> : r.ok ? <span className="font-medium text-green-700">Memenuhi</span> : <span className="font-medium text-[#B42318]">Belum</span>}
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
-            <p className="mt-1 font-inter text-[11px] text-[#AAA]">Diukur dari riwayat peringatan {HEALTH_DAYS} hari terakhir: jeda dari data alat masuk sampai peringatan muncul.</p>
+            <p className="mt-1 font-inter text-[11px] text-[#AAA]">Jeda diukur dari onset fisik yang dicatat terpisah sampai detected_at alert yang sama; memerlukan reviewer independen.</p>
         </Block>
     );
 }
@@ -372,11 +358,42 @@ function GuardResponseSection() {
 // ── 4. Uji lapangan ────────────────────────────────────────────────────────
 
 function FieldTestSection() {
+    const b = useBroiler();
+    const inFlight = useRef(false);
+    const scope = useRef("");
+    scope.current = `${b.user?.id}:${b.source}`;
+    const reports = useQueries({ queries: b.coops.map((c) => ({ queryKey: ["broiler", b.user?.id, c.id, "validation-report", b.source], queryFn: () => readData<ValidationReport>(`/api/coops/${c.id}/validation-report`, { source: b.source }), staleTime: 60_000 })) });
+    const entries = reports.flatMap((q) => (q.data?.evidence ?? []).filter((e) => e.kind === "field_trial"));
+    const allEntries = reports.flatMap((q, i) => (q.data?.evidence ?? []).map((e) => ({ ...e, coopId: b.coops[i].id })));
+    async function recordEvidence() {
+        if (inFlight.current) return;
+        inFlight.current = true;
+        const requestedScope = scope.current;
+        try {
+        const options = Object.fromEntries(b.coops.flatMap((c) => ["field_trial", "packet_delivery", "guard_response"].map((kind) => [`${c.id}:${kind}`, `${c.code} · ${kind}`])));
+        const selected = await Swal.fire({ title: "Catat evidence manual", input: "select", inputOptions: options, showCancelButton: true, confirmButtonText: "Lanjut", confirmButtonColor: "#7B1113" });
+        if (!selected.isConfirmed || !selected.value || scope.current !== requestedScope) return;
+        const [coopId, kind] = String(selected.value).split(":");
+        const fields = kind === "packet_delivery" ? { reference: "", expected_packets: null, received_packets: null, trusted_sequence_reference: "" } : kind === "guard_response" ? { reference: "", alert_id: null, physical_onset_at: "", detection_at: "" } : { reference: "", observations: "" };
+        const result = await Swal.fire({ title: "Evidence & ground truth", text: "Isi JSON dengan pengamatan sebenarnya. Timestamp wajib ISO dengan offset. Ini hanya catatan; tidak menjalankan perangkat atau MQTT.", input: "textarea", inputValue: JSON.stringify({ instrument_id: "", method: "", observed_start: "", observed_end: "", evidence: fields }, null, 2), inputValidator: (value) => { try { const parsed = JSON.parse(value); return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? undefined : "Isi objek JSON."; } catch { return "Format JSON belum valid."; } }, showCancelButton: true, confirmButtonText: "Simpan evidence", confirmButtonColor: "#7B1113" });
+        if (!result.isConfirmed || scope.current !== requestedScope) return;
+        try { await writeData("post", `/api/coops/${coopId}/validation-evidence`, { ...JSON.parse(String(result.value)), kind, source: b.source }); await b.refresh(); }
+        catch (error) { await Swal.fire({ icon: "error", title: "Evidence belum tersimpan", text: apiErrorMessage(error), confirmButtonColor: "#7B1113" }); }
+        } finally { inFlight.current = false; }
+    }
+    async function verify(entry: typeof allEntries[number]) {
+        const result = await Swal.fire({ title: "Review evidence independen", text: "Verifikasi harus dilakukan orang lain dengan rujukan pengukuran fisik.", input: "textarea", inputValidator: (value) => value.trim().length >= 8 ? undefined : "Rujukan minimal 8 karakter.", showCancelButton: true, confirmButtonColor: "#7B1113" });
+        if (!result.isConfirmed) return;
+        try { await writeData("patch", `/api/coops/${entry.coopId}/validation-evidence/${entry.id}`, { verification_state: "independently_verified", evidence_note: String(result.value).trim() }); await b.refresh(); }
+        catch (error) { await Swal.fire({ icon: "error", title: "Review ditolak", text: apiErrorMessage(error), confirmButtonColor: "#7B1113" }); }
+    }
     return (
-        <Block icon={<Sprout size={16} />} title="4 · Uji lapangan" target="Satu siklus (±35 hari) di kandang mitra, dibandingkan recording manual" status="kurang-data">
+        <Block icon={<Sprout size={16} />} title="4 · Uji lapangan" target="Satu siklus (±35 hari) di kandang mitra, dibandingkan recording manual" status={entries.length ? "belum" : "kurang-data"}>
             <p className="font-inter text-sm text-[#555]">
-                Belum dilakukan. Rencana: pasang di satu kandang mitra selama satu siklus, lalu bandingkan kurva L/ekor/hari, kWh/siklus, dan kejadian yang tertangkap Guard dengan catatan manual peternak.
+                {entries.length ? `${entries.length} evidence lapangan tersimpan; ${entries.filter((e) => e.source === "real" && e.verification_state === "independently_verified").length} diverifikasi independen. Coverage satu siklus dan kesimpulan fisik tetap harus diperiksa operator.` : "Insufficient evidence: belum ada catatan uji lapangan untuk sumber ini. Pengukuran harus dibandingkan dengan recording manual dan direview independen."}
             </p>
+            {b.canOperate && <button onClick={recordEvidence} className="mt-2 font-inter text-xs text-[#7B1113] underline">Catat evidence lapangan / paket / respons Guard</button>}
+            {allEntries.length > 0 && <details className="mt-2"><summary className="cursor-pointer font-inter text-xs text-[#7B1113]">Evidence server & review independen</summary><ul className="mt-2 divide-y divide-[#F0F0F0]">{allEntries.map((entry) => <li key={entry.id} className="py-2 font-inter text-xs text-[#555]">#{entry.id} · {entry.kind} · {entry.source} · {entry.verification_state} · {entry.evidence.reference}{b.canManage && entry.source === "real" && entry.recorded_by !== b.user?.id && entry.verification_state !== "independently_verified" && <button onClick={() => verify(entry)} className="ml-2 text-[#7B1113] underline">Review independen</button>}</li>)}</ul></details>}
         </Block>
     );
 }

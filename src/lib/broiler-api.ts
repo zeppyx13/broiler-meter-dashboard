@@ -11,19 +11,22 @@ export type StreamSummary = { live: Live; today: DailyMetric | null; cycle_total
 export type Summary = StreamSummary & { local_date?: string; state: string; coop: Coop | null; farm?: Farm; active_cycle: Cycle | null; devices: { id: number; name: string; connectivity_status: string; last_seen_at: string | null }[]; generated_at?: string; data_status?: string; simulation?: StreamSummary };
 export type ServerAlert = { id: number; coop_id: number; title: string; message: string; severity: string; status: string; source: string; detected_at: string; acknowledged_at?: string | null; resolved_at?: string | null; evidence_json?: unknown };
 
-export async function readData<T>(path: string, params?: Record<string, unknown>): Promise<T> {
-    const response = await api.get<{ success: boolean; data: T }>(path, { params });
+export async function readData<T>(path: string, params?: Record<string, unknown>, options?: { signal?: AbortSignal }): Promise<T> {
+    const response = await api.get<{ success: boolean; message?: string; data: T }>(path, { params, signal: options?.signal });
+    if (response.data?.success !== true || response.data.data === undefined) throw new Error(response.data?.message || "Respons server tidak valid.");
     return response.data.data;
 }
 export async function writeData<T = unknown>(method: "post" | "put" | "patch" | "delete", path: string, body?: unknown): Promise<T> {
-    const response = await api.request<{ success: boolean; data: T }>({ method, url: path, data: body });
+    const response = await api.request<{ success: boolean; message?: string; data: T }>({ method, url: path, data: body });
+    if (response.data?.success !== true) throw new Error(response.data?.message || "Perubahan ditolak server.");
     return response.data.data;
 }
-export async function allPages<T>(path: string, field: string): Promise<T[]> {
+export async function allPages<T>(path: string, field: string, params?: Record<string, unknown>, options?: { signal?: AbortSignal }): Promise<T[]> {
     const result: T[] = [];
     for (let page = 1; ; page++) {
-        const data = await readData<Record<string, T[]>>(path, { page, limit: 100 });
-        const rows = data[field] ?? [];
+        const data = await readData<Record<string, T[]>>(path, { ...params, page, limit: 100 }, options);
+        const rows = data[field];
+        if (!Array.isArray(rows)) throw new Error("Daftar server tidak sesuai kontrak.");
         result.push(...rows);
         if (rows.length < 100) break;
     }

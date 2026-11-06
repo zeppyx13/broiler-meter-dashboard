@@ -41,7 +41,7 @@ export default function LoginForm() {
                 throw new Error("Akses ditolak");
             }
 
-            setAuth(token, user);
+            setAuth(token, user, form.rememberMe);
 
             await Swal.fire({
                 icon: "success",

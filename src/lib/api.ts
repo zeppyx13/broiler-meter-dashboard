@@ -1,8 +1,11 @@
 import axios from "axios";
 import { clearAuth, getToken } from "./auth";
 
+// Every API caller includes /api; Socket.IO must use the server origin, not that namespace.
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "").replace(/\/api$/, "");
+
 export const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
+    baseURL: API_BASE_URL,
     timeout: 20000,
     headers: {
         "Content-Type": "application/json",
@@ -11,7 +14,9 @@ export const api = axios.create({
 });
 
 api.interceptors.response.use(response => response, error => {
-    if (error.response?.status === 401 && typeof window !== "undefined") {
+    const authorization = error.config?.headers?.Authorization;
+    // A late 401 from the previous account must not log out a newer session.
+    if (error.response?.status === 401 && authorization === `Bearer ${getToken()}` && typeof window !== "undefined") {
         clearAuth();
         window.dispatchEvent(new Event("coasther:unauthorized"));
     }

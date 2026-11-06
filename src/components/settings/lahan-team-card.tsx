@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import Swal from "sweetalert2";
 import { MapPin, Pencil, Plus, Trash2, Users } from "lucide-react";
-import { readData, writeData, type Farm } from "@/lib/broiler-api";
+import { allPages, readData, writeData, type Farm } from "@/lib/broiler-api";
 import { apiErrorMessage } from "@/lib/api-error";
 import { useBroiler } from "@/components/broiler/broiler-provider";
 import { MAX_KANDANG_PER_LAHAN } from "@/components/kamar/room-form-modal";
@@ -27,7 +27,7 @@ const yes = (v: unknown) => v === true || Number(v) === 1;
 export default function LahanTeamCard() {
     const b = useBroiler();
     const [farmForm, setFarmForm] = useState<Farm | "new" | null>(null);
-    const canCreateFarm = b.user?.role === "admin" || b.farms.some((f) => f.member_role === "owner");
+    const canCreateFarm = ["admin", "manager"].includes(b.user?.role ?? "") || b.farms.some((f) => f.member_role === "owner");
 
     async function saveFarm(body: { name: string; location_text: string | null }) {
         try {
@@ -83,10 +83,12 @@ function FarmSection({ farm, onEdit }: { farm: Farm; onEdit: () => void }) {
     const canManage = isOwner || farm.member_role === "manager";
     const coops = b.coops.filter((c) => c.farm_id === farm.id);
     const [adding, setAdding] = useState(false);
+    const inFlight = useRef(false);
+    const [busy, setBusy] = useState(false);
 
     const members = useQuery({
         queryKey: ["broiler", b.user?.id, "farm-members", farm.id],
-        queryFn: () => readData<{ members: Member[] }>(`/api/farms/${farm.id}/members`, { page: 1, limit: 100 }),
+        queryFn: async ({ signal }) => ({ members: await allPages<Member>(`/api/farms/${farm.id}/members`, "members", undefined, { signal }) }),
         enabled: canManage,
     });
     const assignmentQueries = useQueries({
@@ -105,12 +107,16 @@ function FarmSection({ farm, onEdit }: { farm: Farm; onEdit: () => void }) {
     const list = [...(members.data?.members ?? [])].sort((a, c) => order[a.role] - order[c.role] || a.name.localeCompare(c.name));
 
     async function run(action: () => Promise<unknown>) {
+        if (inFlight.current) return false;
+        inFlight.current = true; setBusy(true);
         try {
             await action();
             await b.refresh();
+            return true;
         } catch (err) {
             Swal.fire({ icon: "error", title: "Gagal", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
-        }
+            return false;
+        } finally { inFlight.current = false; setBusy(false); }
     }
 
     async function remove(m: Member) {
@@ -145,7 +151,7 @@ function FarmSection({ farm, onEdit }: { farm: Farm; onEdit: () => void }) {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    {canManage && (
+                    {isOwner && (
                         <button onClick={() => setAdding(true)} suppressHydrationWarning className="flex items-center gap-1 rounded-xl border border-[#EAEAEA] px-3 py-1.5 font-inter text-xs font-medium text-[#7B1113] transition hover:bg-[#F8F8F8]">
                             <Plus size={13} /> Anggota
                         </button>
@@ -168,7 +174,7 @@ function FarmSection({ farm, onEdit }: { farm: Farm; onEdit: () => void }) {
                 <ul className="divide-y divide-[#F0F0F0]">
                     {list.map((m) => {
                         const self = m.user_id === b.user?.id;
-                        const editable = !self && m.role !== "owner" && (isOwner || m.role === "operator" || m.role === "viewer");
+                        const editable = !self && m.role !== "owner" && isOwner;
                         return (
                             <li key={m.user_id} className="px-4 py-3">
                                 <div className="flex items-center justify-between gap-3">
@@ -180,6 +186,7 @@ function FarmSection({ farm, onEdit }: { farm: Farm; onEdit: () => void }) {
                                             <select
                                                 title="Peran"
                                                 value={m.role}
+                                                disabled={busy}
                                                 onChange={(e) => run(() => writeData("patch", `/api/farms/${farm.id}/members/${m.user_id}`, { role: e.target.value }))}
                                                 className="rounded-lg border border-[#EAEAEA] bg-white px-2 py-1 font-inter text-xs outline-none focus:border-[#7B1113]"
                                             >
@@ -205,6 +212,7 @@ function FarmSection({ farm, onEdit }: { farm: Farm; onEdit: () => void }) {
                                                     key={c.id}
                                                     onClick={() => toggleAssignment(c.id, m, !on)}
                                                     aria-pressed={on}
+                                                    disabled={busy || assignmentQueries[coops.findIndex((coop) => coop.id === c.id)]?.isPending || assignmentQueries[coops.findIndex((coop) => coop.id === c.id)]?.isError}
                                                     suppressHydrationWarning
                                                     className={`rounded-full border px-3 py-1 font-inter text-xs transition ${on ? "border-green-200 bg-green-50 text-green-700" : "border-[#EAEAEA] text-[#777] hover:bg-[#F8F8F8]"}`}
                                                 >
@@ -226,8 +234,8 @@ function FarmSection({ farm, onEdit }: { farm: Farm; onEdit: () => void }) {
                     roles={isOwner ? ["manager", "operator", "viewer"] : ["operator", "viewer"]}
                     onClose={() => setAdding(false)}
                     onSubmit={async (userId, role) => {
-                        await run(() => writeData("post", `/api/farms/${farm.id}/members`, { user_id: userId, role }));
-                        setAdding(false);
+                        const saved = await run(() => writeData("post", `/api/farms/${farm.id}/members`, { user_id: userId, role }));
+                        if (saved) setAdding(false);
                     }}
                 />
             )}
@@ -274,7 +282,7 @@ function AddMemberModal({ farm, roles, onClose, onSubmit }: { farm: Farm; roles:
     const [userId, setUserId] = useState("");
     const [role, setRole] = useState<MemberRole>(roles.includes("operator") ? "operator" : roles[0]);
     const [loading, setLoading] = useState(false);
-    const valid = Number(userId) > 0;
+    const valid = Number.isSafeInteger(Number(userId)) && Number(userId) > 0;
     return (
         <ModalShell
             title="Tambah Anggota"

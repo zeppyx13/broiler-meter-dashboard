@@ -14,6 +14,9 @@ export type Equipment = {
     watt: number;
     /** Ikut dihitung sebagai beban yang seharusnya menyala sekarang. */
     active: boolean;
+    serverType?: string;
+    unit?: string;
+    schedule?: { start: string; end: string } | null;
 };
 
 export type RoomExtra = {
@@ -82,7 +85,12 @@ function writeJSON(key: string, value: unknown) {
     }
 }
 
-export function localDateKey(date: Date = new Date()): string {
+export function localDateKey(date: Date = new Date(), timezone?: string): string {
+    if (timezone) {
+        const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+        const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((value) => value.type === type)?.value;
+        return `${part("year")}-${part("month")}-${part("day")}`;
+    }
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
@@ -184,8 +192,8 @@ export function getCycleState(leaseId: number, roomId?: number): CycleState {
 type DailyBaseline = { date: string; at?: string; waterLiter: number; energyKwh: number };
 
 export type TodayUsage = {
-    waterTodayLiter: number;
-    energyTodayKwh: number;
+    waterTodayLiter: number | null;
+    energyTodayKwh: number | null;
     since: Date | null; // waktu pembacaan pertama hari ini (bukan selalu tengah malam)
     ready: boolean;
 };

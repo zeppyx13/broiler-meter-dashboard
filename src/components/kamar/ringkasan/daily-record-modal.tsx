@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Swal from "sweetalert2";
-import { localDateKey } from "@/lib/broiler-local-store";
 import { writeData } from "@/lib/broiler-api";
 import { apiErrorMessage } from "@/lib/api-error";
 import { recordDate, recordToLegacy, type ServerDailyRecord } from "@/lib/broiler-adapters";
@@ -47,37 +46,43 @@ function loadForm(records: ServerDailyRecord[], date: string): FormValues {
 export default function DailyRecordModal(props: Props) {
     // Form dilepas saat modal ditutup, jadi setiap dibuka mulai dari data terbaru.
     if (!props.open) return null;
-    return <DailyRecordForm {...props} />;
+    if (!props.data.dailyRecordsReady) return <ModalShell title="Catat Harian" subtitle="Memuat catatan server dan revisi terakhir." onClose={props.onClose} footer={<CancelButton onClick={props.onClose} />}><p className="font-inter text-sm text-[#777]">{props.data.dailyRecordsError ? `Catatan belum dapat dimuat: ${apiErrorMessage(props.data.dailyRecordsError)}. Muat ulang sebelum menyimpan.` : "Memuat catatan harian…"}</p></ModalShell>;
+    return <DailyRecordForm key={`${props.data.serverCycle?.id}-${props.initialDate}`} {...props} />;
 }
 
 function DailyRecordForm({ onClose, data, initialDate, onSaved }: Props) {
     const cycle = data.serverCycle;
-    const startDate = cycle?.placement_date ?? localDateKey();
-    const [form, setForm] = useState(() => loadForm(data.serverRecords, initialDate ?? localDateKey()));
+    const startDate = cycle?.placement_date ?? data.localDate;
+    const [form, setForm] = useState(() => loadForm(data.allServerRecords, initialDate ?? data.localDate));
     const [loading, setLoading] = useState(false);
     // UUID stabil per isian agar retry tidak membuat koreksi ganda.
-    const [requestId, setRequestId] = useState(() => crypto.randomUUID());
+    const pendingRequest = useRef<{ payload: string; id: string } | null>(null);
+    const saving = useRef(false);
     const set = <K extends keyof FormValues>(key: K, value: FormValues[K]) => setForm((f) => ({ ...f, [key]: value }));
 
     async function handleSave() {
-        if (!cycle) return;
+        if (!cycle || saving.current || !data.canOperate || !data.dailyRecordsReady) return;
+        saving.current = true;
         setLoading(true);
         try {
-            await writeData("put", `/api/flock-cycles/${cycle.id}/daily-records/${form.date}`, {
+            const body = {
                 dead: form.dead,
                 culled: form.culled,
                 avg_weight_g: form.weight ? Number(form.weight) : null,
                 feed_kg: form.feed ? Number(form.feed) : null,
                 note: form.note.trim() || null,
-                request_id: requestId,
                 expected_revision: form.revision,
-            });
+            };
+            const payload = JSON.stringify([cycle.id, form.date, body]);
+            if (pendingRequest.current?.payload !== payload) pendingRequest.current = { payload, id: crypto.randomUUID() };
+            await writeData("put", `/api/flock-cycles/${cycle.id}/daily-records/${form.date}`, { ...body, request_id: pendingRequest.current.id });
             onSaved();
             onClose();
             Swal.fire({ icon: "success", title: "Catatan tersimpan", timer: 1200, showConfirmButton: false });
         } catch (err) {
             Swal.fire({ icon: "error", title: "Gagal menyimpan", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
         } finally {
+            saving.current = false;
             setLoading(false);
         }
     }
@@ -99,10 +104,9 @@ function DailyRecordForm({ onClose, data, initialDate, onSaved }: Props) {
                     type="date"
                     value={form.date}
                     min={startDate.slice(0, 10)}
-                    max={localDateKey()}
+                    max={data.localDate}
                     onChange={(e) => {
-                        setForm(loadForm(data.serverRecords, e.target.value));
-                        setRequestId(crypto.randomUUID());
+                        setForm(loadForm(data.allServerRecords, e.target.value));
                     }}
                     suppressHydrationWarning
                     className={inputClass}

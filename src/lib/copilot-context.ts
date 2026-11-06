@@ -14,8 +14,8 @@ export const KANDANG_QUESTIONS = [
 ];
 
 /** Buka Copilot melayang; bila ada pertanyaan, langsung dikirim. */
-export function askCopilot(question?: string) {
-    window.dispatchEvent(new CustomEvent(COPILOT_ASK_EVENT, { detail: { question } }));
+export function askCopilot(question?: string, coopId?: number) {
+    window.dispatchEvent(new CustomEvent(COPILOT_ASK_EVENT, { detail: { question, coopId } }));
 }
 
 /** Id kandang dari URL halaman detail (/dashboard/kamar/<id>), atau null. */
@@ -32,11 +32,11 @@ function describeFocus(s: KandangSnapshot): string[] {
         const dev = insights.waterDeviation;
         lines.push(`- Laju air hari ini ${insights.waterPerBirdPace.toFixed(3)} L/ekor/hari${dev ? ` (${dev.pct >= 0 ? "+" : ""}${dev.pct.toFixed(0)}% dari pola hari umur)` : ""}.`);
     }
-    if (s.online) {
+    if (insights.actualPowerKw != null) {
         const dev = insights.powerDeviation;
         lines.push(`- Daya terukur ${insights.actualPowerKw.toFixed(2)} kW${dev ? ` (${dev.pct >= 0 ? "+" : ""}${dev.pct.toFixed(0)}% dari daya seharusnya)` : ""}.`);
     }
-    if (s.live && s.online) lines.push(`- Tegangan ${s.live.voltage?.toFixed(0)} V, PF ${s.live.pf?.toFixed(2)}, debit ${s.live.flow_rate_lpm?.toFixed(2)} L/menit.`);
+    if (s.live) lines.push(`- Tegangan ${s.live.voltage?.toFixed(0) ?? "belum tersedia"} V, PF ${s.live.pf?.toFixed(2) ?? "belum tersedia"}, debit inlet tandon ${s.live.flow_rate_lpm?.toFixed(2) ?? "belum tersedia"} L/menit. Sumber ${s.source === "simulation" ? "SIMULASI BACKEND" : "REAL"}.`);
     insights.alerts.forEach((a) => lines.push(`- Peringatan [${a.tier}]: ${a.title} — ${a.detail}`));
     return lines;
 }
@@ -53,10 +53,11 @@ export function buildFarmContext(snapshots: KandangSnapshot[], alerts: LoggedAle
         } else {
             parts.push("istirahat");
         }
-        parts.push(s.online ? "alat online" : "alat offline");
-        if (s.online && s.live?.power != null) parts.push(`daya ${(s.live.power / 1000).toFixed(2)} kW`);
+        parts.push(s.online ? "heartbeat perangkat REAL online" : "heartbeat perangkat REAL belum online");
+        parts.push(s.source === "simulation" ? "SIMULASI BACKEND" : "REAL");
+        if (s.live?.power != null) parts.push(`daya panel ${(s.live.power / 1000).toFixed(2)} kW`);
         if (s.expectedPowerKw != null) parts.push(`daya seharusnya ${s.expectedPowerKw.toFixed(2)} kW`);
-        if (s.todayUsage.ready) parts.push(`air hari ini ${Math.round(s.todayUsage.waterTodayLiter)} L`);
+        if (s.todayUsage.waterTodayLiter != null) parts.push(`air inlet hari ini ${Math.round(s.todayUsage.waterTodayLiter)} L`);
         return `- ${parts.join(", ")}`;
     });
 
@@ -67,7 +68,7 @@ export function buildFarmContext(snapshots: KandangSnapshot[], alerts: LoggedAle
         ...(focus ? [...describeFocus(focus), ""] : []),
         "Konteks peternakan saat ini (data dashboard):",
         ...lines,
-        alertLines.length > 0 ? "Peringatan aktif:" : "Tidak ada peringatan kritis/waspada.",
+        alertLines.length > 0 ? "Peringatan aktif:" : snapshots.some((s) => !s.guardAvailable) ? "Evaluasi Guard belum tersedia pada sebagian kandang." : "Tidak ada peringatan kritis/waspada yang tercatat.",
         ...alertLines,
     ].join("\n");
 }

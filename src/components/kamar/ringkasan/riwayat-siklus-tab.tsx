@@ -8,7 +8,6 @@ import { readData } from "@/lib/broiler-api";
 import { cycleToLease } from "@/lib/broiler-adapters";
 import { useCycles, type CycleReport } from "@/lib/broiler-queries";
 import { useBroiler } from "@/components/broiler/broiler-provider";
-import { localDateKey } from "@/lib/broiler-local-store";
 import { formatRupiah } from "@/lib/broiler-reference";
 import { rankMetric, summarizeServerCycle, type BestWorst, type CycleSummary } from "@/lib/cycle-history";
 import type { KandangData } from "./use-kandang-data";
@@ -55,12 +54,12 @@ export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
     const reportKey = reports.map((r) => r.dataUpdatedAt).join(",");
 
     const rows = useMemo(() => {
-        const today = localDateKey();
+        const today = data.localDate;
         return cycles
             .map((c, i) => summarizeServerCycle(c, cycleToLease(c), reports[i]?.data, c.status === "active" ? serverRecords.length : 0, today))
             .sort((a, b) => b.startDate.localeCompare(a.startDate));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [cycles, reportKey, serverRecords.length]);
+    }, [cycles, reportKey, serverRecords.length, data.localDate]);
 
     // Peringkat hanya antar siklus yang sudah selesai — siklus berjalan belum lengkap.
     const ranks = useMemo(() => {
@@ -110,7 +109,7 @@ export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
                     </div>
                     <button
                         onClick={() => {
-                            setPrintedAt(new Date().toLocaleString("id-ID"));
+                            setPrintedAt(`${new Date().toLocaleString("id-ID", { timeZone: data.timezone })} · ${b.source === "simulation" ? "SIMULASI BACKEND" : "REAL"} · zona ${data.timezone}`);
                             setTimeout(() => window.print(), 0);
                         }}
                         suppressHydrationWarning

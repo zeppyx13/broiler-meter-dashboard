@@ -19,7 +19,7 @@ type DashboardShellProps = {
 
 export default function DashboardShell({ menus, children }: DashboardShellProps) {
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const { loading, error } = useBroiler();
+    const { loading, error, socketError } = useBroiler();
 
     return (
         <GuardMonitorProvider>
@@ -37,9 +37,9 @@ export default function DashboardShell({ menus, children }: DashboardShellProps)
                         <DashboardTopbar />
                         <div className="space-y-6 p-4 pb-28 sm:p-6 sm:pb-28 lg:pb-6">
                             <ContextBar />
-                            {error && (
+                            {(error || socketError) && (
                                 <div className="rounded-3xl border border-red-100 bg-red-50 p-5 font-inter text-sm text-red-700">
-                                    {error}. Periksa koneksi ke server, lalu muat ulang halaman.
+                                    {error ? `${error}. Periksa koneksi ke server, lalu muat ulang halaman.` : socketError}
                                 </div>
                             )}
                             {loading ? (

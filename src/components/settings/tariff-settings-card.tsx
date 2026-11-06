@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Droplets, Zap, Save, RefreshCw } from "lucide-react";
 import Swal from "sweetalert2";
 import { writeData, type Farm } from "@/lib/broiler-api";
@@ -38,8 +38,8 @@ const fields: FieldConfig[] = [
 ];
 
 const formFrom = (farm?: Farm) => ({
-    electricity_rate_idr_per_kwh: farm ? String(Number(farm.electricity_rate_idr_per_kwh) || 0) : "",
-    water_rate_idr_per_m3: farm ? String(Number(farm.water_rate_idr_per_m3) || 0) : "",
+    electricity_rate_idr_per_kwh: farm?.electricity_rate_idr_per_kwh == null ? "" : String(farm.electricity_rate_idr_per_kwh),
+    water_rate_idr_per_m3: farm?.water_rate_idr_per_m3 == null ? "" : String(farm.water_rate_idr_per_m3),
 });
 
 /** Tarif disimpan per lahan (farm) di server; hanya pemilik/admin lahan yang bisa mengubah. */
@@ -49,6 +49,7 @@ export default function TariffSettingsCard() {
     const farm = b.farms.find((f) => f.id === farmId) ?? b.farms[0];
     const [form, setForm] = useState<Record<TariffKey, string>>(() => formFrom(farm));
     const [saving, setSaving] = useState(false);
+    const inFlight = useRef(false);
     const canEdit = b.user?.role === "admin" || ["owner", "manager"].includes(farm?.member_role ?? "");
 
     // Isi ulang form saat lahan dipilih ulang atau tarifnya berubah di server.
@@ -60,7 +61,11 @@ export default function TariffSettingsCard() {
     }
 
     async function handleSave() {
-        if (!farm) return;
+        if (!farm || !canEdit || inFlight.current) return;
+        if (fields.some(({ key }) => form[key].trim() === "" || !Number.isFinite(Number(form[key])) || Number(form[key]) < 0)) {
+            await Swal.fire({ icon: "error", title: "Tarif belum sah", text: "Isi kedua tarif dengan angka minimal 0. Nilai kosong bukan tarif gratis.", confirmButtonColor: "#7B1113" });
+            return;
+        }
         const confirm = await Swal.fire({
             title: `Simpan tarif ${farm.name}?`,
             text: "Biaya energi di Ringkasan kandang dan Laporan untuk lahan ini akan memakai tarif baru.",
@@ -71,6 +76,8 @@ export default function TariffSettingsCard() {
             confirmButtonColor: "#7B1113",
         });
         if (!confirm.isConfirmed) return;
+        if (inFlight.current) return;
+        inFlight.current = true;
 
         try {
             setSaving(true);
@@ -83,6 +90,7 @@ export default function TariffSettingsCard() {
         } catch (e) {
             Swal.fire({ title: "Gagal", text: apiErrorMessage(e), icon: "error", confirmButtonColor: "#7B1113" });
         } finally {
+            inFlight.current = false;
             setSaving(false);
         }
     }

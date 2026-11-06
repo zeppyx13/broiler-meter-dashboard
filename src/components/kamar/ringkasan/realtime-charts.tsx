@@ -4,6 +4,7 @@ import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Too
 import { Activity } from "lucide-react";
 import SectionCard from "@/components/dashboard/section-card";
 import { REALTIME_WINDOW_MS, type RealtimeSample } from "./use-kandang-data";
+import { useBroiler } from "@/components/broiler/broiler-provider";
 
 function hhmm(t: number) {
     return new Date(t).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
@@ -16,7 +17,9 @@ type Props = {
 };
 
 export default function RealtimeCharts({ samples, expectedPowerKw, online }: Props) {
+    const b = useBroiler();
     const last = samples[samples.length - 1];
+    const isLive = Boolean(online && b.source === "real" && b.socketStatus === "live" && last && Date.now() - last.t >= -5000 && Date.now() - last.t <= 120000 && (last.powerKw != null || last.flowLpm != null));
     // Jendela maksimal 30 menit yang berakhir di pembacaan terakhir. Selama data belum
     // sampai 30 menit, sumbu dimulai dari pembacaan pertama supaya grafik tetap penuh.
     const end = last?.t ?? 0;
@@ -31,9 +34,9 @@ export default function RealtimeCharts({ samples, expectedPowerKw, online }: Pro
                     <Activity size={18} className="text-[#7B1113]" />
                     <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Real-time · 30 menit terakhir</p>
                 </div>
-                <span className={`flex items-center gap-1.5 font-inter text-xs ${online ? "text-green-700" : "text-[#999]"}`}>
-                    <span className={`h-2 w-2 rounded-full ${online ? "animate-pulse bg-green-500" : "bg-[#CCC]"}`} />
-                    {online ? "Live" : last ? `Data terakhir ${hhmm(last.t)}` : "Menunggu data"}
+                <span className={`flex items-center gap-1.5 font-inter text-xs ${isLive ? "text-green-700" : "text-[#999]"}`}>
+                    <span className={`h-2 w-2 rounded-full ${isLive ? "animate-pulse bg-green-500" : "bg-[#CCC]"}`} />
+                    {b.source === "simulation" ? "SIMULASI backend" : isLive ? "Live" : last ? `REST · data terakhir ${hhmm(last.t)}` : "REST · menunggu data"}
                 </span>
             </div>
 
@@ -45,7 +48,7 @@ export default function RealtimeCharts({ samples, expectedPowerKw, online }: Pro
                 <div className="mt-4 grid gap-6 lg:grid-cols-2">
                     <MiniChart
                         title="Daya (kW)"
-                        current={last ? `${last.powerKw.toFixed(2)} kW` : "—"}
+                        current={last?.powerKw != null ? `${last.powerKw.toFixed(2)} kW` : "—"}
                         data={samples}
                         dataKey="powerKw"
                         color="#B76E00"
@@ -57,7 +60,7 @@ export default function RealtimeCharts({ samples, expectedPowerKw, online }: Pro
                     />
                     <MiniChart
                         title="Debit air (L/menit)"
-                        current={last ? `${last.flowLpm.toFixed(1)} L/menit` : "—"}
+                        current={last?.flowLpm != null ? `${last.flowLpm.toFixed(1)} L/menit` : "—"}
                         data={samples}
                         dataKey="flowLpm"
                         color="#2F5BBA"
@@ -68,7 +71,7 @@ export default function RealtimeCharts({ samples, expectedPowerKw, online }: Pro
                 </div>
             )}
             <p className="mt-3 font-inter text-[11px] text-[#AAA]">
-                Data dikumpulkan browser selama tab ini terbuka (tetap ada saat dimuat ulang, hilang saat tab ditutup).
+                Histori telemetri berasal dari server untuk sumber terpilih. Jeda atau nilai kosong berarti belum ada sampel accepted.
             </p>
         </SectionCard>
     );

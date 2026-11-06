@@ -72,7 +72,9 @@ export default function EfficiencyReportGenerator() {
 }
 
 function EfficiencyReport({ roomId }: { roomId: number }) {
-    const { room, isLoading, activeCycle, cycle, expectedPowerKw, ageDays, harvestTargetDays, daysToHarvest, cycleUsage, insights } = useKandangData(roomId);
+    const data = useKandangData(roomId);
+    const { room, isLoading, activeCycle, cycle, expectedPowerKw, ageDays, harvestTargetDays, daysToHarvest, cycleUsage, insights } = data;
+    const { source } = useBroiler();
 
     if (isLoading) return <div className="h-64 animate-pulse rounded-3xl border border-[#EAEAEA] bg-white" />;
     if (!room) return null;
@@ -88,7 +90,7 @@ function EfficiencyReport({ roomId }: { roomId: number }) {
                         Kandang {room.number}
                     </h2>
                     <p className="mt-1 font-inter text-xs text-[#999]">
-                        Dicetak {new Date().toLocaleString("id-ID", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        Dicetak {new Date().toLocaleString("id-ID", { timeZone: data.timezone, day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · {source === "simulation" ? "SIMULASI BACKEND" : "REAL"} · {data.timezone}
                     </p>
                 </div>
                 <button
@@ -114,21 +116,21 @@ function EfficiencyReport({ roomId }: { roomId: number }) {
                     </div>
 
                     <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                        <Block icon={<Droplets size={14} className="text-blue-500" />} title="Air minum siklus ini">
+                        <Block icon={<Droplets size={14} className="text-blue-500" />} title="Air inlet siklus ini">
                             <p className="font-poppins text-lg font-bold text-[#2F2F2F]">
-                                {cycleUsage ? `${(cycleUsage.waterLiter / 1000).toFixed(2)} m³` : "—"}
+                                {cycleUsage?.waterLiter != null ? `${(cycleUsage.waterLiter / 1000).toFixed(2)} m³` : "—"}
                             </p>
                             <p className="font-inter text-xs text-[#666]">
-                                {cycleUsage && populationNow ? `${(cycleUsage.waterLiter / populationNow).toFixed(2)} L/ekor kumulatif` : "Butuh populasi & data perangkat"}
+                                {cycleUsage?.waterLiter != null && populationNow ? `${(cycleUsage.waterLiter / populationNow).toFixed(2)} L/ekor kumulatif` : "Butuh populasi & data perangkat"}
                                 {insights.waterDeviation && ` · laju hari ini ${insights.waterDeviation.pct >= 0 ? "+" : ""}${insights.waterDeviation.pct.toFixed(0)}% dari pola normal`}
                             </p>
                         </Block>
                         <Block icon={<Zap size={14} className="text-amber-500" />} title="Listrik siklus ini">
                             <p className="font-poppins text-lg font-bold text-[#2F2F2F]">
-                                {cycleUsage ? `${cycleUsage.energyKwh.toFixed(1)} kWh` : "—"}
+                                {cycleUsage?.energyKwh != null ? `${cycleUsage.energyKwh.toFixed(1)} kWh` : "—"}
                             </p>
                             <p className="font-inter text-xs text-[#666]">
-                                {cycleUsage && populationNow ? `${((cycleUsage.energyKwh * 1000) / populationNow).toFixed(0)} Wh/ekor` : "Butuh populasi & data perangkat"}
+                                {cycleUsage?.energyKwh != null && populationNow ? `${((cycleUsage.energyKwh * 1000) / populationNow).toFixed(0)} Wh/ekor` : "Butuh populasi & data perangkat"}
                                 {expectedPowerKw ? ` · daya seharusnya ${expectedPowerKw.toFixed(2)} kW` : ""}
                             </p>
                         </Block>
@@ -137,7 +139,7 @@ function EfficiencyReport({ roomId }: { roomId: number }) {
                     <div className="mt-5 rounded-2xl bg-[#7B1113] p-5 text-white">
                         <div className="flex items-center gap-2 font-inter text-xs text-white/70"><Wallet size={14} /> Biaya energi siklus berjalan</div>
                         <p className="mt-2 font-poppins text-2xl font-bold text-[#C6A971]">
-                            {insights.cycleEnergyCost != null ? formatRupiah(insights.cycleEnergyCost + (insights.cycleWaterCost ?? 0)) : "—"}
+                            {insights.cycleEnergyCost != null && insights.cycleWaterCost != null ? formatRupiah(insights.cycleEnergyCost + insights.cycleWaterCost) : "—"}
                         </p>
                         <p className="mt-1 font-inter text-xs text-white/70">
                             Listrik {insights.cycleEnergyCost != null ? formatRupiah(insights.cycleEnergyCost) : "—"} · Air {insights.cycleWaterCost != null ? formatRupiah(insights.cycleWaterCost) : "—"} (tarif dari Pengaturan)
@@ -148,8 +150,8 @@ function EfficiencyReport({ roomId }: { roomId: number }) {
                         <Block icon={<TrendingUp size={14} className="text-[#7B1113]" />} title={`Proyeksi s.d. panen (hari ${harvestTargetDays})`}>
                             <p className="font-inter text-sm text-[#2F2F2F]">
                                 {insights.predictedEnergyKwh != null
-                                    ? `${insights.predictedEnergyKwh.toFixed(0)} kWh · air ±${insights.predictedWaterM3?.toFixed(1)} m³ · ≈ ${formatRupiah(insights.predictedCost ?? 0)}`
-                                    : "Butuh minimal 6 jam data siklus"}
+                                    ? `${insights.predictedEnergyKwh.toFixed(0)} kWh · air ${insights.predictedWaterM3 != null ? `${insights.predictedWaterM3.toFixed(1)} m³` : "belum tersedia"} · biaya ${insights.predictedCost != null ? formatRupiah(insights.predictedCost) : "belum tersedia"}`
+                                    : `Forecast server ${data.forecastState}; minimal 3 tanggal selesai`}
                             </p>
                             <p className="font-inter text-xs text-[#999]">Sisa {daysToHarvest} hari</p>
                         </Block>
@@ -165,8 +167,8 @@ function EfficiencyReport({ roomId }: { roomId: number }) {
                     </div>
 
                     <p className="mt-5 font-inter text-[11px] text-[#AAA]">
-                        Konsumsi siklus dihitung dari angka meter sejak {cycleUsage ? cycleUsage.since.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" }) : "—"}.
-                        Pola normal air adalah estimasi referensi umum, bukan data spesifik strain.
+                                Konsumsi siklus memakai interval accepted server sejak {cycleUsage ? cycleUsage.since.toLocaleDateString("id-ID", { timeZone: data.timezone, day: "2-digit", month: "long", year: "numeric" }) : "—"}.
+                        Air adalah inlet tandon; listrik agregat panel. Forecast hanya hari mendatang dan confidence rendah; coverage dapat partial.
                     </p>
                 </>
             )}
