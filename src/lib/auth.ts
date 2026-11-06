@@ -4,7 +4,7 @@ const TOKEN_KEY = "coasther_token";
 const USER_KEY = "coasther_user";
 
 export function setAuth(token: string, user?: unknown) {
-    Cookies.set(TOKEN_KEY, token, { expires: 7, sameSite: "Lax" });
+    Cookies.set(TOKEN_KEY, token, { expires: 7, sameSite: "Lax", secure: typeof location !== "undefined" && location.protocol === "https:" });
 
     if (user) {
         Cookies.set(USER_KEY, JSON.stringify(user), {
@@ -12,6 +12,7 @@ export function setAuth(token: string, user?: unknown) {
             sameSite: "Lax",
         });
     }
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("coasther:session"));
 }
 
 export function getToken() {

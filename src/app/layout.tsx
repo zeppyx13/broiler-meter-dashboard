@@ -13,11 +13,20 @@ const poppins = Poppins({
 });
 
 export const metadata = {
-  title: "Coasther Admin",
-  description: "Admin dashboard Coasther",
+  title: "Coasther — Smart Kandang Broiler",
+  description: "Dashboard monitoring inlet tandon dan listrik panel kandang broiler: peringatan dini dan efisiensi energi per siklus.",
   icons: {
-    icon: "/coasther.ico",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/coasther.png", type: "image/png" },
+    ],
+    apple: "/coasther.png",
   },
+  appleWebApp: { capable: true, title: "Coasther", statusBarStyle: "default" as const },
+};
+
+export const viewport = {
+  themeColor: "#7B1113",
 };
 
 export default function RootLayout({
@@ -26,7 +35,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="id">
       <body className={`${inter.variable} ${poppins.variable}`}>
         <QueryProvider>{children}</QueryProvider>
       </body>

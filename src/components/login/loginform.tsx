@@ -6,6 +6,7 @@ import Swal from "sweetalert2";
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { login } from "@/lib/auth-api";
 import { setAuth } from "@/lib/auth";
+import { apiErrorMessage } from "@/lib/api-error";
 
 export default function LoginForm() {
     const router = useRouter();
@@ -36,7 +37,7 @@ export default function LoginForm() {
 
             const { token, user } = await login(form);
 
-            if (!["admin", "manager"].includes(user.role)) {
+            if (!["admin", "manager", "operator"].includes(user.role)) {
                 throw new Error("Akses ditolak");
             }
 
@@ -51,11 +52,9 @@ export default function LoginForm() {
 
             router.push("/dashboard");
             router.refresh();
-        } catch (error: any) {
+        } catch (error) {
             const message =
-                error?.response?.data?.message ||
-                error?.message ||
-                "Terjadi kesalahan saat login.";
+                apiErrorMessage(error, "Terjadi kesalahan saat login.");
 
             await Swal.fire({
                 icon: "error",
@@ -113,6 +112,7 @@ export default function LoginForm() {
 
                     <button
                         type="button"
+                        aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
                         onClick={() =>
                             setShowPassword((prev) => !prev)
                         }
@@ -143,12 +143,7 @@ export default function LoginForm() {
                     Ingat saya
                 </label>
 
-                <button
-                    type="button"
-                    className="font-inter text-[#7B1113] transition hover:opacity-80"
-                >
-                    Lupa password?
-                </button>
+                <span className="text-xs text-[#777]" title="Pemulihan akun memerlukan SMTP yang dikonfigurasi operator">Pemulihan akun: hubungi pengelola</span>
             </div>
 
             <button

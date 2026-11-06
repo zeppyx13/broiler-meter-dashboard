@@ -1,11 +1,20 @@
+import { Suspense } from "react";
 import DashboardShell from "@/components/dashboard/nav/dashboard-shell";
-import InvoiceListSection from "@/components/tagihan/invoice-list-section";
+import EfficiencyReportGenerator from "@/components/tagihan/efficiency-report-generator";
+import ImpactCard from "@/components/tagihan/impact-card";
+import ValidationPanel from "@/components/tagihan/validation-panel";
 import { sidebarMenus } from "@/lib/dashboard-data";
 
 export default function TagihanPage() {
     return (
         <DashboardShell menus={sidebarMenus}>
-            <InvoiceListSection />
+            {/* useSearchParams (?kandang=) butuh batas Suspense agar halaman tetap bisa di-prerender.
+                Kartu lain ikut di dalamnya karena membaca data lokal browser. */}
+            <Suspense fallback={<div className="h-40 animate-pulse rounded-3xl border border-[#EAEAEA] bg-white" />}>
+                <EfficiencyReportGenerator />
+                <ImpactCard />
+                <ValidationPanel />
+            </Suspense>
         </DashboardShell>
     );
 }

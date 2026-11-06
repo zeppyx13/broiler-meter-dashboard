@@ -2,24 +2,19 @@
 
 import { useState, useRef, useEffect } from "react";
 import { MessageSquare, X, Send, LoaderCircle, Bot, User, Trash2 } from "lucide-react";
-import { sendAdminChat, type ChatMessage } from "@/lib/admin-chat-api";
+import type { ChatMessage } from "@/lib/admin-chat-api";
+import { writeData } from "@/lib/broiler-api";
+import { useBroiler } from "@/components/broiler/broiler-provider";
+import { renderSafeMarkdown } from "@/lib/safe-markdown";
+import { usePathname } from "next/navigation";
+import { COPILOT_ASK_EVENT, focusRoomIdFromPath, KANDANG_QUESTIONS } from "@/lib/copilot-context";
+import { apiErrorMessage } from "@/lib/api-error";
 
-// Render markdown sederhana — bold, bullet, newline
-function renderMarkdown(text: string) {
-    return text
-        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\*(.*?)\*/g, "<em>$1</em>")
-        .replace(/^[\*\-] (.+)$/gm, "<li>$1</li>")
-        .replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>")
-        .replace(/\n/g, "<br/>");
-}
-
-const SUGGESTED_QUESTIONS = [
-    "Siapa tenant yang belum bayar paling lama?",
-    "Kamar mana yang sudah kosong paling lama?",
-    "Kontrak siapa yang mau habis bulan ini?",
-    "Berikan ringkasan keuangan bulan ini",
-    "Keluhan apa yang belum ditangani?",
+const FARM_QUESTIONS = [
+    "Kandang mana yang konsumsi airnya paling tidak normal hari ini?",
+    "Siklus mana yang sebentar lagi panen?",
+    "Berikan ringkasan pemakaian listrik dan biaya energi bulan ini",
+    "Bagaimana cara menghemat listrik kipas di siang hari?",
 ];
 
 export default function AdminChat() {
@@ -29,15 +24,24 @@ export default function AdminChat() {
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
+    const b = useBroiler();
+    // Di halaman detail kandang, Copilot otomatis fokus ke kandang tersebut; selain itu kandang terpilih.
+    const focusRoomId = focusRoomIdFromPath(usePathname());
+    const coopId = focusRoomId ?? b.coopId;
+    const focusRoom = b.coops.find((c) => c.id === coopId);
+    const suggestions = focusRoomId != null ? KANDANG_QUESTIONS : FARM_QUESTIONS;
+    // Satu percakapan server per kandang + sumber data; berganti kandang membuka percakapan baru.
+    const [conversation, setConversation] = useState<{ key: string; id?: number }>({ key: "" });
+    const conversationKey = `${coopId ?? "none"}-${b.source}`;
 
     useEffect(() => {
-        if (open && messages.length === 0) {
-            setMessages([{
-                role: "assistant",
-                content: "Halo! Saya asisten AI Coasther. Saya bisa membantu Anda menganalisis data operasional, keuangan, dan penghuni kost. Apa yang ingin Anda ketahui?",
-                timestamp: new Date().toISOString(),
-            }]);
-        }
+        if (!open) return;
+        // Sapaan selalu di urutan pertama — pertanyaan dari tombol "Tanya Copilot" bisa masuk lebih dulu.
+        setMessages((prev) => prev[0]?.role === "assistant" ? prev : [{
+            role: "assistant",
+            content: "Halo! Saya Copilot Coasther. Saya bisa bantu menjelaskan kondisi kandang, konsumsi air & listrik, dan biaya energi siklus. Apa yang ingin Anda ketahui?",
+            timestamp: new Date().toISOString(),
+        }, ...prev]);
     }, [open]);
 
     useEffect(() => {
@@ -47,6 +51,19 @@ export default function AdminChat() {
     useEffect(() => {
         if (open) inputRef.current?.focus();
     }, [open]);
+
+    // Tombol "Tanya Copilot" di halaman lain (kartu peringatan, detail kandang).
+    const handleSendRef = useRef<(q: string) => void>(() => {});
+    useEffect(() => {
+        const onAsk = (e: Event) => {
+            const question = (e as CustomEvent<{ question?: string }>).detail?.question;
+            setOpen(true);
+            if (question) handleSendRef.current(question);
+            else setTimeout(() => inputRef.current?.focus(), 0);
+        };
+        window.addEventListener(COPILOT_ASK_EVENT, onAsk);
+        return () => window.removeEventListener(COPILOT_ASK_EVENT, onAsk);
+    }, []);
 
     async function handleSend(question?: string) {
         const text = (question ?? input).trim();
@@ -63,22 +80,33 @@ export default function AdminChat() {
         setLoading(true);
 
         try {
-            const historyToSend = messages
-                .slice(1)
-                .map((m) => ({ role: m.role, content: m.content }));
-
-            const result = await sendAdminChat(text, historyToSend);
-
+            if (!coopId) throw new Error("Belum ada kandang yang bisa dianalisis.");
+            // Server menyusun konteks kandang sendiri (snapshot terotorisasi), jadi cukup kirim pertanyaan.
+            const conversationId = conversation.key === conversationKey ? conversation.id : undefined;
+            const result = await writeData<{ state: string; reason?: string; conversation_id?: number; message?: { content: string; created_at?: string } }>(
+                "post",
+                "/api/ai/copilot",
+                { coop_id: coopId, source: b.source, conversation_id: conversationId, request_id: crypto.randomUUID(), message: text }
+            );
+            if (result.state !== "ready" || !result.message) {
+                setMessages((prev) => [...prev, {
+                    role: "assistant",
+                    content: `Copilot belum tersedia (${result.reason ?? "layanan AI belum dikonfigurasi"}). Data kandang tetap bisa dilihat di halaman Ringkasan.`,
+                    timestamp: new Date().toISOString(),
+                }]);
+                return;
+            }
+            setConversation({ key: conversationKey, id: result.conversation_id });
             setMessages((prev) => [
                 ...prev,
                 {
                     role: "assistant",
-                    content: result.answer,
-                    timestamp: result.timestamp,
+                    content: result.message!.content,
+                    timestamp: result.message!.created_at ?? new Date().toISOString(),
                 },
             ]);
-        } catch (err: any) {
-            console.error("[AdminChat] Error:", err?.response?.data || err.message);
+        } catch (err) {
+            console.error("[AdminChat] Error:", apiErrorMessage(err));
             setMessages((prev) => [
                 ...prev,
                 {
@@ -92,6 +120,10 @@ export default function AdminChat() {
         }
     }
 
+    useEffect(() => {
+        handleSendRef.current = handleSend;
+    });
+
     function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
@@ -100,6 +132,7 @@ export default function AdminChat() {
     }
 
     function handleClear() {
+        setConversation({ key: "" });
         setMessages([{
             role: "assistant",
             content: "Percakapan dibersihkan. Ada yang bisa saya bantu?",
@@ -113,7 +146,8 @@ export default function AdminChat() {
             <button
                 onClick={() => setOpen((v) => !v)}
                 suppressHydrationWarning
-                className={`fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all hover:scale-105 ${open ? "bg-[#2F2F2F]" : "bg-[#7B1113]"
+                title="Copilot"
+                className={`fixed bottom-24 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all hover:scale-105 lg:bottom-6 lg:right-6 ${open ? "bg-[#2F2F2F]" : "bg-[#7B1113]"
                     }`}
             >
                 {open ? (
@@ -129,20 +163,20 @@ export default function AdminChat() {
 
             {/* Chat panel */}
             {open && (
-                <div className="fixed bottom-24 right-6 z-50 flex w-96 flex-col overflow-hidden rounded-3xl border border-[#EAEAEA] bg-white shadow-2xl">
+                <div className="fixed bottom-40 left-4 right-4 z-50 flex max-h-[calc(100dvh-11rem)] flex-col overflow-hidden rounded-3xl border border-[#EAEAEA] bg-white shadow-2xl sm:left-auto sm:w-96 lg:bottom-24 lg:right-6 lg:max-h-[calc(100dvh-7.5rem)]">
 
                     {/* Header */}
-                    <div className="flex items-center justify-between bg-[#7B1113] px-5 py-4">
+                    <div className="flex shrink-0 items-center justify-between bg-[#7B1113] px-5 py-4">
                         <div className="flex items-center gap-3">
                             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20">
                                 <Bot size={18} className="text-white" />
                             </div>
                             <div>
                                 <p className="font-poppins text-sm font-semibold text-white">
-                                    Coasther AI
+                                    Copilot Coasther
                                 </p>
                                 <p className="font-inter text-xs text-white/70">
-                                    Asisten manajemen kost
+                                    {focusRoom ? `Fokus: Kandang ${focusRoom.code}` : "Pilih kandang dulu"}
                                 </p>
                             </div>
                         </div>
@@ -157,7 +191,8 @@ export default function AdminChat() {
                     </div>
 
                     {/* Messages */}
-                    <div className="flex h-96 flex-col gap-3 overflow-y-auto px-4 py-4">
+                    {/* Area pesan menyusut lebih dulu bila layar pendek, header & input tetap terlihat. */}
+                    <div className="flex h-96 min-h-24 flex-col gap-3 overflow-y-auto px-4 py-4">
                         {messages.map((msg, i) => (
                             <div
                                 key={i}
@@ -181,7 +216,7 @@ export default function AdminChat() {
                                     }`}>
                                     {msg.role === "assistant" ? (
                                         <div
-                                            dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+                                            dangerouslySetInnerHTML={{ __html: renderSafeMarkdown(msg.content) }}
                                             className="[&_ul]:mt-1 [&_ul]:space-y-1 [&_li]:ml-3 [&_li]:list-disc"
                                         />
                                     ) : (
@@ -211,10 +246,10 @@ export default function AdminChat() {
 
                     {/* Suggested questions — hanya tampil saat baru mulai */}
                     {messages.length <= 1 && !loading && (
-                        <div className="border-t border-[#EAEAEA] px-4 py-3">
+                        <div className="max-h-40 shrink-0 overflow-y-auto border-t border-[#EAEAEA] px-4 py-3">
                             <p className="mb-2 font-inter text-xs text-[#999]">Pertanyaan populer:</p>
                             <div className="flex flex-wrap gap-1.5">
-                                {SUGGESTED_QUESTIONS.map((q) => (
+                                {suggestions.map((q) => (
                                     <button
                                         key={q}
                                         onClick={() => handleSend(q)}
@@ -229,14 +264,14 @@ export default function AdminChat() {
                     )}
 
                     {/* Input */}
-                    <div className="border-t border-[#EAEAEA] px-4 py-3">
+                    <div className="shrink-0 border-t border-[#EAEAEA] px-4 py-3">
                         <div className="flex items-end gap-2">
                             <textarea
                                 ref={inputRef}
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={handleKeyDown}
-                                placeholder="Tanya sesuatu tentang data kost..."
+                                placeholder="Tanya sesuatu tentang data kandang..."
                                 rows={1}
                                 suppressHydrationWarning
                                 className="flex-1 resize-none rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] px-4 py-2.5 font-inter text-sm outline-none transition focus:border-[#7B1113] placeholder:text-[#BBB]"

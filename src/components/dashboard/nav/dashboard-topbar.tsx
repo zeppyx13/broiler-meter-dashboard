@@ -1,54 +1,39 @@
 "use client";
+import { useBroiler } from "@/components/broiler/broiler-provider";
 
-import { Menu } from "lucide-react";
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { getUser } from "@/lib/auth";
 
-type DashboardTopbarProps = {
-    onMenuClick: () => void;
-};
 
-const PAGE_TITLES: Record<string, { label: string; title: string }> = {
-    "/dashboard": { label: "Selamat datang kembali", title: "Dashboard Overview" },
-    "/dashboard/kamar": { label: "Manajemen", title: "Data Kamar" },
-    "/dashboard/penghuni": { label: "Manajemen", title: "Data Penghuni" },
-    "/dashboard/tagihan": { label: "Keuangan", title: "Data Tagihan" },
-    "/dashboard/pembayaran": { label: "Keuangan", title: "Data Pembayaran" },
-    "/dashboard/keluhan": { label: "Manajemen", title: "Keluhan Penghuni" },
-    "/dashboard/kontrak": { label: "Manajemen", title: "Kontrak Sewa" },
-    "/dashboard/pengumuman": { label: "Manajemen", title: "Pengumuman" },
-    "/dashboard/fasilitas": { label: "Manajemen", title: "Data Fasilitas" },
-    "/dashboard/iot": { label: "IoT", title: "Alat IoT / Meter" },
-    "/dashboard/iot/terminal": { label: "IoT", title: "Remote Terminal" },
-    "/dashboard/rating": { label: "Manajemen", title: "Rating Penghuni" },
-};
+// Urut dari path paling spesifik; dicocokkan dengan startsWith untuk halaman dinamis.
+const PAGE_TITLES: { path: string; label: string; title: string }[] = [
+    { path: "/dashboard/kamar/", label: "Kandang", title: "Detail Kandang" },
+    { path: "/dashboard/kamar", label: "Kelola", title: "Kandang" },
+    { path: "/dashboard/peringatan", label: "Guard", title: "Peringatan" },
+    { path: "/dashboard/tagihan", label: "Efisiensi", title: "Laporan" },
+    { path: "/dashboard/settings", label: "Akun & Tarif", title: "Pengaturan" },
+    { path: "/dashboard/iot", label: "Teknis", title: "Alat IoT" },
+    { path: "/dashboard/terminal", label: "Teknis", title: "IoT Terminal" },
+    { path: "/dashboard", label: "Selamat datang kembali", title: "Beranda" },
+];
 
-export default function DashboardTopbar({ onMenuClick }: DashboardTopbarProps) {
+export default function DashboardTopbar() {
     const pathname = usePathname();
-    const [user, setUser] = useState<{ name?: string } | null>(null);
-
-    useEffect(() => {
-        setUser(getUser());
-    }, []);
+    const { user } = useBroiler();
 
     const firstName = user?.name?.split(" ")[0] ?? "Admin";
-    const page = PAGE_TITLES[pathname] ?? { label: "Manajemen", title: "Dashboard" };
+    const page = PAGE_TITLES.find((p) => pathname === p.path || pathname.startsWith(p.path))
+        ?? { label: "Coasther", title: "Dashboard" };
 
     return (
         <header className="sticky top-0 z-10 border-b border-[#EAEAEA] bg-white/90 backdrop-blur">
             <div className="flex items-center gap-4 px-6 py-4">
 
-                {/* Hamburger — mobile only */}
-                <button
-                    title="Collapse Sidebar"
-                    type="button"
-                    onClick={onMenuClick}
-                    suppressHydrationWarning
-                    className="rounded-xl border border-[#EAEAEA] p-2 transition hover:bg-[#F8F8F8] lg:hidden"
-                >
-                    <Menu size={20} className="text-[#555]" />
-                </button>
+                {/* Logo — mobile saja (menu ada di navigasi bawah). */}
+                <Link href="/dashboard" aria-label="Beranda" className="shrink-0 lg:hidden">
+                    <Image src="/coasther.png" alt="Coasther" width={36} height={36} className="rounded-xl object-contain" priority />
+                </Link>
 
                 {/* Greeting + Title */}
                 <div className="flex-1 text-right">

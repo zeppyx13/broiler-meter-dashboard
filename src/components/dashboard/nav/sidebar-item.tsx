@@ -8,14 +8,10 @@ type SidebarItemProps = {
     label: string;
     href: string;
     active?: boolean;
+    badge?: number;
 };
 
-export default function SidebarItem({
-    icon: Icon,
-    label,
-    href,
-    active = false,
-}: SidebarItemProps) {
+export default function SidebarItem({ icon: Icon, label, href, active = false, badge }: SidebarItemProps) {
     return (
         <Link
             href={href}
@@ -25,7 +21,16 @@ export default function SidebarItem({
                 }`}
         >
             <Icon size={18} />
-            <span className="font-inter text-sm font-medium">{label}</span>
+            <span className="flex-1 font-inter text-sm font-medium">{label}</span>
+            {badge ? <NavBadge count={badge} /> : null}
         </Link>
+    );
+}
+
+export function NavBadge({ count, className = "" }: { count: number; className?: string }) {
+    return (
+        <span className={`flex h-5 min-w-5 items-center justify-center rounded-full bg-[#B42318] px-1.5 font-inter text-[11px] font-semibold text-white ${className}`}>
+            {count > 99 ? "99+" : count}
+        </span>
     );
 }

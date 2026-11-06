@@ -1,19 +1,12 @@
-import type {
-    SidebarMenuItem,
-} from "@/types/dashboard";
+import type { SidebarMenuItem } from "@/types/dashboard";
 
 export const sidebarMenus: SidebarMenuItem[] = [
-    { label: "Dashboard", iconName: "home", href: "/dashboard" },
-    { label: "Kamar", iconName: "bedDouble", href: "/dashboard/kamar" },
-    { label: "Penghuni", iconName: "users", href: "/dashboard/penghuni" },
-    { label: "Kontrak", iconName: "fileCheck", href: "/dashboard/kontrak" },
-    { label: "Tagihan", iconName: "fileText", href: "/dashboard/tagihan" },
-    { label: "Pembayaran", iconName: "creditCard", href: "/dashboard/pembayaran" },
-    { label: "Keluhan", iconName: "messageSquare", href: "/dashboard/keluhan" },
-    { label: "Pengumuman", iconName: "megaphone", href: "/dashboard/pengumuman" },
-    { label: "Alat IoT", iconName: "cpu", href: "/dashboard/iot" },
-    { label: "IoT Terminal", iconName: "terminal", href: "/dashboard/terminal" },
-    { label: "Fasilitas", iconName: "sparkles", href: "/dashboard/fasilitas" },
-    { label: "Rating", iconName: "star", href: "/dashboard/rating" },
+    { label: "Beranda", iconName: "home", href: "/dashboard", mobile: true },
+    { label: "Kandang", iconName: "kandang", href: "/dashboard/kamar", mobile: true },
+    { label: "Peringatan", iconName: "alert", href: "/dashboard/peringatan", mobile: true, alertBadge: true },
+    { label: "Laporan", iconName: "report", href: "/dashboard/tagihan", mobile: true },
+    // Di mobile, Pengaturan & menu Teknis ada di tombol "Lainnya" pada navigasi bawah.
     { label: "Pengaturan", iconName: "settings", href: "/dashboard/settings" },
+    { label: "Alat IoT", iconName: "cpu", href: "/dashboard/iot", group: "teknis" },
+    { label: "IoT Terminal", iconName: "terminal", href: "/dashboard/terminal", group: "teknis" },
 ];
