@@ -1,15 +1,4 @@
-"use client";
-
 import DashboardShell from "@/components/dashboard/nav/dashboard-shell";
-import BerandaOverview from "@/components/dashboard/home/beranda-overview";
-import GuardSection from "@/components/dashboard/guard/guard-section";
+import { HomeOverview } from "@/components/broiler/dashboard";
 import { sidebarMenus } from "@/lib/dashboard-data";
-
-export default function BerandaPage() {
-    return (
-        <DashboardShell menus={sidebarMenus}>
-            <BerandaOverview />
-            <GuardSection />
-        </DashboardShell>
-    );
-}
+export default function Page() { return <DashboardShell menus={sidebarMenus}><HomeOverview /></DashboardShell>; }

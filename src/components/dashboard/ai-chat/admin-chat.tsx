@@ -16,6 +16,15 @@ const FARM_QUESTIONS = [
     "Bagaimana cara menghemat listrik kipas di siang hari?",
 ];
 
+function withGreeting(messages: ChatMessage[]): ChatMessage[] {
+    if (messages[0]?.role === "assistant") return messages;
+    return [{
+        role: "assistant",
+        content: "Halo! Saya Copilot Coasther. Saya bisa bantu menjelaskan kondisi kandang, konsumsi air & listrik, dan biaya energi siklus. Apa yang ingin Anda ketahui?",
+        timestamp: new Date().toISOString(),
+    }, ...messages];
+}
+
 export default function AdminChat() {
     const [open, setOpen] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -30,16 +39,6 @@ export default function AdminChat() {
     const suggestions = focusRoomId != null ? KANDANG_QUESTIONS : FARM_QUESTIONS;
 
     useEffect(() => {
-        if (!open) return;
-        // Sapaan selalu di urutan pertama — pertanyaan dari tombol "Tanya Copilot" bisa masuk lebih dulu.
-        setMessages((prev) => prev[0]?.role === "assistant" ? prev : [{
-            role: "assistant",
-            content: "Halo! Saya Copilot Coasther. Saya bisa bantu menjelaskan kondisi kandang, konsumsi air & listrik, dan biaya energi siklus. Apa yang ingin Anda ketahui?",
-            timestamp: new Date().toISOString(),
-        }, ...prev]);
-    }, [open]);
-
-    useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
@@ -52,6 +51,7 @@ export default function AdminChat() {
     useEffect(() => {
         const onAsk = (e: Event) => {
             const question = (e as CustomEvent<{ question?: string }>).detail?.question;
+            setMessages(withGreeting);
             setOpen(true);
             if (question) handleSendRef.current(question);
             else setTimeout(() => inputRef.current?.focus(), 0);
@@ -129,7 +129,10 @@ export default function AdminChat() {
         <>
             {/* Floating button */}
             <button
-                onClick={() => setOpen((v) => !v)}
+                onClick={() => {
+                    if (!open) setMessages(withGreeting);
+                    setOpen((v) => !v);
+                }}
                 suppressHydrationWarning
                 title="Copilot"
                 className={`fixed bottom-24 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all hover:scale-105 lg:bottom-6 lg:right-6 ${open ? "bg-[#2F2F2F]" : "bg-[#7B1113]"

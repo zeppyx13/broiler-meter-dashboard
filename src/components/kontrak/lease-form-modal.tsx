@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Lease, LeaseUpdatePayload } from "@/types/lease";
 import { getCycleExtra, setCycleExtra, type CycleExtra } from "@/lib/broiler-local-store";
 import { CancelButton, Field, ModalShell, PrimaryButton, inputClass } from "@/components/kamar/ringkasan/form-parts";
@@ -12,20 +12,17 @@ type Props = {
     onSubmit: (payload: LeaseUpdatePayload) => Promise<void>;
 };
 
-export default function LeaseFormModal({ open, editData, onClose, onSubmit }: Props) {
-    const [endDate, setEndDate] = useState("");
-    const [status, setStatus] = useState<"active" | "ended">("active");
-    const [note, setNote] = useState("");
-    const [extra, setExtra] = useState<CycleExtra>({});
-    const [loading, setLoading] = useState(false);
+export default function LeaseFormModal(props: Props) {
+    if (!props.open || !props.editData) return null;
+    return <LeaseForm key={props.editData.id} {...props} editData={props.editData} />;
+}
 
-    useEffect(() => {
-        if (!open || !editData) return;
-        setEndDate(editData.end_date?.slice(0, 10) ?? "");
-        setStatus(editData.status);
-        setNote(editData.note ?? "");
-        setExtra(getCycleExtra(editData.id));
-    }, [editData, open]);
+function LeaseForm({ open, editData, onClose, onSubmit }: Props & { editData: Lease }) {
+    const [endDate, setEndDate] = useState(() => editData.end_date?.slice(0, 10) ?? "");
+    const [status, setStatus] = useState<"active" | "ended">(editData.status);
+    const [note, setNote] = useState(editData.note ?? "");
+    const [extra, setExtra] = useState<CycleExtra>(() => getCycleExtra(editData.id));
+    const [loading, setLoading] = useState(false);
 
     async function handleSubmit() {
         if (!editData) return;

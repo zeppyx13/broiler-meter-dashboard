@@ -1,14 +1,14 @@
 "use client";
+import { useBroiler } from "@/components/broiler/broiler-provider";
 
 import { LogOut } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import SidebarItem from "./sidebar-item";
 import { NAV_ICONS, isNavActive } from "./nav-icons";
 import { useGuard } from "../guard/guard-monitor";
 import type { SidebarMenuItem } from "@/types/dashboard";
-import { clearAuth, getUser } from "@/lib/auth";
+import { clearAuth } from "@/lib/auth";
 import Image from "next/image";
 
 type DashboardSidebarProps = {
@@ -20,11 +20,7 @@ export default function DashboardSidebar({ menus }: DashboardSidebarProps) {
     const pathname = usePathname();
     const { counts } = useGuard();
 
-    const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
-
-    useEffect(() => {
-        setUser(getUser());
-    }, []);
+    const { user } = useBroiler();
 
     async function handleLogout() {
         const result = await Swal.fire({
@@ -41,6 +37,7 @@ export default function DashboardSidebar({ menus }: DashboardSidebarProps) {
         if (!result.isConfirmed) return;
 
         clearAuth();
+        window.dispatchEvent(new Event("coasther:unauthorized"));
         router.push("/");
         router.refresh();
     }

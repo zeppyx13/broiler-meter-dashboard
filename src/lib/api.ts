@@ -1,16 +1,21 @@
 import axios from "axios";
-import { getToken } from "./auth";
-import { USE_MOCK_API } from "./mock/config";
-import { mockAdapter } from "./mock/adapter";
+import { clearAuth, getToken } from "./auth";
 
 export const api = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
+    timeout: 20000,
     headers: {
         "Content-Type": "application/json",
         "ngrok-skip-browser-warning": "true",
     },
-    // Mode demo: request dijawab backend tiruan di browser (lihat src/lib/mock).
-    ...(USE_MOCK_API ? { adapter: mockAdapter } : {}),
+});
+
+api.interceptors.response.use(response => response, error => {
+    if (error.response?.status === 401 && typeof window !== "undefined") {
+        clearAuth();
+        window.dispatchEvent(new Event("coasther:unauthorized"));
+    }
+    return Promise.reject(error);
 });
 
 // auto attach token

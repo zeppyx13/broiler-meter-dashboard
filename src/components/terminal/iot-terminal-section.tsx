@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage } from "@/lib/api-error";
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { api } from "@/lib/api";
@@ -45,6 +46,7 @@ export default function IotTerminalSection() {
         socket.on("connect", () => {
             setMqttConnected(true);
             sysLog("Socket.IO terhubung ke server.");
+            sysLog("Terminal siap. Menunggu log yang diteruskan server.");
         });
 
         socket.on("disconnect", () => {
@@ -60,8 +62,6 @@ export default function IotTerminalSection() {
                 source: "mqtt",
             });
         });
-
-        sysLog("Terminal siap. Subscribe ke coasther/device/+/log");
 
         return () => {
             socket.off("connect");
@@ -94,8 +94,8 @@ export default function IotTerminalSection() {
         try {
             await api.post(`/api/iot/relay/1`, { command: cmd }, { headers: authHeader() });
             sysLog(`Command "${cmd}" berhasil dikirim.`, "INFO");
-        } catch (err: any) {
-            const msg = err?.response?.data?.message || "Gagal mengirim command.";
+        } catch (err: unknown) {
+            const msg = apiErrorMessage(err) || "Gagal mengirim command.";
             sysLog(`Error: ${msg}`, "ERROR");
         } finally {
             setSending(false);

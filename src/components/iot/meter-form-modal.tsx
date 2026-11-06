@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getRooms } from "@/lib/room-api";
 import { getMeters } from "@/lib/meter-api";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { X, LoaderCircle } from "lucide-react";
 import type { Meter, MeterFormPayload, MeterUpdatePayload } from "@/types/meter";
 
@@ -14,15 +14,20 @@ type Props = {
     onSubmit: (payload: MeterFormPayload | MeterUpdatePayload) => Promise<void>;
 };
 
-export default function MeterFormModal({ open, editData, onClose, onSubmit }: Props) {
-    const [form, setForm] = useState({
-        room_id: "",
-        type: "water" as "water" | "electricity",
-        device_uid: "",
-        unit: "m3" as "m3" | "kwh",
-        is_active: true,
-        installed_at: "",
-    });
+export default function MeterFormModal(props: Props) {
+    if (!props.open) return null;
+    return <MeterForm key={props.editData?.id ?? "new"} {...props} />;
+}
+
+function MeterForm({ open, editData, onClose, onSubmit }: Props) {
+    const [form, setForm] = useState(() => ({
+        room_id: editData ? String(editData.room_id) : "",
+        type: editData?.type ?? "water" as "water" | "electricity",
+        device_uid: editData?.device_uid ?? "",
+        unit: editData?.unit ?? "m3" as "m3" | "kwh",
+        is_active: editData ? Boolean(editData.is_active) : true,
+        installed_at: editData?.installed_at?.slice(0, 16) ?? "",
+    }));
     const [loading, setLoading] = useState(false);
 
     // Fetch semua kamar
@@ -49,28 +54,6 @@ export default function MeterFormModal({ open, editData, onClose, onSubmit }: Pr
         );
         return !hasThisType;
     });
-
-    useEffect(() => {
-        if (editData) {
-            setForm({
-                room_id: String(editData.room_id),
-                type: editData.type,
-                device_uid: editData.device_uid,
-                unit: editData.unit,
-                is_active: Boolean(editData.is_active),
-                installed_at: editData.installed_at?.slice(0, 16) ?? "",
-            });
-        } else {
-            setForm({
-                room_id: "",
-                type: "water",
-                device_uid: "",
-                unit: "m3",
-                is_active: true,
-                installed_at: "",
-            });
-        }
-    }, [editData, open]);
 
     // Reset room_id saat tipe berubah karena daftar kamar tersedia berubah
     function handleTypeChange(type: "water" | "electricity") {

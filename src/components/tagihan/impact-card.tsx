@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { HandCoins, ShieldAlert } from "lucide-react";
 import { getRooms } from "@/lib/room-api";
@@ -8,7 +8,7 @@ import { getLeases } from "@/lib/lease-api";
 import { getCycleState, localDateKey } from "@/lib/broiler-local-store";
 import { formatRupiah } from "@/lib/broiler-reference";
 import { summarizeCycle } from "@/lib/cycle-history";
-import { DEFAULT_IMPACT_SETTINGS, getImpactSettings, kandangImpact, setImpactSettings, type ImpactSettings } from "@/lib/impact";
+import { getImpactSettings, kandangImpact, setImpactSettings, type ImpactSettings } from "@/lib/impact";
 import { useGuard } from "@/components/dashboard/guard/guard-monitor";
 
 const num = (v: number, d = 0) => v.toLocaleString("id-ID", { maximumFractionDigits: d, minimumFractionDigits: d });
@@ -24,9 +24,9 @@ const EVENT_LABEL: Record<string, string> = {
 
 /** Kartu dampak: nilai kematian yang dicegah per siklus & berapa lama perangkat balik modal. */
 export default function ImpactCard() {
-    const [settings, setSettings] = useState<ImpactSettings>(DEFAULT_IMPACT_SETTINGS);
+    const [settings, setSettings] = useState<ImpactSettings>(getImpactSettings);
     // Asumsi tersimpan di browser → dibaca setelah mount agar HTML server & klien sama.
-    useEffect(() => setSettings(getImpactSettings()), []);
+
     const { active, history } = useGuard();
     const [sinceMs] = useState(() => Date.now() - EVIDENCE_DAYS * 86_400_000);
 

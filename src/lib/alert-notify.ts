@@ -16,7 +16,7 @@ export function showAlertNotification(alert: Pick<LoggedAlert, "key" | "tier" | 
         });
         n.onclick = () => {
             window.focus();
-            window.location.href = `/dashboard/kamar/${alert.roomId}`;
+            window.location.assign(new URL(`/dashboard/kamar/${alert.roomId}`, window.location.origin));
         };
     } catch {
         // beberapa browser mobile hanya mengizinkan notifikasi lewat service worker

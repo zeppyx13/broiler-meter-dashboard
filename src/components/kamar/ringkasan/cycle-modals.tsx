@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Swal from "sweetalert2";
 import { createLease, getLeases, updateLease } from "@/lib/lease-api";
 import { getUser } from "@/lib/auth";
@@ -25,28 +25,17 @@ function errorMessage(err: unknown) {
     return e?.response?.data?.message || e?.message || "Terjadi kesalahan.";
 }
 
-export function CycleStartModal({ open, onClose, room, live, editCycle, onSaved }: StartProps) {
-    const [startDate, setStartDate] = useState(localDateKey());
-    const [population, setPopulation] = useState(0);
-    const [strain, setStrain] = useState("");
-    const [targetDays, setTargetDays] = useState(35);
-    const [loading, setLoading] = useState(false);
+export function CycleStartModal(props: StartProps) {
+    if (!props.open) return null;
+    return <CycleStartForm key={props.editCycle?.id ?? `new-${props.room.id}`} {...props} />;
+}
 
-    useEffect(() => {
-        if (!open) return;
-        if (editCycle) {
-            const extra = getCycleExtra(editCycle.id);
-            setStartDate(editCycle.start_date.slice(0, 10));
-            setPopulation(extra.population_start ?? 0);
-            setStrain(extra.strain ?? "");
-            setTargetDays(extra.harvest_target_days ?? 35);
-        } else {
-            setStartDate(localDateKey());
-            setPopulation(0);
-            setStrain("");
-            setTargetDays(35);
-        }
-    }, [open, editCycle]);
+function CycleStartForm({ open, onClose, room, live, editCycle, onSaved }: StartProps) {
+    const [startDate, setStartDate] = useState(() => editCycle?.start_date.slice(0, 10) ?? localDateKey());
+    const [population, setPopulation] = useState(() => editCycle ? getCycleExtra(editCycle.id).population_start ?? 0 : 0);
+    const [strain, setStrain] = useState(() => editCycle ? getCycleExtra(editCycle.id).strain ?? "" : "");
+    const [targetDays, setTargetDays] = useState(() => editCycle ? getCycleExtra(editCycle.id).harvest_target_days ?? 35 : 35);
+    const [loading, setLoading] = useState(false);
 
     async function handleSave() {
         if (population <= 0) return;
@@ -171,18 +160,16 @@ type CloseProps = {
     onSaved: () => void;
 };
 
-export function CycleCloseModal({ open, onClose, cycle, roomNumber, populationNow, live, onSaved }: CloseProps) {
-    const [harvestDate, setHarvestDate] = useState(localDateKey());
-    const [harvested, setHarvested] = useState(0);
+export function CycleCloseModal(props: CloseProps) {
+    if (!props.open) return null;
+    return <CycleCloseForm key={props.cycle.id} {...props} />;
+}
+
+function CycleCloseForm({ open, onClose, cycle, roomNumber, populationNow, live, onSaved }: CloseProps) {
+    const [harvestDate, setHarvestDate] = useState(localDateKey);
+    const [harvested, setHarvested] = useState(populationNow ?? 0);
     const [note, setNote] = useState("");
     const [loading, setLoading] = useState(false);
-
-    useEffect(() => {
-        if (!open) return;
-        setHarvestDate(localDateKey());
-        setHarvested(populationNow ?? 0);
-        setNote("");
-    }, [open, populationNow]);
 
     async function handleClose() {
         setLoading(true);

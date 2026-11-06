@@ -21,6 +21,6 @@ export async function login(payload: {
     password: string;
     rememberMe?: boolean;
 }) {
-    const { data } = await api.post<LoginResponse>("/api/auth/login", payload);
+    const { data } = await api.post<LoginResponse>("/api/auth/login", { email: payload.email, password: payload.password });
     return data.data; // langsung return { token, user }
 }

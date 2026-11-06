@@ -1,10 +1,10 @@
 "use client";
+import { useBroiler } from "@/components/broiler/broiler-provider";
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { getUser } from "@/lib/auth";
+
 
 // Urut dari path paling spesifik; dicocokkan dengan startsWith untuk halaman dinamis.
 const PAGE_TITLES: { path: string; label: string; title: string }[] = [
@@ -20,11 +20,7 @@ const PAGE_TITLES: { path: string; label: string; title: string }[] = [
 
 export default function DashboardTopbar() {
     const pathname = usePathname();
-    const [user, setUser] = useState<{ name?: string } | null>(null);
-
-    useEffect(() => {
-        setUser(getUser());
-    }, []);
+    const { user } = useBroiler();
 
     const firstName = user?.name?.split(" ")[0] ?? "Admin";
     const page = PAGE_TITLES.find((p) => pathname === p.path || pathname.startsWith(p.path))

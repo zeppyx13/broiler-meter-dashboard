@@ -1,7 +1,8 @@
 "use client";
+import { useBroiler } from "@/components/broiler/broiler-provider";
 
+import { useEffect } from "react";
 import { LogOut, X } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Swal from "sweetalert2";
@@ -9,7 +10,7 @@ import type { SidebarMenuItem } from "@/types/dashboard";
 import { NAV_ICONS, isNavActive } from "./nav-icons";
 import { NavBadge } from "./sidebar-item";
 import { useGuard } from "../guard/guard-monitor";
-import { clearAuth, getUser } from "@/lib/auth";
+import { clearAuth } from "@/lib/auth";
 import Image from "next/image";
 
 type MobileDrawerProps = {
@@ -23,14 +24,7 @@ export default function MobileDrawer({ menus, open, onClose }: MobileDrawerProps
     const pathname = usePathname();
     const { counts } = useGuard();
 
-    const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
-
-    useEffect(() => {
-        setUser(getUser());
-    }, []);
-    useEffect(() => {
-        onClose();
-    }, [pathname]);
+    const { user } = useBroiler();
     useEffect(() => {
         document.body.style.overflow = open ? "hidden" : "";
         return () => { document.body.style.overflow = ""; };
@@ -50,6 +44,7 @@ export default function MobileDrawer({ menus, open, onClose }: MobileDrawerProps
         });
         if (!result.isConfirmed) return;
         clearAuth();
+        window.dispatchEvent(new Event("coasther:unauthorized"));
         router.push("/");
         router.refresh();
     }
@@ -99,6 +94,7 @@ export default function MobileDrawer({ menus, open, onClose }: MobileDrawerProps
                                         <Link
                                             key={menu.label}
                                             href={menu.href}
+                                            onClick={onClose}
                                             className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 transition ${isActive
                                                 ? "bg-[#7B1113] text-[#C6A971]"
                                                 : "text-[#555] hover:bg-[#F8F8F8]"

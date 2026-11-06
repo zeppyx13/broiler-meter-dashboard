@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage } from "@/lib/api-error";
 
 import { useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -44,7 +45,7 @@ export default function MeterListSection() {
     async function handleDelete(m: Meter) {
         const result = await Swal.fire({
             title: "Hapus alat IoT ini?",
-            html: `<b>${m.device_uid}</b><br/><span style="font-size:13px;color:#777">Kamar ${m.room_number} · ${m.type === "water" ? "Air" : "Listrik"}</span>`,
+            text: m.device_uid + " - Kandang " + m.room_number,
             icon: "warning",
             showCancelButton: true,
             confirmButtonText: "Ya, hapus",
@@ -57,11 +58,11 @@ export default function MeterListSection() {
             await deleteMeter(m.id);
             queryClient.invalidateQueries({ queryKey: ["meters"] });
             Swal.fire({ icon: "success", title: "Alat dihapus", timer: 1200, showConfirmButton: false });
-        } catch (err: any) {
+        } catch (err: unknown) {
             Swal.fire({
                 icon: "error",
                 title: "Gagal menghapus",
-                text: err?.response?.data?.message || "Terjadi kesalahan.",
+                text: apiErrorMessage(err) || "Terjadi kesalahan.",
                 confirmButtonColor: "#7B1113",
             });
         }
@@ -77,11 +78,11 @@ export default function MeterListSection() {
             queryClient.invalidateQueries({ queryKey: ["meters"] });
             setModalOpen(false);
             Swal.fire({ icon: "success", title: editData ? "Diperbarui" : "Alat didaftarkan", timer: 1200, showConfirmButton: false });
-        } catch (err: any) {
+        } catch (err: unknown) {
             Swal.fire({
                 icon: "error",
                 title: "Gagal menyimpan",
-                text: err?.response?.data?.message || "Terjadi kesalahan.",
+                text: apiErrorMessage(err) || "Terjadi kesalahan.",
                 confirmButtonColor: "#7B1113",
             });
         }

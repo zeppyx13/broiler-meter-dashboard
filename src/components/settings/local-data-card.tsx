@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { Download, Upload, HardDrive, RotateCcw } from "lucide-react";
 import { exportLocalData, importLocalData, localDateKey } from "@/lib/broiler-local-store";
@@ -9,15 +9,8 @@ import { BACKUP_KEY, resetDemo } from "@/lib/mock/db";
 
 export default function LocalDataCard() {
     const fileRef = useRef<HTMLInputElement>(null);
-    const [hasPreDemoBackup, setHasPreDemoBackup] = useState(false);
+    const [hasPreDemoBackup] = useState(() => { try { return typeof window !== "undefined" && Boolean(window.localStorage.getItem(BACKUP_KEY)); } catch { return false; } });
 
-    useEffect(() => {
-        try {
-            setHasPreDemoBackup(Boolean(window.localStorage.getItem(BACKUP_KEY)));
-        } catch {
-            // abaikan
-        }
-    }, []);
 
     function download(json: string, name: string) {
         const blob = new Blob([json], { type: "application/json" });

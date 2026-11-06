@@ -29,18 +29,7 @@ export default function Home() {
 
             <LoginForm />
 
-            <p className="mt-8 font-inter text-xs leading-relaxed text-[#999]">
-              Pantau juga dari HP lewat aplikasi COASTHER di{" "}
-              <a
-                href="https://play.google.com/store/apps/details?id=com.coasther.app"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-[#7B1113] underline hover:text-[#5A0B0C]"
-              >
-                Google Play Store
-              </a>
-              .
-            </p>
+            <p className="mt-8 font-inter text-xs text-[#999]">Dashboard web responsif. Notifikasi melalui inbox web dan email sesuai konfigurasi server.</p>
           </div>
         </section>
       </div>

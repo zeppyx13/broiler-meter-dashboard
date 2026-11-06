@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { LoaderCircle, User } from "lucide-react";
 import Swal from "sweetalert2";
 import { getUser, getToken, setAuth } from "@/lib/auth";
@@ -16,17 +16,10 @@ type ProfileUser = {
 };
 
 export default function PeternakProfileCard() {
-    const [user, setUser] = useState<ProfileUser | null>(null);
-    const [name, setName] = useState("");
-    const [phone, setPhone] = useState("");
+    const [user, setUser] = useState<ProfileUser | null>(getUser);
+    const [name, setName] = useState(() => getUser()?.name ?? "");
+    const [phone, setPhone] = useState(() => getUser()?.phone ?? "");
     const [loading, setLoading] = useState(false);
-
-    useEffect(() => {
-        const current = getUser();
-        setUser(current);
-        setName(current?.name ?? "");
-        setPhone(current?.phone ?? "");
-    }, []);
 
     async function handleSave() {
         if (!user) return;

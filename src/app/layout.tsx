@@ -14,7 +14,7 @@ const poppins = Poppins({
 
 export const metadata = {
   title: "Coasther — Smart Kandang Broiler",
-  description: "Dashboard monitoring IoT air minum dan listrik kandang ayam broiler: peringatan dini dan efisiensi energi per siklus.",
+  description: "Dashboard monitoring inlet tandon dan listrik panel kandang broiler: peringatan dini dan efisiensi energi per siklus.",
   icons: {
     icon: [
       { url: "/favicon.ico" },

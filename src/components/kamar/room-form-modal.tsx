@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { LoaderCircle, ImagePlus, Trash2, ChevronDown } from "lucide-react";
 import type { Room, RoomFormPayload } from "@/types/room";
 import { api } from "@/lib/api";
@@ -31,29 +32,29 @@ async function uploadRoomImage(file: File): Promise<string> {
     return response.data.data.url;
 }
 
-export default function RoomFormModal({ open, editData, onClose, onSubmit }: RoomFormModalProps) {
-    const [number, setNumber] = useState("");
-    const [floor, setFloor] = useState<number | null>(null);
-    const [description, setDescription] = useState("");
-    const [imageUrl, setImageUrl] = useState("");
-    const [extra, setExtra] = useState<RoomExtra>({});
+export default function RoomFormModal(props: RoomFormModalProps) {
+    if (!props.open) return null;
+    return <RoomForm key={props.editData?.id ?? "new"} {...props} />;
+}
+
+function RoomForm({ open, editData, onClose, onSubmit }: RoomFormModalProps) {
+    const [number, setNumber] = useState(editData?.number ?? "");
+    const [floor, setFloor] = useState<number | null>(editData?.floor ?? null);
+    const [description, setDescription] = useState(editData?.description ?? "");
+    const [imageUrl, setImageUrl] = useState(editData?.main_image_url ?? "");
+    const [extra, setExtra] = useState<RoomExtra>(() => editData ? getRoomExtra(editData.id) : {});
     const [showMore, setShowMore] = useState(false);
     const [loading, setLoading] = useState(false);
     const [uploadLoading, setUploadLoading] = useState(false);
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(() => {
+        const img = editData?.main_image_url;
+        return img ? (/^(https?:|data:|blob:)/.test(img) ? img : `${BASE_URL}${img}`) : null;
+    });
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
-        if (!open) return;
-        setNumber(editData?.number ?? "");
-        setFloor(editData?.floor ?? null);
-        setDescription(editData?.description ?? "");
-        setImageUrl(editData?.main_image_url ?? "");
-        setExtra(editData ? getRoomExtra(editData.id) : {});
-        setShowMore(false);
-        const img = editData?.main_image_url;
-        setPreviewUrl(img ? (/^(https?:|data:|blob:)/.test(img) ? img : `${BASE_URL}${img}`) : null);
-    }, [editData, open]);
+    useEffect(() => () => {
+        if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+    }, [previewUrl]);
 
     async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
@@ -174,7 +175,7 @@ export default function RoomFormModal({ open, editData, onClose, onSubmit }: Roo
                     <Field label="Foto kandang">
                         {previewUrl ? (
                             <div className="relative overflow-hidden rounded-2xl border border-[#EAEAEA]">
-                                <img src={previewUrl} alt="Pratinjau foto kandang" className="h-40 w-full object-cover" />
+                                <Image src={previewUrl} alt="Pratinjau foto kandang" width={800} height={450} unoptimized className="h-40 w-full object-cover" />
                                 {uploadLoading ? (
                                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white">
                                         <LoaderCircle size={24} className="animate-spin" />

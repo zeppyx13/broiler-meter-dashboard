@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
 import { ShieldCheck, ChevronRight, Check, BellOff, Bot } from "lucide-react";
@@ -33,14 +33,10 @@ function duration(fromIso: string, toIso?: string) {
 export default function PeringatanSection() {
     const { ready, error, active, history, counts, acknowledge, clearHistory } = useGuard();
     const [tab, setTab] = useState<"aktif" | "riwayat">("aktif");
-    const [notifyOff, setNotifyOff] = useState(false);
+    const [notifyOff] = useState(() => { const settings = getGuardSettings(); return !settings.notifyBrowser || !notificationSupported() || Notification.permission !== "granted"; });
     // Jendela linimasa: 7 hari terakhir sejak halaman dibuka.
     const [sinceMs] = useState(() => Date.now() - 7 * 86_400_000);
 
-    useEffect(() => {
-        const s = getGuardSettings();
-        setNotifyOff(!s.notifyBrowser || !notificationSupported() || Notification.permission !== "granted");
-    }, []);
 
     async function handleClearHistory() {
         const result = await Swal.fire({

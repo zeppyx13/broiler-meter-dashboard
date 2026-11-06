@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Swal from "sweetalert2";
 import { CheckCircle2, CircleDashed, ClipboardCheck, Gauge, Radar, Sprout, Trash2, Wifi, XCircle } from "lucide-react";
 import { getRooms } from "@/lib/room-api";
 import { getAllLiveStatus } from "@/lib/live-status-api";
 import { getDeviceHealth } from "@/lib/device-health-api";
-import { DEFAULT_GUARD_SETTINGS, getGuardSettings } from "@/lib/guard-settings";
+import { getGuardSettings } from "@/lib/guard-settings";
 import { formatSeconds, guardStats } from "@/lib/guard-performance";
 import { useGuard } from "@/components/dashboard/guard/guard-monitor";
 import {
@@ -48,9 +48,9 @@ export default function ValidationPanel() {
 // ── 1. Akurasi sensor ──────────────────────────────────────────────────────
 
 function AccuracySection({ rooms, roomName }: { rooms: { id: number; number: string }[]; roomName: (id: number) => string }) {
-    const [entries, setEntries] = useState<CalibrationEntry[]>([]);
+    const [entries, setEntries] = useState<CalibrationEntry[]>(getCalibrations);
     // Dibaca setelah mount: data uji ada di browser, server tidak tahu isinya.
-    useEffect(() => setEntries(getCalibrations()), []);
+
     const [roomId, setRoomId] = useState<number | "">("");
     const [type, setType] = useState<CalibrationType>("listrik");
     const [reference, setReference] = useState("");
@@ -231,8 +231,8 @@ function GuardResponseSection() {
     const { active, history } = useGuard();
     const [sinceMs] = useState(() => Date.now() - HEALTH_DAYS * 86_400_000);
     const stats = useMemo(() => guardStats([...active, ...history], sinceMs), [active, history, sinceMs]);
-    const [offlineMinutes, setOfflineMinutes] = useState(DEFAULT_GUARD_SETTINGS.offlineMinutes);
-    useEffect(() => setOfflineMinutes(getGuardSettings().offlineMinutes), []);
+    const [offlineMinutes] = useState(() => getGuardSettings().offlineMinutes);
+
 
     const rows: { label: string; target: string; value: string; samples: number; ok: boolean | null; note?: string }[] = [
         {

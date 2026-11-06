@@ -1,6 +1,7 @@
 "use client";
+import { apiErrorMessage } from "@/lib/api-error";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Wifi, WifiOff, Power, PowerOff, RefreshCw } from "lucide-react";
 import Swal from "sweetalert2";
@@ -72,7 +73,7 @@ function formatTime(recorded_at: string): string {
 }
 
 export default function IotMonitorSection() {
-    const [liveData, setLiveData] = useState<Record<number, LiveStatus>>({});
+    const [pushedData, setPushedData] = useState<Record<number, Partial<LiveStatus>>>({});
     const [relayLoading, setRelayLoading] = useState<Record<number, boolean>>({});
 
     const { data, isLoading, isError, refetch } = useQuery({
@@ -82,14 +83,19 @@ export default function IotMonitorSection() {
         staleTime: 10 * 1000,
     });
 
-    // Inisialisasi dari REST
-    useEffect(() => {
-        if (data) {
-            const map: Record<number, LiveStatus> = {};
-            data.forEach((d) => { map[d.room_id] = d; });
-            setLiveData(map);
+    // REST tetap menjadi dasar; hanya sampel socket yang lebih baru yang menimpanya.
+    const liveData = useMemo(() => {
+        const map: Record<number, LiveStatus> = {};
+        for (const row of data ?? []) map[row.room_id] = row;
+        for (const [key, pushed] of Object.entries(pushedData)) {
+            const roomId = Number(key);
+            const polled = map[roomId];
+            if (!polled || Date.parse(pushed.recorded_at ?? "") >= Date.parse(polled.recorded_at)) {
+                map[roomId] = { ...polled, ...pushed, room_id: roomId } as LiveStatus;
+            }
         }
-    }, [data]);
+        return map;
+    }, [data, pushedData]);
 
     // Update realtime dari Socket.IO
     useEffect(() => {
@@ -99,21 +105,14 @@ export default function IotMonitorSection() {
             const roomId = Number(payload.room_id);
             if (!roomId) return;
 
-            setLiveData((prev) => {
-                const existing = prev[roomId] ?? {} as LiveStatus;
+            setPushedData((prev) => {
+                const existing = prev[roomId] ?? {};
                 return {
                     ...prev,
                     [roomId]: {
                         ...existing,
                         room_id: roomId,
-                        flow_rate_lpm: payload.flow_rate_lpm ?? existing.flow_rate_lpm ?? 0,
-                        water_total_liter: payload.water_total_liter ?? existing.water_total_liter ?? 0,
-                        voltage: payload.voltage ?? existing.voltage ?? 0,
-                        current: payload.current ?? existing.current ?? 0,
-                        power: payload.power ?? existing.power ?? 0,
-                        energy_kwh_total: payload.energy_kwh_total ?? existing.energy_kwh_total ?? 0,
-                        frequency: payload.frequency ?? existing.frequency ?? 0,
-                        pf: payload.pf ?? existing.pf ?? 0,
+                        ...Object.fromEntries(Object.entries(payload).filter(([, value]) => value != null)),
                         recorded_at: payload.recorded_at ?? new Date().toISOString(),
                     },
                 };
@@ -161,11 +160,11 @@ export default function IotMonitorSection() {
                 timer: 1500,
                 showConfirmButton: false,
             });
-        } catch (err: any) {
+        } catch (err: unknown) {
             Swal.fire({
                 icon: "error",
                 title: "Gagal mengirim",
-                text: err?.response?.data?.message || "Terjadi kesalahan.",
+                text: apiErrorMessage(err) || "Terjadi kesalahan.",
                 confirmButtonColor: "#7B1113",
             });
         } finally {

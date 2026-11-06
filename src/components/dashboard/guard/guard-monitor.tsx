@@ -1,115 +1,18 @@
 "use client";
-
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getRooms } from "@/lib/room-api";
-import { getLeases } from "@/lib/lease-api";
-import { getAllLiveStatus } from "@/lib/live-status-api";
-import { DEFAULT_GUARD_SETTINGS, GUARD_SETTINGS_EVENT, getGuardSettings } from "@/lib/guard-settings";
-import { alertsFromSnapshots } from "@/lib/guard-scan";
-import { buildSnapshots, type KandangSnapshot } from "@/lib/kandang-snapshot";
-import { acknowledgeAlert, clearAlertHistory, getAlertLog, reconcileAlerts, type LoggedAlert } from "@/lib/alert-log";
-import { ALERT_TIER_ORDER } from "@/lib/kandang-insights";
-import { playAlertSound, showAlertNotification } from "@/lib/alert-notify";
-
-// Waktu ikut menentukan peringatan (perangkat offline, pengingat sore), jadi pindai ulang berkala.
-const RESCAN_INTERVAL_MS = 30 * 1000;
-
-type GuardContextValue = {
-    ready: boolean;
-    /** Data kandang/siklus/alat gagal dimuat — Guard berhenti sampai data kembali. */
-    error: boolean;
-    /** Kondisi tiap kandang dari pindaian terakhir (kosong sebelum data siap). */
-    snapshots: KandangSnapshot[];
-    active: LoggedAlert[];
-    history: LoggedAlert[];
-    counts: { kritis: number; waspada: number; info: number; unchecked: number };
-    acknowledge: (key: string) => void;
-    clearHistory: () => void;
-};
-
-const GuardContext = createContext<GuardContextValue | null>(null);
-
-export function useGuard() {
-    const ctx = useContext(GuardContext);
-    if (!ctx) throw new Error("useGuard harus dipakai di dalam GuardMonitorProvider");
-    return ctx;
-}
-
+import { useBroiler } from "@/components/broiler/broiler-provider";
+import { readData, type ServerAlert } from "@/lib/broiler-api";
+import type { LoggedAlert } from "@/lib/alert-log";
+import type { KandangSnapshot } from "@/lib/kandang-snapshot";
+type GuardValue = { ready: boolean; error: boolean; snapshots: KandangSnapshot[]; active: LoggedAlert[]; history: LoggedAlert[]; counts: { kritis: number; waspada: number; info: number; unchecked: number }; acknowledge: (key: string) => void; clearHistory: () => void };
+const Context = createContext<GuardValue | null>(null);
+export function useGuard() { const c = useContext(Context); if (!c) throw new Error("Guard provider required"); return c; }
 export function GuardMonitorProvider({ children }: { children: ReactNode }) {
-    const [settings, setSettings] = useState(DEFAULT_GUARD_SETTINGS);
-    const [log, setLog] = useState<LoggedAlert[]>([]);
-    const [snapshots, setSnapshots] = useState<KandangSnapshot[]>([]);
-    const [tick, setTick] = useState(0);
-    // Pindaian pertama setelah halaman dibuka hanya mencatat (tanpa notifikasi),
-    // agar peringatan yang sudah ada tidak berbunyi ulang di setiap pindah halaman.
-    const firstScanDone = useRef(false);
-
-    useEffect(() => {
-        setSettings(getGuardSettings());
-        setLog(getAlertLog());
-        const onChange = () => setSettings(getGuardSettings());
-        window.addEventListener(GUARD_SETTINGS_EVENT, onChange);
-        const timer = setInterval(() => setTick((t) => t + 1), RESCAN_INTERVAL_MS);
-        return () => {
-            window.removeEventListener(GUARD_SETTINGS_EVENT, onChange);
-            clearInterval(timer);
-        };
-    }, []);
-
-    const { data: roomData, isError: roomError } = useQuery({ queryKey: ["rooms-overview"], queryFn: () => getRooms({ limit: 100 }), staleTime: 60_000 });
-    const { data: leaseData, isError: leaseError } = useQuery({ queryKey: ["leases-active-all"], queryFn: () => getLeases({ status: "active", limit: 100 }), staleTime: 30_000 });
-    const { data: liveList, isError: liveError } = useQuery({
-        queryKey: ["iot-live-status-all"],
-        queryFn: getAllLiveStatus,
-        refetchInterval: 10_000,
-        staleTime: 5_000,
-    });
-
-    // Gagal mengambil data alat ≠ semua perangkat offline: jangan pindai tanpa data yang valid.
-    const error = roomError || leaseError || liveError;
-    const ready = Boolean(roomData && leaseData && liveList && !error);
-
-    useEffect(() => {
-        if (!ready) return;
-        const nextSnapshots = buildSnapshots(roomData!.rooms, leaseData!.leases, liveList!, settings);
-        const { log: next, raised } = reconcileAlerts(alertsFromSnapshots(nextSnapshots));
-        setSnapshots(nextSnapshots);
-        setLog(next);
-
-        if (!firstScanDone.current) {
-            firstScanDone.current = true;
-            return;
-        }
-        const important = raised.filter((a) => a.tier !== "info");
-        if (settings.notifyBrowser) important.forEach(showAlertNotification);
-        if (settings.notifySound && important.some((a) => a.tier === "kritis")) playAlertSound();
-    }, [ready, roomData, leaseData, liveList, settings, tick]);
-
-    const acknowledge = useCallback((key: string) => setLog(acknowledgeAlert(key)), []);
-    const clearHistory = useCallback(() => setLog(clearAlertHistory()), []);
-
-    const value = useMemo<GuardContextValue>(() => {
-        const active = log
-            .filter((e) => !e.resolvedAt)
-            .sort((a, b) => ALERT_TIER_ORDER[a.tier] - ALERT_TIER_ORDER[b.tier] || b.firstSeen.localeCompare(a.firstSeen));
-        const history = log.filter((e) => e.resolvedAt).sort((a, b) => b.resolvedAt!.localeCompare(a.resolvedAt!));
-        return {
-            ready,
-            error,
-            snapshots,
-            active,
-            history,
-            counts: {
-                kritis: active.filter((a) => a.tier === "kritis").length,
-                waspada: active.filter((a) => a.tier === "waspada").length,
-                info: active.filter((a) => a.tier === "info").length,
-                unchecked: active.filter((a) => a.tier !== "info" && !a.acknowledgedAt).length,
-            },
-            acknowledge,
-            clearHistory,
-        };
-    }, [log, snapshots, ready, error, acknowledge, clearHistory]);
-
-    return <GuardContext.Provider value={value}>{children}</GuardContext.Provider>;
+ const b = useBroiler();
+ const alerts = useQuery({ queryKey: ["broiler-nav-alerts", b.user?.id, b.coopId, b.source], queryFn: () => readData<{ alerts: ServerAlert[] }>("/api/alerts", { coop_id: b.coopId, source: b.source, status: "active", limit: 100 }), enabled: Boolean(b.user && b.coopId), retry: false, refetchInterval: 20000 });
+ const unread = useQuery({ queryKey: ["broiler-nav-unread", b.user?.id, b.coopId], queryFn: () => readData<{ unread_count: number }>("/api/notifications/unread-count", { coop_id: b.coopId }), enabled: Boolean(b.user), retry: false, refetchInterval: 20000 });
+ const list = alerts.data?.alerts ?? [];
+ const value: GuardValue = { ready: !alerts.isPending, error: alerts.isError, snapshots: [], active: [], history: [], counts: { kritis: list.filter(a => a.severity === "critical").length, waspada: list.filter(a => a.severity === "warning").length, info: list.filter(a => a.severity === "info").length, unchecked: unread.data?.unread_count ?? 0 }, acknowledge: () => {}, clearHistory: () => {} };
+ return <Context.Provider value={value}>{children}</Context.Provider>;
 }

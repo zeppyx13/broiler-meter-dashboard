@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRoomById } from "@/lib/room-api";
 import { getLeases } from "@/lib/lease-api";
@@ -19,6 +19,21 @@ export type RealtimeSample = { t: number; powerKw: number; flowLpm: number };
 export const REALTIME_WINDOW_MS = 30 * 60 * 1000;
 
 const realtimeKey = (roomId: number) => `coasther-rt-${roomId}`;
+
+// Form dan penetapan baseline menulis penyimpanan lokal di luar React.
+// Semua pembaca berlangganan revisi yang sama agar perubahan langsung terbaca.
+let localRevision = 0;
+const localSubscribers = new Set<() => void>();
+const readLocalRevision = () => localRevision;
+const readServerRevision = () => 0;
+function subscribeLocalChanges(listener: () => void) {
+    localSubscribers.add(listener);
+    return () => { localSubscribers.delete(listener); };
+}
+function refreshLocal() {
+    localRevision += 1;
+    localSubscribers.forEach((listener) => listener());
+}
 
 function readRealtimeSamples(roomId: number): RealtimeSample[] {
     if (typeof window === "undefined") return [];
@@ -42,8 +57,7 @@ function writeRealtimeSamples(roomId: number, samples: RealtimeSample[]) {
 
 export function useKandangData(roomId: number) {
     const queryClient = useQueryClient();
-    const [localVersion, setLocalVersion] = useState(0);
-    const refreshLocal = useCallback(() => setLocalVersion((v) => v + 1), []);
+    const localVersion = useSyncExternalStore(subscribeLocalChanges, readLocalRevision, readServerRevision);
     const [pushed, setPushed] = useState<Record<number, LiveStatus>>({});
     const [realtime, setRealtime] = useState(() => ({ roomId, samples: readRealtimeSamples(roomId) }));
 
@@ -142,7 +156,7 @@ export function useKandangData(roomId: number) {
     useEffect(() => {
         if (!activeCycle || !live || live.water_total_liter == null || live.energy_kwh_total == null) return;
         if (ensureCycleBaseline(activeCycle.id, live.water_total_liter, live.energy_kwh_total)) refreshLocal();
-    }, [activeCycle, live, refreshLocal]);
+    }, [activeCycle, live]);
 
     // localVersion memaksa baca ulang localStorage setelah data lokal berubah.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -184,7 +198,7 @@ export function useKandangData(roomId: number) {
         ["room-detail", "leases-active-all", "leases-ended-all", "leases", "leases-active-count", "rooms", "rooms-overview"].forEach((key) =>
             queryClient.invalidateQueries({ queryKey: [key] })
         );
-    }, [queryClient, refreshLocal]);
+    }, [queryClient]);
 
     return {
         room,
