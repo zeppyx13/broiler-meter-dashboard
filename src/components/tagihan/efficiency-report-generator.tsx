@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import { Printer, FileText, Droplets, Zap, Wallet, TrendingUp, ShieldAlert } from "lucide-react";
-import { getRooms } from "@/lib/room-api";
+import { useBroiler } from "@/components/broiler/broiler-provider";
 import { formatRupiah } from "@/lib/broiler-reference";
 import { useKandangData } from "@/components/kamar/ringkasan/use-kandang-data";
 
@@ -17,12 +16,9 @@ export default function EfficiencyReportGenerator() {
     const [roomId, setRoomId] = useState<number | "">(initialId ?? "");
     const [generatedFor, setGeneratedFor] = useState<number | null>(initialId);
 
-    const { data: roomData } = useQuery({
-        queryKey: ["rooms-overview"],
-        queryFn: () => getRooms({ limit: 100 }),
-        staleTime: 60 * 1000,
-    });
-    const rooms = roomData?.rooms ?? [];
+    const b = useBroiler();
+    const rooms = [...b.coops].sort((x, y) => x.code.localeCompare(y.code, "id", { numeric: true }));
+    const farmName = (id: number) => (b.farms.length > 1 ? b.farms.find((f) => f.id === id)?.name : undefined);
 
     return (
         <div className="space-y-5">
@@ -55,7 +51,7 @@ export default function EfficiencyReportGenerator() {
                         <option value="">Pilih kandang</option>
                         {rooms.map((r) => (
                             <option key={r.id} value={r.id}>
-                                Kandang {r.number}{r.floor ? ` · Blok ${r.floor}` : ""}
+                                Kandang {r.code}{r.name && r.name !== r.code ? ` · ${r.name}` : ""}{farmName(r.farm_id) ? ` · ${farmName(r.farm_id)}` : ""}
                             </option>
                         ))}
                     </select>
@@ -89,7 +85,7 @@ function EfficiencyReport({ roomId }: { roomId: number }) {
                 <div>
                     <p className="font-inter text-xs text-[#999]">Laporan Efisiensi Energi & Air · COASTHER</p>
                     <h2 className="mt-1 font-poppins text-xl font-bold text-[#2F2F2F]">
-                        Kandang {room.number}{room.floor != null ? ` · Blok ${room.floor}` : ""}
+                        Kandang {room.number}
                     </h2>
                     <p className="mt-1 font-inter text-xs text-[#999]">
                         Dicetak {new Date().toLocaleString("id-ID", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}

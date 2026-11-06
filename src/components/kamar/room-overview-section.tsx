@@ -1,68 +1,53 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import Swal from "sweetalert2";
-import { Search, ChevronRight, Wifi, WifiOff, Plus } from "lucide-react";
-import { createRoom, getRooms } from "@/lib/room-api";
-import { getLeases } from "@/lib/lease-api";
-import { getAllLiveStatus } from "@/lib/live-status-api";
-import { getCycleState, setRoomExtra, type RoomExtra } from "@/lib/broiler-local-store";
-import { ageDaysFromChickIn, isTelemetryFresh } from "@/lib/broiler-reference";
-import type { RoomFormPayload } from "@/types/room";
-import RoomFormModal from "./room-form-modal";
+import { Search, ChevronRight, Wifi, WifiOff, Plus, MapPin } from "lucide-react";
+import { useBroiler } from "@/components/broiler/broiler-provider";
+import { useKandangSnapshots } from "@/lib/kandang-snapshot";
+import { writeData } from "@/lib/broiler-api";
 import { apiErrorMessage } from "@/lib/api-error";
+import RoomFormModal, { MAX_KANDANG_PER_LAHAN, type CoopFormPayload } from "./room-form-modal";
 
 type Filter = "all" | "aktif" | "istirahat";
 
 export default function RoomOverviewSection() {
-    const queryClient = useQueryClient();
+    const b = useBroiler();
+    const { snapshots, isLoading, isError } = useKandangSnapshots();
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState<Filter>("all");
+    const [formFarmId, setFormFarmId] = useState<number | null>(null);
     const [formOpen, setFormOpen] = useState(false);
 
-    const { data, isLoading, isError } = useQuery({
-        queryKey: ["rooms-overview"],
-        queryFn: () => getRooms({ limit: 100 }),
-        staleTime: 60 * 1000,
-    });
-    const { data: leaseData } = useQuery({
-        queryKey: ["leases-active-all"],
-        queryFn: () => getLeases({ status: "active", limit: 100 }),
-        staleTime: 30 * 1000,
-    });
-    const { data: liveList } = useQuery({
-        queryKey: ["iot-live-status-all"],
-        queryFn: getAllLiveStatus,
-        refetchInterval: 15 * 1000,
-        staleTime: 10 * 1000,
-    });
+    const canManageFarm = (farmId: number) =>
+        b.user?.role === "admin" || ["owner", "manager"].includes(b.farms.find((f) => f.id === farmId)?.member_role ?? "");
+    const manageableFarms = b.farms.filter((f) => canManageFarm(f.id));
 
-    const liveMap = new Map((liveList ?? []).map((l) => [l.room_id, l]));
-    const cycleByRoom = new Map((leaseData?.leases ?? []).map((l) => [l.room_id, l]));
-    const allRooms = data?.rooms ?? [];
-
-    const rooms = allRooms.filter((r) => {
-        const matchSearch = !search || r.number.toLowerCase().includes(search.toLowerCase());
-        const active = cycleByRoom.has(r.id);
-        const matchFilter = filter === "all" || (filter === "aktif" ? active : !active);
-        return matchSearch && matchFilter;
+    const matches = snapshots.filter((s) => {
+        const matchSearch = !search || `${s.room.number} ${b.coops.find((c) => c.id === s.room.id)?.name ?? ""}`.toLowerCase().includes(search.toLowerCase());
+        const active = Boolean(s.cycle);
+        return matchSearch && (filter === "all" || (filter === "aktif" ? active : !active));
     });
+    const activeCount = snapshots.filter((s) => s.cycle).length;
+    const filtering = Boolean(search) || filter !== "all";
 
-    const activeCount = allRooms.filter((r) => cycleByRoom.has(r.id)).length;
+    // Kelompokkan per lahan (farm); lahan tanpa kandang tetap tampil agar bisa diisi.
+    const groups = b.farms.map((farm) => ({
+        farm,
+        count: snapshots.filter((s) => s.room.floor === farm.id).length,
+        items: matches.filter((s) => s.room.floor === farm.id),
+    })).filter((g) => g.items.length > 0 || !filtering);
 
-    async function handleCreate(payload: RoomFormPayload, extra: RoomExtra) {
+    function openForm(farmId: number | null) {
+        setFormFarmId(farmId);
+        setFormOpen(true);
+    }
+
+    async function handleCreate(payload: CoopFormPayload) {
         try {
-            const res = await createRoom(payload);
-            let roomId: number | undefined = res?.data?.room?.id ?? res?.data?.id;
-            if (!roomId) {
-                const found = await getRooms({ search: payload.number, limit: 20 });
-                roomId = found.rooms.find((r) => r.number === payload.number)?.id;
-            }
-            if (roomId) setRoomExtra(roomId, extra);
-            queryClient.invalidateQueries({ queryKey: ["rooms-overview"] });
-            queryClient.invalidateQueries({ queryKey: ["rooms"] });
+            await writeData("post", "/api/coops", payload);
+            await b.refresh();
             setFormOpen(false);
             Swal.fire({ icon: "success", title: "Kandang ditambahkan", timer: 1300, showConfirmButton: false });
         } catch (err) {
@@ -73,9 +58,9 @@ export default function RoomOverviewSection() {
     return (
         <div className="space-y-5">
             <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                <Summary label="Total kandang" value={allRooms.length} />
+                <Summary label="Total kandang" value={snapshots.length} />
                 <Summary label="Aktif" value={activeCount} tone="green" />
-                <Summary label="Istirahat" value={allRooms.length - activeCount} tone="gray" />
+                <Summary label="Istirahat" value={snapshots.length - activeCount} tone="gray" />
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -84,7 +69,7 @@ export default function RoomOverviewSection() {
                         <Search size={15} className="text-[#999]" />
                         <input
                             type="text"
-                            placeholder="Cari nomor kandang..."
+                            placeholder="Cari kandang..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             suppressHydrationWarning
@@ -104,76 +89,107 @@ export default function RoomOverviewSection() {
                         ))}
                     </div>
                 </div>
-                <button
-                    onClick={() => setFormOpen(true)}
-                    suppressHydrationWarning
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-[#7B1113] px-5 py-2.5 font-poppins text-sm font-semibold text-[#C6A971] transition hover:opacity-90"
-                >
-                    <Plus size={16} /> Tambah Kandang
-                </button>
+                {manageableFarms.length > 0 && (
+                    <button
+                        onClick={() => openForm(null)}
+                        suppressHydrationWarning
+                        className="flex items-center justify-center gap-2 rounded-2xl bg-[#7B1113] px-5 py-2.5 font-poppins text-sm font-semibold text-[#C6A971] transition hover:opacity-90"
+                    >
+                        <Plus size={16} /> Tambah Kandang
+                    </button>
+                )}
             </div>
 
             {isLoading && (
                 <div className="space-y-2">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className="h-16 animate-pulse rounded-2xl border border-[#EAEAEA] bg-white" />
-                    ))}
+                    {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-16 animate-pulse rounded-2xl border border-[#EAEAEA] bg-white" />)}
                 </div>
             )}
 
-            {isError && (
-                <div className="rounded-3xl border border-red-100 bg-red-50 p-5 text-sm text-red-600">Gagal memuat data kandang.</div>
-            )}
+            {isError && <div className="rounded-3xl border border-red-100 bg-red-50 p-5 text-sm text-red-600">Gagal memuat data kandang dari server.</div>}
 
-            {!isLoading && !isError && rooms.length === 0 && (
-                <div className="rounded-3xl border border-[#EAEAEA] bg-white px-6 py-14 text-center">
-                    <p className="font-inter text-sm text-[#999]">
-                        {allRooms.length === 0 ? "Belum ada kandang. Tambahkan kandang pertama Anda." : "Tidak ada kandang yang cocok."}
-                    </p>
+            {!isLoading && b.farms.length === 0 && (
+                <div className="rounded-3xl border border-[#EAEAEA] bg-white px-6 py-14 text-center font-inter text-sm text-[#999]">
+                    Belum ada lahan untuk akun ini. Owner dapat menambahkan lahan di Pengaturan.
                 </div>
             )}
 
-            {!isLoading && !isError && rooms.length > 0 && (
-                <div className="divide-y divide-[#F0F0F0] overflow-hidden rounded-3xl border border-[#EAEAEA] bg-white">
-                    {rooms.map((room) => {
-                        const cycle = cycleByRoom.get(room.id);
-                        const ageDays = cycle ? ageDaysFromChickIn(cycle.start_date) : null;
-                        const populationNow = cycle ? getCycleState(cycle.id, room.id).populationNow : undefined;
-                        const online = isTelemetryFresh(liveMap.get(room.id)?.recorded_at);
+            {!isLoading && groups.map(({ farm, count, items }) => (
+                <section key={farm.id} className="space-y-2">
+                    <div className="flex items-end justify-between gap-3 px-1">
+                        <div className="min-w-0">
+                            <p className="font-poppins text-base font-semibold text-[#2F2F2F]">{farm.name}</p>
+                            <p className="flex items-center gap-1 truncate font-inter text-xs text-[#999]">
+                                <MapPin size={11} /> {farm.location_text ?? "Lokasi belum diisi"}
+                            </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                            <span className={`font-inter text-xs ${count >= MAX_KANDANG_PER_LAHAN ? "font-medium text-[#B76E00]" : "text-[#999]"}`}>
+                                {count}/{MAX_KANDANG_PER_LAHAN} kandang
+                            </span>
+                            {canManageFarm(farm.id) && count < MAX_KANDANG_PER_LAHAN && (
+                                <button
+                                    onClick={() => openForm(farm.id)}
+                                    suppressHydrationWarning
+                                    title={`Tambah kandang di ${farm.name}`}
+                                    className="flex items-center gap-1 rounded-xl border border-[#EAEAEA] bg-white px-2.5 py-1.5 font-inter text-xs font-medium text-[#7B1113] transition hover:bg-[#F8F8F8]"
+                                >
+                                    <Plus size={13} /> Kandang
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    {items.length === 0 ? (
+                        <div className="rounded-3xl border border-dashed border-[#E0E0E0] px-5 py-6 text-center font-inter text-sm text-[#999]">
+                            Belum ada kandang di lahan ini.
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-[#F0F0F0] overflow-hidden rounded-3xl border border-[#EAEAEA] bg-white">
+                            {items.map((s) => {
+                                const coop = b.coops.find((c) => c.id === s.room.id);
+                                return (
+                                    <Link
+                                        href={`/dashboard/kamar/${s.room.id}`}
+                                        key={s.room.id}
+                                        className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-[#FAFAFA]"
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="font-poppins text-sm font-bold text-[#2F2F2F]">
+                                                Kandang {s.room.number}
+                                                {coop?.name && coop.name !== s.room.number && <span className="font-inter font-normal text-[#777]"> · {coop.name}</span>}
+                                            </p>
+                                            <p className="truncate font-inter text-xs text-[#999]">
+                                                {s.cycle
+                                                    ? `Hari ke-${s.ageDays}${s.populationNow ? ` · ${s.populationNow.toLocaleString("id-ID")} ekor` : ""}`
+                                                    : "Siap untuk siklus baru"}
+                                            </p>
+                                        </div>
+                                        <div className="flex shrink-0 items-center gap-2">
+                                            <span className={`hidden items-center gap-1 rounded-full px-2.5 py-1 font-inter text-xs font-medium sm:flex ${s.online ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                                                {s.online ? <Wifi size={11} /> : <WifiOff size={11} />}
+                                                {s.online ? "Online" : "Offline"}
+                                            </span>
+                                            {!s.online && <WifiOff size={14} className="text-gray-400 sm:hidden" />}
+                                            <span className={`rounded-full px-3 py-1 font-inter text-xs font-medium ${s.cycle ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+                                                {s.cycle ? "Aktif" : "Istirahat"}
+                                            </span>
+                                            <ChevronRight size={16} className="text-[#CCC]" />
+                                        </div>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    )}
+                </section>
+            ))}
 
-                        return (
-                            <Link
-                                href={`/dashboard/kamar/${room.id}`}
-                                key={room.id}
-                                className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-[#FAFAFA]"
-                            >
-                                <div className="min-w-0">
-                                    <p className="font-poppins text-sm font-bold text-[#2F2F2F]">Kandang {room.number}</p>
-                                    <p className="truncate font-inter text-xs text-[#999]">
-                                        {room.floor != null ? `Blok ${room.floor}` : "Blok —"}
-                                        {cycle
-                                            ? ` · Hari ke-${ageDays}${populationNow ? ` · ${populationNow.toLocaleString("id-ID")} ekor` : ""}`
-                                            : " · Siap untuk siklus baru"}
-                                    </p>
-                                </div>
-                                <div className="flex shrink-0 items-center gap-2">
-                                    <span className={`hidden items-center gap-1 rounded-full px-2.5 py-1 font-inter text-xs font-medium sm:flex ${online ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                                        {online ? <Wifi size={11} /> : <WifiOff size={11} />}
-                                        {online ? "Online" : "Offline"}
-                                    </span>
-                                    {!online && <WifiOff size={14} className="text-gray-400 sm:hidden" />}
-                                    <span className={`rounded-full px-3 py-1 font-inter text-xs font-medium ${cycle ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
-                                        {cycle ? "Aktif" : "Istirahat"}
-                                    </span>
-                                    <ChevronRight size={16} className="text-[#CCC]" />
-                                </div>
-                            </Link>
-                        );
-                    })}
-                </div>
-            )}
-
-            <RoomFormModal open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleCreate} />
+            <RoomFormModal
+                open={formOpen}
+                farms={manageableFarms}
+                defaultFarmId={formFarmId}
+                onClose={() => setFormOpen(false)}
+                onSubmit={handleCreate}
+            />
         </div>
     );
 }

@@ -1,14 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
-import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Wifi, WifiOff, ClipboardPlus, Flag, Pencil, Sprout, AlertTriangle, Power, Bot, FileText, ChevronLeft, ChevronRight } from "lucide-react";
-import { getRooms, updateRoom } from "@/lib/room-api";
-import { localDateKey, setRoomExtra, type RoomExtra } from "@/lib/broiler-local-store";
-import type { RoomFormPayload } from "@/types/room";
-import RoomFormModal from "../room-form-modal";
+import { localDateKey } from "@/lib/broiler-local-store";
+import { writeData } from "@/lib/broiler-api";
+import { useBroiler } from "@/components/broiler/broiler-provider";
+import RoomFormModal, { type CoopFormPayload } from "../room-form-modal";
 import { useKandangData } from "./use-kandang-data";
 import KandangRingkasan from "./kandang-ringkasan";
 import CatatHarianTab from "./catat-harian-tab";
@@ -33,7 +32,13 @@ const TABS: { key: Tab; label: string }[] = [
 
 export default function KandangDetail({ roomId }: { roomId: number }) {
     const data = useKandangData(roomId);
-    const { room, isLoading, isError, live, online, activeCycle, cycle, ageDays, harvestTargetDays } = data;
+    const { room, isLoading, isError, live, online, activeCycle, cycle, ageDays, harvestTargetDays, canOperate, canManage, canRelay } = data;
+    const b = useBroiler();
+    // Hak akses (capability) dihitung per kandang terpilih, jadi pilih kandang ini di konteks.
+    const { loading: contextLoading, coopId: selectedCoopId, coops, selectCoop } = b;
+    useEffect(() => {
+        if (!contextLoading && selectedCoopId !== roomId && coops.some((c) => c.id === roomId)) selectCoop(roomId);
+    }, [contextLoading, selectedCoopId, roomId, coops, selectCoop]);
 
     const [tab, setTab] = useState<Tab>("ringkasan");
     const [startOpen, setStartOpen] = useState(false);
@@ -47,7 +52,7 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
     if (isError || !room) {
         return (
             <div className="rounded-3xl border border-red-100 bg-red-50 p-5 font-inter text-sm text-red-600">
-                Gagal memuat data kandang. <Link href="/dashboard/kamar" className="font-semibold underline">Kembali</Link>
+                Kandang tidak tersedia atau akun Anda tidak punya akses ke kandang ini. <Link href="/dashboard/kamar" className="font-semibold underline">Kembali</Link>
             </div>
         );
     }
@@ -56,10 +61,15 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
     const progressPct = ageDays != null ? Math.min(100, (ageDays / harvestTargetDays) * 100) : 0;
     const looksStale = ageDays != null && ageDays > harvestTargetDays + 14;
 
-    async function handleRoomUpdate(payload: RoomFormPayload, extra: RoomExtra) {
+    const farmName = b.farms.find((f) => f.id === room.floor)?.name ?? "Lahan —";
+
+    async function handleRoomUpdate(payload: CoopFormPayload) {
         try {
-            await updateRoom(room!.id, payload);
-            setRoomExtra(room!.id, extra);
+            // Lahan kandang tidak bisa dipindah dari form ini.
+            await writeData("patch", `/api/coops/${room!.id}`, {
+                code: payload.code, name: payload.name, capacity_birds: payload.capacity_birds, description: payload.description,
+            });
+            await b.refresh();
             data.refreshAll();
             setRoomFormOpen(false);
             Swal.fire({ icon: "success", title: "Kandang diperbarui", timer: 1300, showConfirmButton: false });
@@ -81,9 +91,12 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
             <div className="rounded-3xl border border-[#EAEAEA] bg-white p-5 sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <h2 className="font-poppins text-2xl font-bold text-[#2F2F2F]">Kandang {room.number}</h2>
+                        <h2 className="font-poppins text-2xl font-bold text-[#2F2F2F]">
+                            Kandang {room.number}
+                            {data.coop?.name && data.coop.name !== room.number && <span className="font-inter text-lg font-normal text-[#777]"> · {data.coop.name}</span>}
+                        </h2>
                         <p className="mt-0.5 font-inter text-sm text-[#999]">
-                            {room.floor != null ? `Blok ${room.floor}` : "Blok —"}
+                            {farmName}
                             {cycle?.extra.strain && ` · ${cycle.extra.strain}`}
                         </p>
                     </div>
@@ -120,24 +133,24 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
                         )}
 
                         <div className="mt-4 flex flex-wrap items-center gap-2">
-                            <button
+                            {canOperate && <button
                                 onClick={() => setRecordDate(localDateKey())}
                                 suppressHydrationWarning
                                 className="relative flex w-full items-center justify-center gap-2 rounded-2xl bg-[#7B1113] px-5 py-3 font-poppins text-sm font-semibold text-[#C6A971] transition hover:opacity-90 sm:w-auto"
                             >
                                 <ClipboardPlus size={17} /> Catat Harian
                                 {!recordedToday && <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#C6A971]" title="Belum dicatat hari ini" />}
-                            </button>
-                            <SecondaryActions roomId={room.id} onRelay={() => setRelayOpen(true)} onCopilot={() => askCopilot()} showReport />
+                            </button>}
+                            <SecondaryActions roomId={room.id} onRelay={canRelay ? () => setRelayOpen(true) : undefined} onCopilot={() => askCopilot()} showReport />
                         </div>
-                        <div className="mt-3 flex gap-4 font-inter text-sm">
+                        {canOperate && <div className="mt-3 flex gap-4 font-inter text-sm">
                             <button onClick={() => setEditCycleOpen(true)} suppressHydrationWarning className="flex items-center gap-1.5 text-[#777] hover:text-[#7B1113]">
                                 <Pencil size={14} /> Edit siklus
                             </button>
                             <button onClick={() => setCloseOpen(true)} suppressHydrationWarning className="flex items-center gap-1.5 text-[#777] hover:text-[#7B1113]">
                                 <Flag size={14} /> Tutup siklus (panen)
                             </button>
-                        </div>
+                        </div>}
                     </div>
                 ) : (
                     <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-[#F8F8F8] p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -145,18 +158,18 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
                             <p className="font-poppins text-sm font-semibold text-[#2F2F2F]">Kandang sedang istirahat</p>
                             <p className="font-inter text-xs text-[#999]">Mulai siklus baru saat DOC masuk (chick-in).</p>
                         </div>
-                        <button
+                        {canOperate && <button
                             onClick={() => setStartOpen(true)}
                             suppressHydrationWarning
                             className="flex items-center justify-center gap-2 rounded-2xl bg-[#7B1113] px-5 py-3 font-poppins text-sm font-semibold text-[#C6A971] transition hover:opacity-90"
                         >
                             <Sprout size={17} /> Mulai Siklus Baru
-                        </button>
+                        </button>}
                     </div>
                 )}
                 {!activeCycle && (
                     <div className="mt-3 flex flex-wrap gap-2">
-                        <SecondaryActions roomId={room.id} onRelay={() => setRelayOpen(true)} onCopilot={() => askCopilot()} />
+                        <SecondaryActions roomId={room.id} onRelay={canRelay ? () => setRelayOpen(true) : undefined} onCopilot={() => askCopilot()} />
                     </div>
                 )}
             </div>
@@ -181,33 +194,24 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
             {tab === "harian" && <CatatHarianTab data={data} onOpenRecord={(date) => setRecordDate(date ?? localDateKey())} />}
             {tab === "riwayat" && <RiwayatSiklusTab data={data} />}
             {tab === "peralatan" && <PeralatanTab data={data} />}
-            {tab === "pengaturan" && <KandangSettingsTab data={data} onEditRoom={() => setRoomFormOpen(true)} />}
+            {tab === "pengaturan" && <KandangSettingsTab data={data} onEditRoom={canManage ? () => setRoomFormOpen(true) : undefined} />}
 
             {/* Modals */}
-            <CycleStartModal open={startOpen} onClose={() => setStartOpen(false)} room={room} live={live} onSaved={data.refreshAll} />
+            <CycleStartModal open={startOpen} onClose={() => setStartOpen(false)} data={data} onSaved={data.refreshAll} />
             {activeCycle && (
                 <>
-                    <CycleStartModal open={editCycleOpen} onClose={() => setEditCycleOpen(false)} room={room} live={live} editCycle={activeCycle} onSaved={data.refreshAll} />
-                    <CycleCloseModal
-                        open={closeOpen}
-                        onClose={() => setCloseOpen(false)}
-                        cycle={activeCycle}
-                        roomNumber={room.number}
-                        populationNow={cycle?.populationNow}
-                        live={live}
-                        onSaved={data.refreshAll}
-                    />
+                    <CycleStartModal open={editCycleOpen} onClose={() => setEditCycleOpen(false)} data={data} editing onSaved={data.refreshAll} />
+                    <CycleCloseModal open={closeOpen} onClose={() => setCloseOpen(false)} data={data} onSaved={data.refreshAll} />
                     <DailyRecordModal
                         open={recordDate != null}
                         onClose={() => setRecordDate(null)}
-                        leaseId={activeCycle.id}
-                        startDate={activeCycle.start_date}
+                        data={data}
                         initialDate={recordDate ?? undefined}
-                        onSaved={data.refreshLocal}
+                        onSaved={data.refreshAll}
                     />
                 </>
             )}
-            <RoomFormModal open={roomFormOpen} editData={room} onClose={() => setRoomFormOpen(false)} onSubmit={handleRoomUpdate} />
+            <RoomFormModal open={roomFormOpen} editData={data.coop} farms={b.farms} onClose={() => setRoomFormOpen(false)} onSubmit={handleRoomUpdate} />
             <RelayModal open={relayOpen} onClose={() => setRelayOpen(false)} roomId={room.id} roomNumber={room.number} online={online} />
         </div>
     );
@@ -215,8 +219,8 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
 
 /** Pindah ke kandang sebelumnya/berikutnya (urut nama kandang) tanpa kembali ke daftar. */
 function KandangPager({ roomId }: { roomId: number }) {
-    const { data } = useQuery({ queryKey: ["rooms-overview"], queryFn: () => getRooms({ limit: 100 }), staleTime: 60_000 });
-    const rooms = [...(data?.rooms ?? [])].sort((a, b) => a.number.localeCompare(b.number, "id", { numeric: true }));
+    const { coops } = useBroiler();
+    const rooms = [...coops].map((c) => ({ id: c.id, number: c.code })).sort((a, b) => a.number.localeCompare(b.number, "id", { numeric: true }));
     const index = rooms.findIndex((r) => r.id === roomId);
     if (index < 0 || rooms.length < 2) return null;
     const prev = rooms[index - 1];
@@ -245,13 +249,13 @@ function KandangPager({ roomId }: { roomId: number }) {
     );
 }
 
-function SecondaryActions({ roomId, onRelay, onCopilot, showReport }: { roomId: number; onRelay: () => void; onCopilot: () => void; showReport?: boolean }) {
+function SecondaryActions({ roomId, onRelay, onCopilot, showReport }: { roomId: number; onRelay?: () => void; onCopilot: () => void; showReport?: boolean }) {
     const cls = "flex flex-1 items-center justify-center gap-2 rounded-2xl border border-[#EAEAEA] bg-white px-4 py-3 font-inter text-sm font-medium text-[#555] transition hover:bg-[#F8F8F8] sm:flex-none";
     return (
         <>
-            <button onClick={onRelay} suppressHydrationWarning className={cls}>
+            {onRelay && <button onClick={onRelay} suppressHydrationWarning className={cls}>
                 <Power size={15} /> Relay
-            </button>
+            </button>}
             <button onClick={onCopilot} suppressHydrationWarning className={cls}>
                 <Bot size={15} /> Copilot
             </button>

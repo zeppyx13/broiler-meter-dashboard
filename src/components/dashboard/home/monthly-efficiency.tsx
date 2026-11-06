@@ -1,15 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { BarChart3, TrendingDown, TrendingUp } from "lucide-react";
-import { getLeases } from "@/lib/lease-api";
+import { useQueries } from "@tanstack/react-query";
 import { localDateKey } from "@/lib/broiler-local-store";
 import { formatRupiah } from "@/lib/broiler-reference";
-import { monthlyEfficiency, summarizeCycle, type MonthlyEfficiency } from "@/lib/cycle-history";
-import type { Lease } from "@/types/lease";
-import type { LiveStatus } from "@/lib/live-status-api";
+import type { MonthlyEfficiency } from "@/lib/cycle-history";
+import { readData, type DailyMetric } from "@/lib/broiler-api";
+import { useBroiler } from "@/components/broiler/broiler-provider";
+
+type MonthRow = DailyMetric & { month: string; water_bird_days?: number; energy_bird_days?: number; electricity_cost_idr?: number | null };
 
 type MetricKey = "energyCost" | "whPerBirdDay" | "literPerBirdDay";
 
@@ -35,31 +36,59 @@ const METRICS: Record<MetricKey, { tab: string; title: string; format: (v: numbe
 };
 
 type Props = {
-    activeLeases: Lease[];
-    liveList: LiveStatus[];
-    electricityRate?: number;
+    /** Kandang yang dijumlahkan (lahan terpilih di Beranda). */
+    coopIds: number[];
 };
 
-/** Grafik efisiensi umum per bulan (semua kandang) untuk Beranda. */
-export default function MonthlyEfficiencyChart({ activeLeases, liveList, electricityRate }: Props) {
-    const [metric, setMetric] = useState<MetricKey>("energyCost");
+const MONTHS = 6;
 
-    const { data: endedData } = useQuery({
-        queryKey: ["leases-ended-all"],
-        queryFn: () => getLeases({ status: "ended", limit: 100 }),
-        staleTime: 60 * 1000,
+/** Gabungkan seri bulanan server semua kandang; per ekor memakai penyebut bird-days dari server. */
+function combineMonths(rows: MonthRow[][], today: string): MonthlyEfficiency[] {
+    const [ty, tm] = today.split("-").map(Number);
+    const out: MonthlyEfficiency[] = [];
+    for (let i = MONTHS - 1; i >= 0; i--) {
+        const d = new Date(ty, tm - 1 - i, 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        let energy = 0, water = 0, cost = 0, energyBirdDays = 0, waterBirdDays = 0, cycles = 0;
+        for (const series of rows) {
+            const m = series.find((r) => r.month === key);
+            if (!m) continue;
+            cycles++;
+            if (m.energy_kwh != null) { energy += Number(m.energy_kwh); energyBirdDays += Number(m.energy_bird_days ?? 0); }
+            if (m.water_liters != null) { water += Number(m.water_liters); waterBirdDays += Number(m.water_bird_days ?? 0); }
+            if (m.electricity_cost_idr != null) cost += Number(m.electricity_cost_idr);
+        }
+        out.push({
+            month: key,
+            label: d.toLocaleDateString("id-ID", { month: "short", year: "2-digit" }),
+            energyKwh: energy,
+            waterLiter: water,
+            energyCost: cost,
+            whPerBirdDay: energyBirdDays > 0 ? (energy * 1000) / energyBirdDays : null,
+            literPerBirdDay: waterBirdDays > 0 ? water / waterBirdDays : null,
+            cycles,
+        });
+    }
+    return out;
+}
+
+/** Grafik efisiensi umum per bulan (semua kandang) untuk Beranda. */
+export default function MonthlyEfficiencyChart({ coopIds }: Props) {
+    const [metric, setMetric] = useState<MetricKey>("energyCost");
+    const b = useBroiler();
+    const monthly = useQueries({
+        queries: coopIds.map((id) => ({
+            queryKey: ["broiler", b.user?.id, id, "monthly", b.source],
+            queryFn: () => readData<{ series: MonthRow[] }>(`/api/coops/${id}/reports/monthly`, { source: b.source }),
+            enabled: Boolean(b.user),
+            staleTime: 5 * 60_000,
+        })),
     });
 
     const { data, daysElapsed } = useMemo(() => {
         const today = localDateKey();
-        const liveMap = new Map(liveList.map((l) => [l.room_id, l]));
-        const leases = [...activeLeases.filter((l) => l.status === "active"), ...(endedData?.leases ?? [])];
-        const rows = leases.map((l) => {
-            const live = liveMap.get(l.room_id);
-            return summarizeCycle(l, { electricityRate, currentWaterLiter: live?.water_total_liter, currentEnergyKwh: live?.energy_kwh_total, today });
-        });
-        return { data: monthlyEfficiency(rows, { today, months: 6, electricityRate }), daysElapsed: Number(today.slice(8, 10)) };
-    }, [activeLeases, endedData, liveList, electricityRate]);
+        return { data: combineMonths(monthly.map((q) => q.data?.series ?? []), today), daysElapsed: Number(today.slice(8, 10)) };
+    }, [monthly]);
 
     const spec = METRICS[metric];
     const values = data.map((d) => d[metric]);

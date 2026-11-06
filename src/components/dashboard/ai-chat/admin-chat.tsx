@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect } from "react";
 import { MessageSquare, X, Send, LoaderCircle, Bot, User, Trash2 } from "lucide-react";
-import { sendAdminChat, type ChatMessage } from "@/lib/admin-chat-api";
+import type { ChatMessage } from "@/lib/admin-chat-api";
+import { writeData } from "@/lib/broiler-api";
+import { useBroiler } from "@/components/broiler/broiler-provider";
 import { renderSafeMarkdown } from "@/lib/safe-markdown";
 import { usePathname } from "next/navigation";
-import { buildFarmContext, COPILOT_ASK_EVENT, focusRoomIdFromPath, KANDANG_QUESTIONS } from "@/lib/copilot-context";
-import { useGuard } from "../guard/guard-monitor";
+import { COPILOT_ASK_EVENT, focusRoomIdFromPath, KANDANG_QUESTIONS } from "@/lib/copilot-context";
 import { apiErrorMessage } from "@/lib/api-error";
 
 const FARM_QUESTIONS = [
@@ -16,15 +17,6 @@ const FARM_QUESTIONS = [
     "Bagaimana cara menghemat listrik kipas di siang hari?",
 ];
 
-function withGreeting(messages: ChatMessage[]): ChatMessage[] {
-    if (messages[0]?.role === "assistant") return messages;
-    return [{
-        role: "assistant",
-        content: "Halo! Saya Copilot Coasther. Saya bisa bantu menjelaskan kondisi kandang, konsumsi air & listrik, dan biaya energi siklus. Apa yang ingin Anda ketahui?",
-        timestamp: new Date().toISOString(),
-    }, ...messages];
-}
-
 export default function AdminChat() {
     const [open, setOpen] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -32,11 +24,25 @@ export default function AdminChat() {
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
-    const { snapshots, active } = useGuard();
-    // Di halaman detail kandang, Copilot otomatis fokus ke kandang tersebut.
+    const b = useBroiler();
+    // Di halaman detail kandang, Copilot otomatis fokus ke kandang tersebut; selain itu kandang terpilih.
     const focusRoomId = focusRoomIdFromPath(usePathname());
-    const focusRoom = focusRoomId != null ? snapshots.find((s) => s.room.id === focusRoomId)?.room : undefined;
+    const coopId = focusRoomId ?? b.coopId;
+    const focusRoom = b.coops.find((c) => c.id === coopId);
     const suggestions = focusRoomId != null ? KANDANG_QUESTIONS : FARM_QUESTIONS;
+    // Satu percakapan server per kandang + sumber data; berganti kandang membuka percakapan baru.
+    const [conversation, setConversation] = useState<{ key: string; id?: number }>({ key: "" });
+    const conversationKey = `${coopId ?? "none"}-${b.source}`;
+
+    useEffect(() => {
+        if (!open) return;
+        // Sapaan selalu di urutan pertama — pertanyaan dari tombol "Tanya Copilot" bisa masuk lebih dulu.
+        setMessages((prev) => prev[0]?.role === "assistant" ? prev : [{
+            role: "assistant",
+            content: "Halo! Saya Copilot Coasther. Saya bisa bantu menjelaskan kondisi kandang, konsumsi air & listrik, dan biaya energi siklus. Apa yang ingin Anda ketahui?",
+            timestamp: new Date().toISOString(),
+        }, ...prev]);
+    }, [open]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -51,7 +57,6 @@ export default function AdminChat() {
     useEffect(() => {
         const onAsk = (e: Event) => {
             const question = (e as CustomEvent<{ question?: string }>).detail?.question;
-            setMessages(withGreeting);
             setOpen(true);
             if (question) handleSendRef.current(question);
             else setTimeout(() => inputRef.current?.focus(), 0);
@@ -75,20 +80,29 @@ export default function AdminChat() {
         setLoading(true);
 
         try {
-            const historyToSend = messages
-                .slice(1)
-                .map((m) => ({ role: m.role, content: m.content }));
-
-            // Konteks hanya ikut dikirim, tidak ditampilkan di gelembung chat.
-            const context = buildFarmContext(snapshots, active, focusRoomId);
-            const result = await sendAdminChat(context ? `${context}\n\nPertanyaan: ${text}` : text, historyToSend);
-
+            if (!coopId) throw new Error("Belum ada kandang yang bisa dianalisis.");
+            // Server menyusun konteks kandang sendiri (snapshot terotorisasi), jadi cukup kirim pertanyaan.
+            const conversationId = conversation.key === conversationKey ? conversation.id : undefined;
+            const result = await writeData<{ state: string; reason?: string; conversation_id?: number; message?: { content: string; created_at?: string } }>(
+                "post",
+                "/api/ai/copilot",
+                { coop_id: coopId, source: b.source, conversation_id: conversationId, request_id: crypto.randomUUID(), message: text }
+            );
+            if (result.state !== "ready" || !result.message) {
+                setMessages((prev) => [...prev, {
+                    role: "assistant",
+                    content: `Copilot belum tersedia (${result.reason ?? "layanan AI belum dikonfigurasi"}). Data kandang tetap bisa dilihat di halaman Ringkasan.`,
+                    timestamp: new Date().toISOString(),
+                }]);
+                return;
+            }
+            setConversation({ key: conversationKey, id: result.conversation_id });
             setMessages((prev) => [
                 ...prev,
                 {
                     role: "assistant",
-                    content: result.answer,
-                    timestamp: result.timestamp,
+                    content: result.message!.content,
+                    timestamp: result.message!.created_at ?? new Date().toISOString(),
                 },
             ]);
         } catch (err) {
@@ -118,6 +132,7 @@ export default function AdminChat() {
     }
 
     function handleClear() {
+        setConversation({ key: "" });
         setMessages([{
             role: "assistant",
             content: "Percakapan dibersihkan. Ada yang bisa saya bantu?",
@@ -129,10 +144,7 @@ export default function AdminChat() {
         <>
             {/* Floating button */}
             <button
-                onClick={() => {
-                    if (!open) setMessages(withGreeting);
-                    setOpen((v) => !v);
-                }}
+                onClick={() => setOpen((v) => !v)}
                 suppressHydrationWarning
                 title="Copilot"
                 className={`fixed bottom-24 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all hover:scale-105 lg:bottom-6 lg:right-6 ${open ? "bg-[#2F2F2F]" : "bg-[#7B1113]"
@@ -164,7 +176,7 @@ export default function AdminChat() {
                                     Copilot Coasther
                                 </p>
                                 <p className="font-inter text-xs text-white/70">
-                                    {focusRoom ? `Fokus: Kandang ${focusRoom.number}` : "Semua kandang"}
+                                    {focusRoom ? `Fokus: Kandang ${focusRoom.code}` : "Pilih kandang dulu"}
                                 </p>
                             </div>
                         </div>

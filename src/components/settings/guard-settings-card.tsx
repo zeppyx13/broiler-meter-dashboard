@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import { BellRing, ShieldAlert } from "lucide-react";
 import { DEFAULT_GUARD_SETTINGS, getGuardSettings, setGuardSettings, type GuardSettings } from "@/lib/guard-settings";
@@ -44,10 +44,16 @@ function validate(s: GuardSettings): string | null {
 }
 
 export default function GuardSettingsCard() {
-    const [form, setForm] = useState<GuardSettings>(getGuardSettings);
-    const [saved, setSaved] = useState<GuardSettings>(getGuardSettings);
-    const [permission, setPermission] = useState<NotificationPermission | "unsupported">(() => notificationSupported() ? Notification.permission : "unsupported");
+    const [form, setForm] = useState<GuardSettings>(DEFAULT_GUARD_SETTINGS);
+    const [saved, setSaved] = useState<GuardSettings>(DEFAULT_GUARD_SETTINGS);
+    const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
 
+    useEffect(() => {
+        const s = getGuardSettings();
+        setForm(s);
+        setSaved(s);
+        setPermission(notificationSupported() ? Notification.permission : "unsupported");
+    }, []);
 
     const dirty = JSON.stringify(form) !== JSON.stringify(saved);
     const error = validate(form);

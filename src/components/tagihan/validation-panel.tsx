@@ -1,17 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
 import Swal from "sweetalert2";
-import { CheckCircle2, CircleDashed, ClipboardCheck, Gauge, Radar, Sprout, Trash2, Wifi, XCircle } from "lucide-react";
-import { getRooms } from "@/lib/room-api";
-import { getAllLiveStatus } from "@/lib/live-status-api";
-import { getDeviceHealth } from "@/lib/device-health-api";
-import { getGuardSettings } from "@/lib/guard-settings";
+import { CheckCircle2, CircleDashed, ClipboardCheck, Gauge, Radar, ShieldCheck, Sprout, Wifi, XCircle } from "lucide-react";
+import { readData, writeData } from "@/lib/broiler-api";
+import { apiErrorMessage } from "@/lib/api-error";
+import { useBroiler } from "@/components/broiler/broiler-provider";
+import { useKandangSnapshots } from "@/lib/kandang-snapshot";
+import { DEFAULT_GUARD_SETTINGS, getGuardSettings } from "@/lib/guard-settings";
 import { formatSeconds, guardStats } from "@/lib/guard-performance";
 import { useGuard } from "@/components/dashboard/guard/guard-monitor";
 import {
-    CALIBRATION_LIMIT_PCT, CALIBRATION_UNIT, MIN_REPEATS, addCalibration, errorPct, getCalibrations, removeCalibration, summarizeCalibrations,
+    CALIBRATION_LIMIT_PCT, CALIBRATION_UNIT, MIN_REPEATS, errorPct, summarizeCalibrations,
     type CalibrationEntry, type CalibrationType,
 } from "@/lib/calibration";
 
@@ -21,10 +22,23 @@ const UPTIME_TARGET = 98;
 
 type Status = "lulus" | "belum" | "kurang-data";
 
+type ServerCalibration = {
+    id: number; coop_id: number; type: "water" | "electricity"; reference_value: number; sensor_value: number;
+    measured_at: string; note?: string | null; verification_state: string; instrument_id: string;
+};
+type ValidationReport = {
+    telemetry_reliability?: { state: string; received_pct: number | null; reason: string; observations: { evidence_id: number; received_packets: number; expected_packets: number; received_pct: number }[] };
+};
+
+const INSTRUMENT: Record<CalibrationType, { id: string; method: string }> = {
+    listrik: { id: "Clamp meter", method: "Bandingkan daya PZEM-004T dengan clamp meter pada beban yang sama." },
+    air: { id: "Ember takar 10 L", method: "Isi ember takar 10 L dari jalur air lalu bandingkan dengan total YF-S201." },
+};
+
 /** Panel validasi mengikuti Tabel 4 proposal: akurasi, keandalan data, respons Guard, uji lapangan. */
 export default function ValidationPanel() {
-    const { data: roomData } = useQuery({ queryKey: ["rooms-overview"], queryFn: () => getRooms({ limit: 100 }), staleTime: 60_000 });
-    const rooms = useMemo(() => [...(roomData?.rooms ?? [])].sort((a, b) => a.number.localeCompare(b.number, "id", { numeric: true })), [roomData]);
+    const { coops } = useBroiler();
+    const rooms = useMemo(() => coops.map((c) => ({ id: c.id, number: c.code })).sort((a, b) => a.number.localeCompare(b.number, "id", { numeric: true })), [coops]);
     const roomName = (id: number) => rooms.find((r) => r.id === id)?.number ?? `#${id}`;
 
     return (
@@ -37,7 +51,7 @@ export default function ValidationPanel() {
 
             <div className="mt-5 space-y-6">
                 <AccuracySection rooms={rooms} roomName={roomName} />
-                <ReliabilitySection />
+                <ReliabilitySection rooms={rooms} />
                 <GuardResponseSection />
                 <FieldTestSection />
             </div>
@@ -48,21 +62,39 @@ export default function ValidationPanel() {
 // ── 1. Akurasi sensor ──────────────────────────────────────────────────────
 
 function AccuracySection({ rooms, roomName }: { rooms: { id: number; number: string }[]; roomName: (id: number) => string }) {
-    const [entries, setEntries] = useState<CalibrationEntry[]>(getCalibrations);
-    // Dibaca setelah mount: data uji ada di browser, server tidak tahu isinya.
-
+    const b = useBroiler();
+    const calibrationQueries = useQueries({
+        queries: rooms.map((r) => ({
+            queryKey: ["broiler", b.user?.id, r.id, "calibrations", b.source],
+            queryFn: () => readData<{ calibrations: ServerCalibration[] }>(`/api/coops/${r.id}/calibrations`, { source: b.source, limit: 100 }),
+        })),
+    });
+    const calibrationKey = calibrationQueries.map((q) => q.dataUpdatedAt).join(",");
+    const entries = useMemo<(CalibrationEntry & { verified: boolean })[]>(() => calibrationQueries.flatMap((q) => (q.data?.calibrations ?? []).map((c) => ({
+        id: String(c.id),
+        roomId: c.coop_id,
+        type: c.type === "electricity" ? "listrik" as const : "air" as const,
+        reference: Number(c.reference_value),
+        sensor: Number(c.sensor_value),
+        at: c.measured_at,
+        note: c.note ?? undefined,
+        verified: c.verification_state === "independently_verified",
+    }))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [calibrationKey]);
+    const [saving, setSaving] = useState(false);
+    const { snapshots } = useKandangSnapshots();
     const [roomId, setRoomId] = useState<number | "">("");
     const [type, setType] = useState<CalibrationType>("listrik");
     const [reference, setReference] = useState("");
     const [sensor, setSensor] = useState("");
-    const { data: liveList } = useQuery({ queryKey: ["iot-live-status-all"], queryFn: getAllLiveStatus, refetchInterval: 10_000, staleTime: 5_000 });
 
     const summaries = useMemo(() => summarizeCalibrations(entries).sort((a, b) => roomName(a.roomId).localeCompare(roomName(b.roomId), "id", { numeric: true }) || a.type.localeCompare(b.type)), [entries, roomName]);
     const status: Status = summaries.length === 0 ? "kurang-data" : summaries.every((s) => s.passed && s.enoughRepeats) ? "lulus" : "belum";
     const selectedRoom = roomId || rooms[0]?.id;
-    const live = liveList?.find((l) => l.room_id === selectedRoom);
+    const live = snapshots.find((x) => x.room.id === selectedRoom && x.online)?.live;
 
-    function handleAdd(e: React.FormEvent) {
+    async function handleAdd(e: React.FormEvent) {
         e.preventDefault();
         const ref = Number(reference);
         const sen = Number(sensor);
@@ -70,9 +102,27 @@ function AccuracySection({ rooms, roomName }: { rooms: { id: number; number: str
             Swal.fire({ icon: "warning", title: "Lengkapi data uji", text: "Isi nilai alat acuan dan pembacaan COASTHER.", confirmButtonColor: "#7B1113" });
             return;
         }
-        setEntries(addCalibration({ roomId: Number(selectedRoom), type, reference: ref, sensor: sen }));
-        setReference("");
-        setSensor("");
+        setSaving(true);
+        try {
+            await writeData("post", `/api/coops/${selectedRoom}/calibrations`, {
+                type: type === "listrik" ? "electricity" : "water",
+                reference_value: ref,
+                sensor_value: sen,
+                unit: type === "listrik" ? "W" : "L",
+                instrument_id: INSTRUMENT[type].id,
+                method: INSTRUMENT[type].method,
+                measured_at: new Date().toISOString(),
+                source: b.source,
+                note: null,
+            });
+            setReference("");
+            setSensor("");
+            await b.refresh();
+        } catch (err) {
+            Swal.fire({ icon: "error", title: "Gagal menyimpan uji", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
+        } finally {
+            setSaving(false);
+        }
     }
 
     return (
@@ -150,8 +200,8 @@ function AccuracySection({ rooms, roomName }: { rooms: { id: number; number: str
                         )}
                     </div>
                 </Field>
-                <button type="submit" suppressHydrationWarning className="rounded-xl bg-[#7B1113] px-4 py-2 font-inter text-sm font-medium text-[#C6A971] transition hover:opacity-90">
-                    Simpan uji
+                <button type="submit" disabled={saving} suppressHydrationWarning className="rounded-xl bg-[#7B1113] px-4 py-2 font-inter text-sm font-medium text-[#C6A971] transition hover:opacity-90 disabled:opacity-50">
+                    {saving ? "Menyimpan..." : "Simpan uji"}
                 </button>
             </form>
             {reference && sensor && Number(reference) > 0 && (
@@ -170,9 +220,7 @@ function AccuracySection({ rooms, roomName }: { rooms: { id: number; number: str
                                     {new Date(e.at).toLocaleDateString("id-ID", { day: "2-digit", month: "short" })} · {roomName(e.roomId)} · {e.type} · acuan {num(e.reference, 2)} vs alat {num(e.sensor, 2)} {CALIBRATION_UNIT[e.type]}
                                     <span className="ml-1 font-medium text-[#2F2F2F]">({num(errorPct(e))}%)</span>
                                 </span>
-                                <button onClick={() => setEntries(removeCalibration(e.id))} title="Hapus uji" className="rounded-lg p-1 text-[#BBB] hover:bg-red-50 hover:text-red-500">
-                                    <Trash2 size={13} />
-                                </button>
+                                {e.verified && <span title="Diverifikasi independen" className="flex shrink-0 items-center gap-1 text-[11px] text-green-700"><ShieldCheck size={13} /> Terverifikasi</span>}
                             </li>
                         ))}
                     </ul>
@@ -184,10 +232,30 @@ function AccuracySection({ rooms, roomName }: { rooms: { id: number; number: str
 
 // ── 2. Keandalan data ──────────────────────────────────────────────────────
 
-function ReliabilitySection() {
-    const { data, isLoading, isError } = useQuery({ queryKey: ["iot-health", HEALTH_DAYS], queryFn: () => getDeviceHealth(HEALTH_DAYS), staleTime: 60_000 });
-    const rows = [...(data ?? [])].sort((a, b) => a.number.localeCompare(b.number, "id", { numeric: true }));
-    const status: Status = !data || rows.length === 0 ? "kurang-data" : rows.every((r) => r.uptime_pct >= UPTIME_TARGET) ? "lulus" : "belum";
+function ReliabilitySection({ rooms }: { rooms: { id: number; number: string }[] }) {
+    const b = useBroiler();
+    const reports = useQueries({
+        queries: rooms.map((r) => ({
+            queryKey: ["broiler", b.user?.id, r.id, "validation-report", b.source],
+            queryFn: () => readData<ValidationReport>(`/api/coops/${r.id}/validation-report`, { source: b.source }),
+            staleTime: 60_000,
+        })),
+    });
+    const isLoading = reports.some((q) => q.isPending);
+    const isError = reports.length > 0 && reports.every((q) => q.isError);
+    const rows = rooms
+        .map((r, i) => ({ room: r, rel: reports[i]?.data?.telemetry_reliability }))
+        .filter((x) => x.rel && x.rel.received_pct != null)
+        .map(({ room, rel }) => ({
+            room_id: room.id,
+            number: room.number,
+            uptime_pct: Number(rel!.received_pct),
+            expected: rel!.observations.reduce((s, o) => s + o.expected_packets, 0),
+            received: rel!.observations.reduce((s, o) => s + o.received_packets, 0),
+            tests: rel!.observations.length,
+            attested: rel!.state === "independently_attested",
+        }));
+    const status: Status = rows.length === 0 ? "kurang-data" : rows.every((r) => r.uptime_pct >= UPTIME_TARGET) ? "lulus" : "belum";
 
     return (
         <Block icon={<Wifi size={16} />} title="2 · Keandalan data" target={`≥ ${UPTIME_TARGET}% data diterima (${HEALTH_DAYS} hari terakhir), termasuk saat internet putus`} status={status}>
@@ -195,12 +263,15 @@ function ReliabilitySection() {
                 <div className="h-24 animate-pulse rounded-2xl bg-[#FAFAFA]" />
             ) : isError ? (
                 <p className="rounded-2xl bg-[#FAFAFA] px-4 py-4 font-inter text-xs text-[#777]">
-                    Data keandalan butuh endpoint <code className="rounded bg-white px-1">/api/iot/health</code> di backend (lihat docs/BACKEND-HANDOFF.md).
+                    Laporan validasi belum bisa dimuat dari server.
+                </p>
+            ) : rows.length === 0 ? (
+                <p className="rounded-2xl bg-[#FAFAFA] px-4 py-4 font-inter text-xs text-[#777]">
+                    Belum ada bukti uji pengiriman paket. Catat uji lapangan (paket terkirim vs diterima) lewat bukti validasi agar persentase data diterima muncul di sini.
                 </p>
             ) : (
                 <div className="space-y-2.5">
                     {rows.map((r) => {
-                        const lostMin = r.gaps.filter((g) => !g.buffered).reduce((s, g) => s + (new Date(g.end).getTime() - new Date(g.start).getTime()) / 60_000, 0);
                         const ok = r.uptime_pct >= UPTIME_TARGET;
                         return (
                             <div key={r.room_id}>
@@ -212,8 +283,8 @@ function ReliabilitySection() {
                                     <div className={`h-full rounded-full ${ok ? "bg-green-600" : "bg-[#B42318]"}`} style={{ width: `${Math.min(100, r.uptime_pct)}%` }} />
                                 </div>
                                 <p className="mt-1 font-inter text-[11px] text-[#999]">
-                                    {r.gaps.length} kali putus · {r.resent.toLocaleString("id-ID")} paket dikirim ulang dari buffer · data hilang {num(lostMin, 0)} menit
-                                    {r.gaps.some((g) => g.reason === "padam") && " (listrik padam)"}
+                                    {r.tests} uji · {r.received.toLocaleString("id-ID")} dari {r.expected.toLocaleString("id-ID")} paket diterima
+                                    {r.attested ? " · diverifikasi independen" : " · belum diverifikasi independen"}
                                 </p>
                             </div>
                         );
@@ -231,8 +302,8 @@ function GuardResponseSection() {
     const { active, history } = useGuard();
     const [sinceMs] = useState(() => Date.now() - HEALTH_DAYS * 86_400_000);
     const stats = useMemo(() => guardStats([...active, ...history], sinceMs), [active, history, sinceMs]);
-    const [offlineMinutes] = useState(() => getGuardSettings().offlineMinutes);
-
+    const [offlineMinutes, setOfflineMinutes] = useState(DEFAULT_GUARD_SETTINGS.offlineMinutes);
+    useEffect(() => setOfflineMinutes(getGuardSettings().offlineMinutes), []);
 
     const rows: { label: string; target: string; value: string; samples: number; ok: boolean | null; note?: string }[] = [
         {

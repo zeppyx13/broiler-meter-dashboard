@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
-import { createLease, getLeases, updateLease } from "@/lib/lease-api";
-import { getUser } from "@/lib/auth";
-import { ensureCycleBaseline, getCycleExtra, localDateKey, setCycleExtra } from "@/lib/broiler-local-store";
-import type { LiveStatus } from "@/lib/live-status-api";
-import type { Lease } from "@/types/lease";
+import { writeData } from "@/lib/broiler-api";
+import { localDateKey } from "@/lib/broiler-local-store";
+import { apiErrorMessage } from "@/lib/api-error";
+import type { KandangData } from "./use-kandang-data";
 import { CancelButton, Field, ModalShell, NumberStepper, PrimaryButton, inputClass } from "./form-parts";
 
 const STRAIN_OPTIONS = ["Ross 308", "Cobb 500", "Lohmann (MB 202)", "Hubbard"];
@@ -14,66 +13,71 @@ const STRAIN_OPTIONS = ["Ross 308", "Cobb 500", "Lohmann (MB 202)", "Hubbard"];
 type StartProps = {
     open: boolean;
     onClose: () => void;
-    room: { id: number; number: string; price_monthly: number };
-    live?: LiveStatus;
-    editCycle?: Lease | null;
+    data: KandangData;
+    /** true = ubah profil siklus aktif (strain & target panen). */
+    editing?: boolean;
     onSaved: () => void;
 };
 
-function errorMessage(err: unknown) {
-    const e = err as { response?: { data?: { message?: string } }; message?: string };
-    return e?.response?.data?.message || e?.message || "Terjadi kesalahan.";
+const errorMessage = apiErrorMessage;
+
+function addDays(date: string, days: number) {
+    const d = new Date(`${date}T00:00:00`);
+    d.setDate(d.getDate() + days);
+    return localDateKey(d);
 }
 
-export function CycleStartModal(props: StartProps) {
-    if (!props.open) return null;
-    return <CycleStartForm key={props.editCycle?.id ?? `new-${props.room.id}`} {...props} />;
-}
-
-function CycleStartForm({ open, onClose, room, live, editCycle, onSaved }: StartProps) {
-    const [startDate, setStartDate] = useState(() => editCycle?.start_date.slice(0, 10) ?? localDateKey());
-    const [population, setPopulation] = useState(() => editCycle ? getCycleExtra(editCycle.id).population_start ?? 0 : 0);
-    const [strain, setStrain] = useState(() => editCycle ? getCycleExtra(editCycle.id).strain ?? "" : "");
-    const [targetDays, setTargetDays] = useState(() => editCycle ? getCycleExtra(editCycle.id).harvest_target_days ?? 35 : 35);
+export function CycleStartModal({ open, onClose, data, editing, onSaved }: StartProps) {
+    const room = data.room!;
+    const editCycle = editing ? data.serverCycle : null;
+    const [startDate, setStartDate] = useState(localDateKey());
+    const [population, setPopulation] = useState(0);
+    const [strain, setStrain] = useState("");
+    const [targetDays, setTargetDays] = useState(35);
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!open) return;
+        if (editCycle) {
+            setStartDate(editCycle.placement_date.slice(0, 10));
+            setPopulation(editCycle.initial_population);
+            setStrain(data.cycle?.extra.strain ?? "");
+            setTargetDays(data.harvestTargetDays);
+        } else {
+            setStartDate(localDateKey());
+            setPopulation(0);
+            setStrain("");
+            setTargetDays(35);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, editCycle?.id]);
 
     async function handleSave() {
         if (population <= 0) return;
         setLoading(true);
         try {
-            const extra = { population_start: population, strain: strain.trim() || undefined, harvest_target_days: targetDays };
+            const profile = { strain: strain.trim() || null, harvest_target_days: targetDays };
+            let cycleId = editCycle?.id;
 
-            if (editCycle) {
-                setCycleExtra(editCycle.id, extra);
-            } else {
-                const res = await createLease({
-                    user_id: Number(getUser()?.id ?? 0),
-                    room_id: room.id,
-                    start_date: startDate,
-                    end_date: null,
-                    // Kolom wajib dari skema lama; tidak dipakai di COASTHER.
-                    monthly_rent_snapshot: room.price_monthly > 0 ? room.price_monthly : 1,
-                    note: null,
+            if (!editCycle) {
+                // Kode siklus unik per kandang: <kode kandang>-<tanggal chick-in>.
+                const created = await writeData<{ id: number }>("post", "/api/flock-cycles", {
+                    coop_id: room.id,
+                    cycle_code: `${room.number}-${startDate.replaceAll("-", "")}`.slice(0, 60),
+                    placement_date: startDate,
+                    planned_harvest_date: addDays(startDate, targetDays - 1),
+                    initial_population: population,
+                    notes: null,
                 });
+                cycleId = created?.id;
+            }
 
-                let leaseId: number | undefined = res?.data?.lease?.id ?? res?.data?.id;
-                if (!leaseId) {
-                    const { leases } = await getLeases({ status: "active", limit: 100 });
-                    leaseId = leases.filter((l) => l.room_id === room.id).sort((a, b) => b.id - a.id)[0]?.id;
-                }
-
-                if (leaseId) {
-                    setCycleExtra(leaseId, extra);
-                    if (live?.water_total_liter != null && live?.energy_kwh_total != null) {
-                        ensureCycleBaseline(leaseId, live.water_total_liter, live.energy_kwh_total);
-                    }
-                } else {
-                    await Swal.fire({
-                        icon: "warning",
-                        title: "Siklus dibuat",
-                        text: "Populasi belum tersimpan. Buka Edit Siklus untuk mengisinya.",
-                        confirmButtonColor: "#7B1113",
-                    });
+            if (cycleId) {
+                try {
+                    await writeData("put", `/api/flock-cycles/${cycleId}/profile`, profile);
+                } catch (err) {
+                    if (editCycle) throw err;
+                    await Swal.fire({ icon: "warning", title: "Siklus dimulai", text: `Strain/target panen belum tersimpan: ${errorMessage(err)}`, confirmButtonColor: "#7B1113" });
                 }
             }
 
@@ -103,7 +107,7 @@ function CycleStartForm({ open, onClose, room, live, editCycle, onSaved }: Start
                 </>
             }
         >
-            <Field label="Tanggal chick-in" required hint={editCycle ? "Tanggal chick-in tidak bisa diubah." : undefined}>
+            <Field label="Tanggal chick-in" required hint={editCycle ? "Tanggal chick-in tidak bisa diubah." : "Hari chick-in dihitung sebagai hari ke-1."}>
                 <input
                     type="date"
                     value={startDate}
@@ -115,11 +119,13 @@ function CycleStartForm({ open, onClose, room, live, editCycle, onSaved }: Start
                 />
             </Field>
 
-            <Field label="Populasi awal (ekor)" required hint="Jumlah DOC yang masuk saat chick-in.">
+            <Field label="Populasi awal (ekor)" required hint={editCycle ? "Populasi awal tidak bisa diubah setelah chick-in." : data.coop?.capacity_birds ? `Jumlah DOC yang masuk. Kapasitas kandang ${data.coop.capacity_birds.toLocaleString("id-ID")} ekor.` : "Jumlah DOC yang masuk saat chick-in."}>
                 <input
                     type="number"
                     inputMode="numeric"
                     min={1}
+                    max={data.coop?.capacity_birds ?? undefined}
+                    disabled={Boolean(editCycle)}
                     value={population || ""}
                     onChange={(e) => setPopulation(Number(e.target.value) || 0)}
                     placeholder="cth. 5000"
@@ -153,33 +159,34 @@ function CycleStartForm({ open, onClose, room, live, editCycle, onSaved }: Start
 type CloseProps = {
     open: boolean;
     onClose: () => void;
-    cycle: Lease;
-    roomNumber: string;
-    populationNow?: number;
-    live?: LiveStatus;
+    data: KandangData;
     onSaved: () => void;
 };
 
-export function CycleCloseModal(props: CloseProps) {
-    if (!props.open) return null;
-    return <CycleCloseForm key={props.cycle.id} {...props} />;
-}
-
-function CycleCloseForm({ open, onClose, cycle, roomNumber, populationNow, live, onSaved }: CloseProps) {
-    const [harvestDate, setHarvestDate] = useState(localDateKey);
-    const [harvested, setHarvested] = useState(populationNow ?? 0);
+export function CycleCloseModal({ open, onClose, data, onSaved }: CloseProps) {
+    const cycle = data.serverCycle!;
+    const roomNumber = data.room?.number ?? "";
+    const populationNow = cycle?.current_population;
+    const [harvestDate, setHarvestDate] = useState(localDateKey());
+    const [harvested, setHarvested] = useState(0);
     const [note, setNote] = useState("");
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!open) return;
+        setHarvestDate(localDateKey());
+        setHarvested(populationNow ?? 0);
+        setNote("");
+    }, [open, populationNow]);
 
     async function handleClose() {
         setLoading(true);
         try {
-            await updateLease(cycle.id, { status: "ended", end_date: harvestDate, note: note.trim() || cycle.note });
-            setCycleExtra(cycle.id, {
-                closed_at: harvestDate === localDateKey() ? new Date().toISOString() : `${harvestDate}T23:59:59`,
-                harvested_count: harvested || undefined,
-                end_water_liter: live?.water_total_liter,
-                end_energy_kwh: live?.energy_kwh_total,
+            await writeData("post", `/api/flock-cycles/${cycle.id}/harvest`, {
+                harvested_count: harvested,
+                actual_harvest_date: harvestDate,
+                ...(note.trim() ? { notes: note.trim().slice(0, 255) } : {}),
+                request_id: crypto.randomUUID(),
             });
             onSaved();
             onClose();
@@ -191,12 +198,12 @@ function CycleCloseForm({ open, onClose, cycle, roomNumber, populationNow, live,
         }
     }
 
-    if (!open) return null;
+    if (!open || !cycle) return null;
 
     return (
         <ModalShell
             title="Tutup Siklus (Panen)"
-            subtitle={`Kandang ${roomNumber} · chick-in ${new Date(cycle.start_date).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}`}
+            subtitle={`Kandang ${roomNumber} · chick-in ${new Date(cycle.placement_date).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}`}
             onClose={onClose}
             footer={
                 <>
@@ -209,18 +216,19 @@ function CycleCloseForm({ open, onClose, cycle, roomNumber, populationNow, live,
                 <input
                     type="date"
                     value={harvestDate}
-                    min={cycle.start_date.slice(0, 10)}
+                    min={cycle.placement_date.slice(0, 10)}
                     max={localDateKey()}
                     onChange={(e) => setHarvestDate(e.target.value)}
                     suppressHydrationWarning
                     className={inputClass}
                 />
             </Field>
-            <Field label="Jumlah ayam dipanen (ekor)" hint="Terisi otomatis dari populasi saat ini, ubah bila berbeda.">
+            <Field label="Jumlah ayam dipanen (ekor)" hint="Terisi otomatis dari populasi saat ini, maksimal sebanyak populasi itu.">
                 <input
                     type="number"
                     inputMode="numeric"
                     min={0}
+                    max={populationNow}
                     value={harvested || ""}
                     onChange={(e) => setHarvested(Number(e.target.value) || 0)}
                     suppressHydrationWarning
@@ -237,7 +245,7 @@ function CycleCloseForm({ open, onClose, cycle, roomNumber, populationNow, live,
                 />
             </Field>
             <p className="rounded-2xl bg-[#F8F8F8] px-4 py-3 font-inter text-xs text-[#777]">
-                Angka meter air & listrik saat ini disimpan sebagai akhir siklus untuk laporan.
+                Siklus ditutup dan total air & listrik siklus dihitung server dari data sensor untuk laporan.
             </p>
         </ModalShell>
     );

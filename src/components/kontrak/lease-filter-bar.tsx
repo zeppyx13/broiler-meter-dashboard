@@ -26,7 +26,7 @@ export default function LeaseFilterBar({ status, onStatusChange }: Props) {
                     </button>
                 ))}
             </div>
-            <p className="font-inter text-xs text-[#999]">Siklus baru dimulai dari halaman tiap kandang.</p>
+            <p className="font-inter text-xs text-[#999]">Siklus dimulai, dicatat, dan dipanen dari halaman tiap kandang.</p>
         </div>
     );
 }

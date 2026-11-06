@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import Swal from "sweetalert2";
-import { getDailyRecords, localDateKey, upsertDailyRecord } from "@/lib/broiler-local-store";
+import { localDateKey } from "@/lib/broiler-local-store";
+import { writeData } from "@/lib/broiler-api";
+import { apiErrorMessage } from "@/lib/api-error";
+import { recordDate, recordToLegacy, type ServerDailyRecord } from "@/lib/broiler-adapters";
+import type { KandangData } from "./use-kandang-data";
 import { CancelButton, Field, ModalShell, NumberStepper, PrimaryButton, inputClass } from "./form-parts";
 
 type Props = {
     open: boolean;
     onClose: () => void;
-    leaseId: number;
-    startDate: string;
+    data: KandangData;
     initialDate?: string;
     onSaved: () => void;
 };
@@ -17,6 +20,7 @@ type Props = {
 type FormValues = {
     date: string;
     isExisting: boolean;
+    revision: number;
     dead: number;
     culled: number;
     weight: string;
@@ -25,11 +29,13 @@ type FormValues = {
 };
 
 /** Isi form dari catatan yang sudah ada di tanggal itu (mode edit), atau kosong. */
-function loadForm(leaseId: number, date: string): FormValues {
-    const existing = getDailyRecords(leaseId).find((r) => r.date === date);
+function loadForm(records: ServerDailyRecord[], date: string): FormValues {
+    const server = records.find((r) => recordDate(r) === date);
+    const existing = server ? recordToLegacy(server) : undefined;
     return {
         date,
         isExisting: Boolean(existing),
+        revision: server?.revision ?? 0,
         dead: existing?.dead ?? 0,
         culled: existing?.culled ?? 0,
         weight: existing?.avg_weight_g != null ? String(existing.avg_weight_g) : "",
@@ -44,22 +50,36 @@ export default function DailyRecordModal(props: Props) {
     return <DailyRecordForm {...props} />;
 }
 
-function DailyRecordForm({ onClose, leaseId, startDate, initialDate, onSaved }: Props) {
-    const [form, setForm] = useState(() => loadForm(leaseId, initialDate ?? localDateKey()));
+function DailyRecordForm({ onClose, data, initialDate, onSaved }: Props) {
+    const cycle = data.serverCycle;
+    const startDate = cycle?.placement_date ?? localDateKey();
+    const [form, setForm] = useState(() => loadForm(data.serverRecords, initialDate ?? localDateKey()));
+    const [loading, setLoading] = useState(false);
+    // UUID stabil per isian agar retry tidak membuat koreksi ganda.
+    const [requestId, setRequestId] = useState(() => crypto.randomUUID());
     const set = <K extends keyof FormValues>(key: K, value: FormValues[K]) => setForm((f) => ({ ...f, [key]: value }));
 
-    function handleSave() {
-        upsertDailyRecord(leaseId, {
-            date: form.date,
-            dead: form.dead,
-            culled: form.culled,
-            avg_weight_g: form.weight ? Number(form.weight) : undefined,
-            feed_kg: form.feed ? Number(form.feed) : undefined,
-            note: form.note.trim() || undefined,
-        });
-        onSaved();
-        onClose();
-        Swal.fire({ icon: "success", title: "Catatan tersimpan", timer: 1200, showConfirmButton: false });
+    async function handleSave() {
+        if (!cycle) return;
+        setLoading(true);
+        try {
+            await writeData("put", `/api/flock-cycles/${cycle.id}/daily-records/${form.date}`, {
+                dead: form.dead,
+                culled: form.culled,
+                avg_weight_g: form.weight ? Number(form.weight) : null,
+                feed_kg: form.feed ? Number(form.feed) : null,
+                note: form.note.trim() || null,
+                request_id: requestId,
+                expected_revision: form.revision,
+            });
+            onSaved();
+            onClose();
+            Swal.fire({ icon: "success", title: "Catatan tersimpan", timer: 1200, showConfirmButton: false });
+        } catch (err) {
+            Swal.fire({ icon: "error", title: "Gagal menyimpan", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
+        } finally {
+            setLoading(false);
+        }
     }
 
     return (
@@ -70,7 +90,7 @@ function DailyRecordForm({ onClose, leaseId, startDate, initialDate, onSaved }: 
             footer={
                 <>
                     <CancelButton onClick={onClose} />
-                    <PrimaryButton onClick={handleSave}>Simpan</PrimaryButton>
+                    <PrimaryButton onClick={handleSave} loading={loading}>Simpan</PrimaryButton>
                 </>
             }
         >
@@ -80,7 +100,10 @@ function DailyRecordForm({ onClose, leaseId, startDate, initialDate, onSaved }: 
                     value={form.date}
                     min={startDate.slice(0, 10)}
                     max={localDateKey()}
-                    onChange={(e) => setForm(loadForm(leaseId, e.target.value))}
+                    onChange={(e) => {
+                        setForm(loadForm(data.serverRecords, e.target.value));
+                        setRequestId(crypto.randomUUID());
+                    }}
                     suppressHydrationWarning
                     className={inputClass}
                 />

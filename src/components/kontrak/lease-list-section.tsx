@@ -1,71 +1,47 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import Swal from "sweetalert2";
+import { useMemo, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
 import LeaseFilterBar from "./lease-filter-bar";
-import LeaseTable from "./lease-table";
-import LeaseFormModal from "./lease-form-modal";
-import { getLeases, updateLease, deleteLease } from "@/lib/lease-api";
-import type { Lease, LeaseUpdatePayload } from "@/types/lease";
-import { apiErrorMessage } from "@/lib/api-error";
+import LeaseTable, { type CycleRow } from "./lease-table";
+import { readData, type Cycle } from "@/lib/broiler-api";
+import { useBroiler } from "@/components/broiler/broiler-provider";
 
 const LIMIT = 10;
 
-function invalidateCycleQueries(queryClient: ReturnType<typeof useQueryClient>) {
-    ["leases", "leases-active-all", "leases-active-count", "rooms", "rooms-overview"].forEach((key) =>
-        queryClient.invalidateQueries({ queryKey: [key] })
-    );
-}
-
+/** Riwayat siklus semua kandang yang bisa diakses, dari `/api/flock-cycles` per kandang. */
 export default function LeaseListSection() {
-    const queryClient = useQueryClient();
+    const b = useBroiler();
     const [status, setStatus] = useState("");
     const [page, setPage] = useState(1);
-    const [editData, setEditData] = useState<Lease | null>(null);
 
-    const { data, isLoading, isError } = useQuery({
-        queryKey: ["leases", status, page],
-        queryFn: () => getLeases({ status: status || undefined, page, limit: LIMIT }),
-        staleTime: 30 * 1000,
+    const queries = useQueries({
+        queries: b.coops.map((c) => ({
+            queryKey: ["broiler", b.user?.id, c.id, "cycles", 50],
+            queryFn: () => readData<{ cycles: Cycle[] }>("/api/flock-cycles", { coop_id: c.id, limit: 50 }),
+            staleTime: 30_000,
+        })),
     });
+    const isLoading = b.loading || queries.some((q) => q.isPending);
+    const isError = queries.length > 0 && queries.every((q) => q.isError);
+    const updatedKey = queries.map((q) => q.dataUpdatedAt).join(",");
 
-    const leases = data?.leases ?? [];
-    const meta = data?.meta;
-    const totalPages = meta ? Math.ceil(meta.total / LIMIT) : 1;
-
-    async function handleDelete(lease: Lease) {
-        const result = await Swal.fire({
-            title: "Hapus siklus ini?",
-            text: `Kandang ${lease.room_number}, chick-in ${new Date(lease.start_date).toLocaleDateString("id-ID")}. Data siklus tidak bisa dikembalikan.`,
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonText: "Ya, hapus",
-            cancelButtonText: "Batal",
-            confirmButtonColor: "#b91c1c",
+    const rows = useMemo<CycleRow[]>(() => {
+        const all = queries.flatMap((q, i) => {
+            const coop = b.coops[i];
+            return (q.data?.cycles ?? [])
+                .filter((c) => c.status === "active" || c.status === "completed")
+                .map((cycle) => ({ cycle, coopCode: coop?.code ?? String(cycle.coop_id), farmName: b.farms.find((f) => f.id === coop?.farm_id)?.name }));
         });
-        if (!result.isConfirmed) return;
+        return all
+            .filter((r) => !status || (status === "active" ? r.cycle.status === "active" : r.cycle.status !== "active"))
+            .sort((a, c) => c.cycle.placement_date.localeCompare(a.cycle.placement_date));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [updatedKey, b.coops, b.farms, status]);
 
-        try {
-            await deleteLease(lease.id);
-            invalidateCycleQueries(queryClient);
-            Swal.fire({ icon: "success", title: "Siklus dihapus", timer: 1500, showConfirmButton: false });
-        } catch (err) {
-            Swal.fire({ icon: "error", title: "Gagal menghapus", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
-        }
-    }
-
-    const handleSubmit = useCallback(async (payload: LeaseUpdatePayload) => {
-        if (!editData) return;
-        try {
-            await updateLease(editData.id, payload);
-            invalidateCycleQueries(queryClient);
-            setEditData(null);
-            Swal.fire({ icon: "success", title: "Siklus diperbarui", timer: 1500, showConfirmButton: false });
-        } catch (err) {
-            Swal.fire({ icon: "error", title: "Gagal menyimpan", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
-        }
-    }, [editData, queryClient]);
+    const totalPages = Math.max(1, Math.ceil(rows.length / LIMIT));
+    const current = Math.min(page, totalPages);
+    const pageRows = rows.slice((current - 1) * LIMIT, current * LIMIT);
 
     return (
         <div className="space-y-4">
@@ -83,23 +59,23 @@ export default function LeaseListSection() {
                 <div className="rounded-3xl border border-red-100 bg-red-50 p-5 text-sm text-red-600">Gagal memuat data siklus produksi.</div>
             )}
 
-            {!isLoading && !isError && <LeaseTable leases={leases} onEdit={setEditData} onDelete={handleDelete} />}
+            {!isLoading && !isError && <LeaseTable rows={pageRows} />}
 
             {!isLoading && totalPages > 1 && (
                 <div className="flex items-center justify-between pt-2">
-                    <p className="font-inter text-sm text-[#777]">Halaman {page} dari {totalPages} · {meta?.total} siklus</p>
+                    <p className="font-inter text-sm text-[#777]">Halaman {current} dari {totalPages} · {rows.length} siklus</p>
                     <div className="flex gap-2">
                         <button
-                            onClick={() => setPage((p) => Math.max(1, p - 1))}
-                            disabled={page === 1}
+                            onClick={() => setPage(Math.max(1, current - 1))}
+                            disabled={current === 1}
                             suppressHydrationWarning
                             className="rounded-xl border border-[#EAEAEA] bg-white px-4 py-2 font-inter text-sm text-[#666] transition hover:bg-[#F8F8F8] disabled:opacity-40"
                         >
                             ← Prev
                         </button>
                         <button
-                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                            disabled={page === totalPages}
+                            onClick={() => setPage(Math.min(totalPages, current + 1))}
+                            disabled={current === totalPages}
                             suppressHydrationWarning
                             className="rounded-xl border border-[#EAEAEA] bg-white px-4 py-2 font-inter text-sm text-[#666] transition hover:bg-[#F8F8F8] disabled:opacity-40"
                         >
@@ -108,8 +84,6 @@ export default function LeaseListSection() {
                     </div>
                 </div>
             )}
-
-            <LeaseFormModal open={editData != null} editData={editData} onClose={() => setEditData(null)} onSubmit={handleSubmit} />
         </div>
     );
 }

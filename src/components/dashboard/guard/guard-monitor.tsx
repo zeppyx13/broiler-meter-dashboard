@@ -1,18 +1,96 @@
 "use client";
-import { createContext, useContext, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+
+import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useBroiler } from "@/components/broiler/broiler-provider";
-import { readData, type ServerAlert } from "@/lib/broiler-api";
+import { useAllAlerts } from "@/lib/broiler-queries";
+import { serverAlertToLogged } from "@/lib/broiler-adapters";
+import { writeData } from "@/lib/broiler-api";
+import { getGuardSettings, GUARD_SETTINGS_EVENT } from "@/lib/guard-settings";
+import { ALERT_TIER_ORDER } from "@/lib/kandang-insights";
 import type { LoggedAlert } from "@/lib/alert-log";
-import type { KandangSnapshot } from "@/lib/kandang-snapshot";
-type GuardValue = { ready: boolean; error: boolean; snapshots: KandangSnapshot[]; active: LoggedAlert[]; history: LoggedAlert[]; counts: { kritis: number; waspada: number; info: number; unchecked: number }; acknowledge: (key: string) => void; clearHistory: () => void };
-const Context = createContext<GuardValue | null>(null);
-export function useGuard() { const c = useContext(Context); if (!c) throw new Error("Guard provider required"); return c; }
+
+// Guard berjalan di server (8 aturan deterministik). Provider ini hanya membaca episode
+// alert semua kandang yang bisa diakses, lalu menyediakannya untuk navigasi, Beranda,
+// dan halaman Peringatan. Event Socket.IO di BroilerProvider menyegarkan datanya.
+
+type GuardContextValue = {
+    ready: boolean;
+    error: boolean;
+    active: LoggedAlert[];
+    history: LoggedAlert[];
+    counts: { kritis: number; waspada: number; info: number; unchecked: number };
+    acknowledge: (key: string) => Promise<void>;
+    resolve: (key: string, note: string) => Promise<void>;
+};
+
+const GuardContext = createContext<GuardContextValue | null>(null);
+
+export function useGuard() {
+    const ctx = useContext(GuardContext);
+    if (!ctx) throw new Error("useGuard harus dipakai di dalam GuardMonitorProvider");
+    return ctx;
+}
+
 export function GuardMonitorProvider({ children }: { children: ReactNode }) {
- const b = useBroiler();
- const alerts = useQuery({ queryKey: ["broiler-nav-alerts", b.user?.id, b.coopId, b.source], queryFn: () => readData<{ alerts: ServerAlert[] }>("/api/alerts", { coop_id: b.coopId, source: b.source, status: "active", limit: 100 }), enabled: Boolean(b.user && b.coopId), retry: false, refetchInterval: 20000 });
- const unread = useQuery({ queryKey: ["broiler-nav-unread", b.user?.id, b.coopId], queryFn: () => readData<{ unread_count: number }>("/api/notifications/unread-count", { coop_id: b.coopId }), enabled: Boolean(b.user), retry: false, refetchInterval: 20000 });
- const list = alerts.data?.alerts ?? [];
- const value: GuardValue = { ready: !alerts.isPending, error: alerts.isError, snapshots: [], active: [], history: [], counts: { kritis: list.filter(a => a.severity === "critical").length, waspada: list.filter(a => a.severity === "warning").length, info: list.filter(a => a.severity === "info").length, unchecked: unread.data?.unread_count ?? 0 }, acknowledge: () => {}, clearHistory: () => {} };
- return <Context.Provider value={value}>{children}</Context.Provider>;
+    const b = useBroiler();
+    const client = useQueryClient();
+    const coopIds = useMemo(() => b.coops.map((c) => c.id), [b.coops]);
+    const results = useAllAlerts(coopIds, b.source);
+
+    // Bunyi peringatan kritis mengikuti preferensi di Pengaturan → Guard.
+    useEffect(() => {
+        const emit = () => window.dispatchEvent(new CustomEvent("coasther:foreground-sound", { detail: { enabled: getGuardSettings().notifySound } }));
+        emit();
+        window.addEventListener(GUARD_SETTINGS_EVENT, emit);
+        return () => window.removeEventListener(GUARD_SETTINGS_EVENT, emit);
+    }, [b.coopId]);
+
+    const log = useMemo(() => {
+        const codeOf = new Map(b.coops.map((c) => [c.id, c.code]));
+        return results.flatMap((r) => (r.data?.alerts ?? []).map((a) => serverAlertToLogged(a, codeOf.get(a.coop_id) ?? String(a.coop_id))));
+    }, [results, b.coops]);
+
+    const ready = coopIds.length === 0 ? !b.loading : results.every((r) => !r.isPending);
+    const error = results.some((r) => r.isError);
+
+    const findServerId = useCallback((key: string) => log.find((e) => e.key === key)?.serverId, [log]);
+    const refresh = useCallback(() => client.invalidateQueries({ predicate: (q) => q.queryKey[0] === "broiler" && q.queryKey.includes("alerts") }), [client]);
+
+    const acknowledge = useCallback(async (key: string) => {
+        const id = findServerId(key);
+        if (!id) return;
+        await writeData("patch", `/api/alerts/${id}/ack`, {});
+        await refresh();
+    }, [findServerId, refresh]);
+
+    const resolve = useCallback(async (key: string, note: string) => {
+        const id = findServerId(key);
+        if (!id) return;
+        await writeData("patch", `/api/alerts/${id}/resolve`, { note });
+        await refresh();
+    }, [findServerId, refresh]);
+
+    const value = useMemo<GuardContextValue>(() => {
+        const active = log
+            .filter((e) => !e.resolvedAt)
+            .sort((a, b) => ALERT_TIER_ORDER[a.tier] - ALERT_TIER_ORDER[b.tier] || b.firstSeen.localeCompare(a.firstSeen));
+        const history = log.filter((e) => e.resolvedAt).sort((a, b) => b.resolvedAt!.localeCompare(a.resolvedAt!));
+        return {
+            ready,
+            error,
+            active,
+            history,
+            counts: {
+                kritis: active.filter((a) => a.tier === "kritis").length,
+                waspada: active.filter((a) => a.tier === "waspada").length,
+                info: active.filter((a) => a.tier === "info").length,
+                unchecked: active.filter((a) => a.tier !== "info" && !a.acknowledgedAt).length,
+            },
+            acknowledge,
+            resolve,
+        };
+    }, [log, ready, error, acknowledge, resolve]);
+
+    return <GuardContext.Provider value={value}>{children}</GuardContext.Provider>;
 }

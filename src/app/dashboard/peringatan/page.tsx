@@ -1,4 +1,13 @@
+"use client";
+
 import DashboardShell from "@/components/dashboard/nav/dashboard-shell";
-import { AlertsInbox } from "@/components/broiler/insights";
+import PeringatanSection from "@/components/peringatan/peringatan-section";
 import { sidebarMenus } from "@/lib/dashboard-data";
-export default function Page() { return <DashboardShell menus={sidebarMenus}><AlertsInbox /></DashboardShell>; }
+
+export default function PeringatanPage() {
+    return (
+        <DashboardShell menus={sidebarMenus}>
+            <PeringatanSection />
+        </DashboardShell>
+    );
+}

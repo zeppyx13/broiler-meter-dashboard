@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
 import { ShieldCheck, ChevronRight, Check, BellOff, Bot } from "lucide-react";
 import { askCopilot } from "@/lib/copilot-context";
+import { useBroiler } from "@/components/broiler/broiler-provider";
+import { apiErrorMessage } from "@/lib/api-error";
 import KejadianTimeline from "./kejadian-timeline";
 import { useGuard } from "@/components/dashboard/guard/guard-monitor";
 import { getGuardSettings } from "@/lib/guard-settings";
@@ -31,24 +33,38 @@ function duration(fromIso: string, toIso?: string) {
 }
 
 export default function PeringatanSection() {
-    const { ready, error, active, history, counts, acknowledge, clearHistory } = useGuard();
+    const { ready, error, active, history, counts, acknowledge, resolve } = useGuard();
+    const { canManage, canOperate } = useBroiler();
     const [tab, setTab] = useState<"aktif" | "riwayat">("aktif");
-    const [notifyOff] = useState(() => { const settings = getGuardSettings(); return !settings.notifyBrowser || !notificationSupported() || Notification.permission !== "granted"; });
+    const [notifyOff, setNotifyOff] = useState(false);
     // Jendela linimasa: 7 hari terakhir sejak halaman dibuka.
     const [sinceMs] = useState(() => Date.now() - 7 * 86_400_000);
 
+    useEffect(() => {
+        const s = getGuardSettings();
+        setNotifyOff(!s.notifyBrowser || !notificationSupported() || Notification.permission !== "granted");
+    }, []);
 
-    async function handleClearHistory() {
+    async function run(task: () => Promise<void>) {
+        try {
+            await task();
+        } catch (err) {
+            Swal.fire({ icon: "error", title: "Gagal menyimpan", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
+        }
+    }
+
+    async function handleResolve(a: LoggedAlert) {
         const result = await Swal.fire({
-            title: "Hapus riwayat peringatan?",
-            text: "Peringatan yang masih aktif tidak ikut terhapus.",
-            icon: "warning",
+            title: "Selesaikan peringatan?",
+            input: "textarea",
+            inputLabel: "Alasan (minimal 8 karakter, tersimpan sebagai audit)",
+            inputValidator: (v) => (!v || v.trim().length < 8 ? "Tulis alasan minimal 8 karakter." : undefined),
             showCancelButton: true,
-            confirmButtonText: "Ya, hapus",
+            confirmButtonText: "Selesaikan",
             cancelButtonText: "Batal",
-            confirmButtonColor: "#b91c1c",
+            confirmButtonColor: "#7B1113",
         });
-        if (result.isConfirmed) clearHistory();
+        if (result.isConfirmed && typeof result.value === "string") await run(() => resolve(a.key, result.value.trim()));
     }
 
     return (
@@ -57,7 +73,7 @@ export default function PeringatanSection() {
                 <div className="flex flex-col gap-3 rounded-3xl border border-[#EAEAEA] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="flex items-start gap-2 font-inter text-sm text-[#555]">
                         <BellOff size={16} className="mt-0.5 shrink-0 text-[#999]" />
-                        Notifikasi browser belum aktif. Peringatan hanya terlihat saat halaman ini dibuka.
+                        Guard tetap berjalan di server walau browser ditutup. Aktifkan notifikasi browser agar peringatan baru langsung muncul saat dashboard terbuka.
                     </p>
                     <Link href="/dashboard/settings" className="shrink-0 font-inter text-sm font-semibold text-[#7B1113] hover:underline">
                         Aktifkan di Pengaturan
@@ -91,7 +107,7 @@ export default function PeringatanSection() {
 
             {error && tab === "aktif" && (
                 <div className="rounded-3xl border border-red-100 bg-red-50 p-5 font-inter text-sm text-red-700">
-                    Data kandang atau alat belum bisa dimuat, jadi Guard berhenti sementara. Muat ulang halaman; bila tetap gagal, coba keluar lalu masuk lagi.
+                    Daftar peringatan dari server belum bisa dimuat. Guard tetap berjalan di server; muat ulang halaman, bila tetap gagal coba keluar lalu masuk lagi.
                     {active.length > 0 && " Peringatan di bawah adalah kondisi terakhir yang tercatat."}
                 </div>
             )}
@@ -108,29 +124,32 @@ export default function PeringatanSection() {
                 <div className="flex flex-col items-center gap-2 rounded-3xl border border-[#EAEAEA] bg-white px-6 py-14 text-center">
                     <ShieldCheck size={28} className="text-green-600" />
                     <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Semua kandang aman</p>
-                    <p className="font-inter text-sm text-[#999]">Guard memantau setiap kandang yang punya siklus berjalan.</p>
+                    <p className="font-inter text-sm text-[#999]">Guard server memantau setiap kandang yang bisa Anda akses.</p>
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {active.map((a) => <ActiveAlertCard key={a.key} alert={a} onAcknowledge={() => acknowledge(a.key)} />)}
+                    {active.map((a) => (
+                        <ActiveAlertCard
+                            key={a.key}
+                            alert={a}
+                            onAcknowledge={canOperate ? () => run(() => acknowledge(a.key)) : undefined}
+                            onResolve={canManage ? () => handleResolve(a) : undefined}
+                        />
+                    ))}
                 </div>
             ))}
 
             {tab === "riwayat" && (
                 <>
                     <KejadianTimeline active={active} history={history} sinceMs={sinceMs} />
-                    {history.length > 0 && (
-                        <button onClick={handleClearHistory} suppressHydrationWarning className="font-inter text-sm text-[#999] hover:text-[#B42318]">
-                            Hapus riwayat
-                        </button>
-                    )}
+                    <p className="font-inter text-xs text-[#999]">Riwayat disimpan permanen di server sebagai audit.</p>
                 </>
             )}
         </div>
     );
 }
 
-function ActiveAlertCard({ alert, onAcknowledge }: { alert: LoggedAlert; onAcknowledge: () => void }) {
+function ActiveAlertCard({ alert, onAcknowledge, onResolve }: { alert: LoggedAlert; onAcknowledge?: () => void; onResolve?: () => void }) {
     const style = ALERT_TIER_STYLE[alert.tier];
     return (
         <div className={`rounded-2xl border-l-4 p-4 ${style.box} ${alert.acknowledgedAt ? "opacity-70" : ""}`}>
@@ -149,13 +168,22 @@ function ActiveAlertCard({ alert, onAcknowledge }: { alert: LoggedAlert; onAckno
                     <span className="flex items-center gap-1 font-inter text-xs text-[#777]">
                         <Check size={14} /> Dicek {clock(alert.acknowledgedAt)}
                     </span>
-                ) : (
+                ) : onAcknowledge && (
                     <button
                         onClick={onAcknowledge}
                         suppressHydrationWarning
                         className="flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 font-inter text-sm font-medium text-[#2F2F2F] shadow-sm transition hover:bg-[#F8F8F8]"
                     >
                         <Check size={15} /> Sudah dicek
+                    </button>
+                )}
+                {onResolve && (
+                    <button
+                        onClick={onResolve}
+                        suppressHydrationWarning
+                        className="rounded-xl px-3 py-2 font-inter text-sm font-medium text-[#555] transition hover:bg-white/60"
+                    >
+                        Selesaikan
                     </button>
                 )}
                 <button

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LoaderCircle, User } from "lucide-react";
 import Swal from "sweetalert2";
 import { getUser, getToken, setAuth } from "@/lib/auth";
-import { updateTenant } from "@/lib/tenant-api";
+import { writeData } from "@/lib/broiler-api";
+import { useBroiler } from "@/components/broiler/broiler-provider";
 import { apiErrorMessage } from "@/lib/api-error";
 
 type ProfileUser = {
@@ -15,21 +16,32 @@ type ProfileUser = {
     role?: string;
 };
 
+const ROLE_LABEL: Record<string, string> = { owner: "Pemilik", manager: "Admin lahan", operator: "Operator kandang", viewer: "Pemantau" };
+
 export default function PeternakProfileCard() {
-    const [user, setUser] = useState<ProfileUser | null>(getUser);
-    const [name, setName] = useState(() => getUser()?.name ?? "");
-    const [phone, setPhone] = useState(() => getUser()?.phone ?? "");
+    const b = useBroiler();
+    const [user, setUser] = useState<ProfileUser | null>(null);
+    const [name, setName] = useState("");
+    const [phone, setPhone] = useState("");
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const current = (b.user as ProfileUser | null) ?? getUser();
+        setUser(current);
+        setName(current?.name ?? "");
+        setPhone(current?.phone ?? "");
+    }, [b.user]);
 
     async function handleSave() {
         if (!user) return;
         try {
             setLoading(true);
-            await updateTenant(Number(user.id), { name, phone });
+            await writeData("put", "/api/users/me", { name: name.trim(), phone: phone.trim() || null });
             const updatedUser = { ...user, name, phone };
             const token = getToken();
             if (token) setAuth(token, updatedUser);
             setUser(updatedUser);
+            await b.refresh();
             Swal.fire({ icon: "success", title: "Profil diperbarui", timer: 1500, showConfirmButton: false });
         } catch (err) {
             Swal.fire({
@@ -56,7 +68,8 @@ export default function PeternakProfileCard() {
             </div>
 
             <p className="mt-3 font-inter text-xs text-[#999]">
-                Satu website COASTHER untuk satu peternak. Data ini merepresentasikan akun yang sedang login.
+                Data akun yang sedang login. Akses ke lahan dan kandang diatur pemilik lahan di bagian Lahan &amp; Tim.
+                {user?.id != null && <> ID akun Anda: <span className="font-semibold text-[#555]">{user.id}</span> (dipakai saat ditambahkan ke tim).</>}
             </p>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -92,10 +105,10 @@ export default function PeternakProfileCard() {
                     />
                 </div>
                 <div>
-                    <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">Role</label>
+                    <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">Peran</label>
                     <input
                         type="text"
-                        value={user?.role ?? "-"}
+                        value={user?.role === "admin" ? "Admin sistem" : b.farms.map((f) => `${f.name}: ${ROLE_LABEL[f.member_role ?? ""] ?? f.member_role ?? "-"}`).join(" · ") || "-"}
                         disabled
                         className="w-full rounded-2xl border border-[#EAEAEA] bg-[#F0F0F0] px-4 py-3 font-inter text-sm text-[#999] outline-none"
                     />
@@ -105,7 +118,7 @@ export default function PeternakProfileCard() {
             <div className="mt-5 flex justify-end">
                 <button
                     onClick={handleSave}
-                    disabled={loading || !user}
+                    disabled={loading || !user || name.trim().length < 2}
                     suppressHydrationWarning
                     className="flex items-center gap-2 rounded-2xl bg-[#7B1113] px-5 py-2.5 font-poppins text-sm font-semibold text-[#C6A971] transition hover:opacity-90 disabled:opacity-50"
                 >

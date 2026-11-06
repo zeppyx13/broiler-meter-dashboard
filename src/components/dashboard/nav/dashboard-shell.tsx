@@ -7,11 +7,10 @@ import MobileDrawer from "./mobile-drawer";
 import DashboardTopbar from "./dashboard-topbar";
 import MobileBottomNav from "./mobile-bottom-nav";
 import type { SidebarMenuItem } from "@/types/dashboard";
-import { BroilerChat } from "@/components/broiler/chat";
-import { SelectionBar } from "@/components/broiler/dashboard";
-import { useBroiler } from "@/components/broiler/broiler-provider";
-import { Failure, Notice } from "@/components/broiler/ui";
+import AdminChat from "../ai-chat/admin-chat";
 import { GuardMonitorProvider } from "../guard/guard-monitor";
+import ContextBar from "./context-bar";
+import { useBroiler } from "@/components/broiler/broiler-provider";
 
 type DashboardShellProps = {
     menus: SidebarMenuItem[];
@@ -20,7 +19,7 @@ type DashboardShellProps = {
 
 export default function DashboardShell({ menus, children }: DashboardShellProps) {
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const context = useBroiler();
+    const { loading, error } = useBroiler();
 
     return (
         <GuardMonitorProvider>
@@ -36,11 +35,24 @@ export default function DashboardShell({ menus, children }: DashboardShellProps)
 
                     <section className="flex-1 min-w-0">
                         <DashboardTopbar />
-                        <div className="space-y-6 p-4 pb-28 sm:p-6 sm:pb-28 lg:pb-6"><SelectionBar /><Failure error={context.error} />{context.loading ? <Notice>Memuat sesi dan konteks server…</Notice> : children}</div>
+                        <div className="space-y-6 p-4 pb-28 sm:p-6 sm:pb-28 lg:pb-6">
+                            <ContextBar />
+                            {error && (
+                                <div className="rounded-3xl border border-red-100 bg-red-50 p-5 font-inter text-sm text-red-700">
+                                    {error}. Periksa koneksi ke server, lalu muat ulang halaman.
+                                </div>
+                            )}
+                            {loading ? (
+                                <div className="space-y-4">
+                                    <div className="h-32 animate-pulse rounded-3xl border border-[#EAEAEA] bg-white" />
+                                    <div className="h-64 animate-pulse rounded-3xl border border-[#EAEAEA] bg-white" />
+                                </div>
+                            ) : children}
+                        </div>
                     </section>
                 </div>
                 <MobileBottomNav menus={menus} moreOpen={drawerOpen} onMoreClick={() => setDrawerOpen((v) => !v)} />
-                <BroilerChat />
+                <AdminChat />
             </main>
         </GuardMonitorProvider>
     );

@@ -1,14 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import { HandCoins, ShieldAlert } from "lucide-react";
-import { getRooms } from "@/lib/room-api";
-import { getLeases } from "@/lib/lease-api";
-import { getCycleState, localDateKey } from "@/lib/broiler-local-store";
+import { useKandangSnapshots } from "@/lib/kandang-snapshot";
 import { formatRupiah } from "@/lib/broiler-reference";
-import { summarizeCycle } from "@/lib/cycle-history";
-import { getImpactSettings, kandangImpact, setImpactSettings, type ImpactSettings } from "@/lib/impact";
+import { DEFAULT_IMPACT_SETTINGS, getImpactSettings, kandangImpact, setImpactSettings, type ImpactSettings } from "@/lib/impact";
 import { useGuard } from "@/components/dashboard/guard/guard-monitor";
 
 const num = (v: number, d = 0) => v.toLocaleString("id-ID", { maximumFractionDigits: d, minimumFractionDigits: d });
@@ -24,32 +20,23 @@ const EVENT_LABEL: Record<string, string> = {
 
 /** Kartu dampak: nilai kematian yang dicegah per siklus & berapa lama perangkat balik modal. */
 export default function ImpactCard() {
-    const [settings, setSettings] = useState<ImpactSettings>(getImpactSettings);
+    const [settings, setSettings] = useState<ImpactSettings>(DEFAULT_IMPACT_SETTINGS);
     // Asumsi tersimpan di browser → dibaca setelah mount agar HTML server & klien sama.
-
+    useEffect(() => setSettings(getImpactSettings()), []);
     const { active, history } = useGuard();
     const [sinceMs] = useState(() => Date.now() - EVIDENCE_DAYS * 86_400_000);
 
-    const { data: roomData } = useQuery({ queryKey: ["rooms-overview"], queryFn: () => getRooms({ limit: 100 }), staleTime: 60_000 });
-    const { data: activeData } = useQuery({ queryKey: ["leases-active-all"], queryFn: () => getLeases({ status: "active", limit: 100 }), staleTime: 30_000 });
-    const { data: endedData } = useQuery({ queryKey: ["leases-ended-all"], queryFn: () => getLeases({ status: "ended", limit: 100 }), staleTime: 60_000 });
+    const { snapshots } = useKandangSnapshots();
 
-    const rows = useMemo(() => {
-        const today = localDateKey();
-        const ended = endedData?.leases ?? [];
-        return (activeData?.leases ?? [])
-            .filter((l) => l.status === "active")
-            .map((lease) => {
-                const room = roomData?.rooms.find((r) => r.id === lease.room_id);
-                const population = getCycleState(lease.id, lease.room_id).populationNow ?? 0;
-                // Bobot panen: dari siklus terakhir kandang ini, atau 2 kg bila belum ada.
-                const lastEnded = ended.filter((l) => l.room_id === lease.room_id).sort((a, b) => b.start_date.localeCompare(a.start_date))[0];
-                const lastWeight = lastEnded ? summarizeCycle(lastEnded, { today }).lastWeightG : undefined;
-                const harvestKg = lastWeight ? lastWeight / 1000 : DEFAULT_HARVEST_KG;
-                return { lease, number: room?.number ?? lease.room_number, population, harvestKg, impact: kandangImpact(population, harvestKg, settings) };
-            })
-            .sort((a, b) => a.number.localeCompare(b.number, "id", { numeric: true }));
-    }, [activeData, endedData, roomData, settings]);
+    const rows = useMemo(() => snapshots
+        .filter((s) => s.cycle)
+        .map((s) => {
+            const population = s.populationNow ?? 0;
+            // Bobot panen acuan 2 kg (bobot sampel per siklus ada di laporan siklus tiap kandang).
+            const harvestKg = DEFAULT_HARVEST_KG;
+            return { lease: s.cycle!, number: s.room.number, population, harvestKg, impact: kandangImpact(population, harvestKg, settings) };
+        })
+        .sort((a, c) => a.number.localeCompare(c.number, "id", { numeric: true })), [snapshots, settings]);
 
     const totalPopulation = rows.reduce((s, r) => s + r.population, 0);
     const totalValue = rows.reduce((s, r) => s + r.impact.valuePerCycle, 0);

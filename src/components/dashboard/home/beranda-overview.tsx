@@ -1,15 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
 import { Droplets, Zap, Wallet, Wifi, WifiOff, ShieldCheck, ShieldAlert, ChevronRight, Sprout } from "lucide-react";
-import { getRooms } from "@/lib/room-api";
-import { getLeases } from "@/lib/lease-api";
-import { getTariff } from "@/lib/tariff-api";
-import { getAllLiveStatus } from "@/lib/live-status-api";
-import { getGuardSettings } from "@/lib/guard-settings";
-import { buildSnapshots, type KandangSnapshot } from "@/lib/kandang-snapshot";
+import { useKandangSnapshots, type KandangSnapshot } from "@/lib/kandang-snapshot";
+import { useBroiler } from "@/components/broiler/broiler-provider";
 import { ALERT_TIER_ORDER, type AlertTier } from "@/lib/kandang-insights";
 import { formatRupiah } from "@/lib/broiler-reference";
 import MonthlyEfficiencyChart from "./monthly-efficiency";
@@ -31,15 +25,10 @@ function worstStatus(s: KandangSnapshot): Status {
 const STATUS_ORDER: Record<Status, number> = { kritis: 0, waspada: 1, info: 2, normal: 3 };
 
 export default function BerandaOverview() {
-    const { data: roomData, isLoading, isError } = useQuery({ queryKey: ["rooms-overview"], queryFn: () => getRooms({ limit: 100 }), staleTime: 60_000 });
-    const { data: leaseData } = useQuery({ queryKey: ["leases-active-all"], queryFn: () => getLeases({ status: "active", limit: 100 }), staleTime: 30_000 });
-    const { data: liveList } = useQuery({ queryKey: ["iot-live-status-all"], queryFn: getAllLiveStatus, refetchInterval: 10_000, staleTime: 5_000 });
-    const { data: tariff } = useQuery({ queryKey: ["tariff"], queryFn: getTariff, staleTime: 5 * 60_000 });
-
-    const snapshots = useMemo(
-        () => buildSnapshots(roomData?.rooms ?? [], leaseData?.leases ?? [], liveList ?? [], getGuardSettings()),
-        [roomData, leaseData, liveList]
-    );
+    const { snapshots: allSnapshots, isLoading, isError, lastUpdate, tariff } = useKandangSnapshots();
+    const { farmId, farms } = useBroiler();
+    // Beranda menampilkan lahan yang sedang dipilih (bila akun punya lebih dari satu lahan).
+    const snapshots = farms.length > 1 ? allSnapshots.filter((s) => s.room.floor === farmId) : allSnapshots;
 
     if (isLoading) {
         return (
@@ -72,7 +61,6 @@ export default function BerandaOverview() {
     const energyToday = snapshots.reduce((sum, s) => sum + (s.todayUsage.ready ? s.todayUsage.energyTodayKwh : 0), 0);
     const powerNow = snapshots.reduce((sum, s) => sum + (s.online ? s.insights.actualPowerKw : 0), 0);
     const onlineCount = snapshots.filter((s) => s.online).length;
-    const lastUpdate = (liveList ?? []).map((l) => l.recorded_at).filter(Boolean).sort().at(-1);
 
     const headline = counts.kritis > 0
         ? { text: `${counts.kritis} kandang butuh tindakan segera`, tone: "text-[#B42318]", icon: <ShieldAlert size={22} className="text-[#B42318]" /> }
@@ -105,11 +93,11 @@ export default function BerandaOverview() {
                 )}
             </div>
 
-            <MonthlyEfficiencyChart activeLeases={leaseData?.leases ?? []} liveList={liveList ?? []} electricityRate={tariff?.electricity_rate} />
+            <MonthlyEfficiencyChart coopIds={snapshots.map((s) => s.room.id)} />
 
             {/* Total hari ini */}
             <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-                <Kpi icon={<Droplets size={16} className="text-blue-500" />} label="Air minum hari ini" value={`${waterToday.toLocaleString("id-ID", { maximumFractionDigits: 0 })} L`} sub="Semua kandang aktif" />
+                <Kpi icon={<Droplets size={16} className="text-blue-500" />} label="Air inlet hari ini" value={`${waterToday.toLocaleString("id-ID", { maximumFractionDigits: 0 })} L`} sub="Semua kandang aktif" />
                 <Kpi icon={<Zap size={16} className="text-amber-500" />} label="Daya sekarang" value={`${powerNow.toFixed(2)} kW`} sub="Total kandang online" />
                 <Kpi icon={<Wallet size={16} className="text-[#7B1113]" />} label="Energi hari ini" value={`${energyToday.toFixed(1)} kWh`} sub={tariff ? `≈ ${formatRupiah(energyToday * tariff.electricity_rate)}` : "Tarif belum dimuat"} />
                 <Kpi icon={<Wifi size={16} className="text-green-600" />} label="Perangkat online" value={`${onlineCount} / ${snapshots.length}`} sub={onlineCount < snapshots.length ? `${snapshots.length - onlineCount} tidak mengirim data` : "Semua mengirim data"} />

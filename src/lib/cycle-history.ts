@@ -1,7 +1,6 @@
 // Ringkasan kinerja per siklus untuk tab Riwayat: deplesi, konsumsi per ekor,
-// biaya energi, FCR, dan Indeks Performa (IP). Semua angka dihitung dari data
-// lokal (catatan harian + angka meter saat chick-in/panen), jadi bisa kosong
-// bila data tersebut tidak diisi.
+// biaya energi, FCR, dan Indeks Performa (IP). `summarizeServerCycle` memakai
+// laporan siklus dari backend; angka bisa kosong bila data sensor/catatan belum ada.
 
 import type { Lease } from "@/types/lease";
 import { getCycleState } from "@/lib/broiler-local-store";
@@ -92,6 +91,57 @@ export function summarizeCycle(
         fcr,
         ip,
         recordCount: records.length,
+    };
+}
+
+/** Bentuk minimal laporan siklus server (`GET /api/flock-cycles/:id/report`). */
+export type ServerCycleReportLike = {
+    totals?: { water_liters?: number | null; energy_kwh?: number | null; electricity_cost_idr?: number | null } | null;
+    metrics?: {
+        harvested?: number; depletion_pct?: number | null; fcr?: number | null; performance_index?: number | null;
+        feed_kg?: number | null; latest_avg_weight_g?: number | null; bird_basis?: number | null;
+    } | null;
+};
+
+type ServerCycleLike = {
+    id: number; coop_id: number; status: string; placement_date: string; actual_harvest_date?: string | null;
+    initial_population: number; current_population: number; day_age?: number; notes?: string | null;
+};
+
+/** Ringkasan satu siklus dari data server (FCR, IP, total utilitas dihitung backend). */
+export function summarizeServerCycle(cycle: ServerCycleLike, lease: Lease, report: ServerCycleReportLike | undefined, recordCount: number, today: string): CycleSummary {
+    const running = cycle.status === "active";
+    const endDate = running ? null : (cycle.actual_harvest_date ?? null);
+    const durationDays = running && cycle.day_age != null ? cycle.day_age : dayDiff(cycle.placement_date, endDate ?? today) + 1;
+    const m = report?.metrics ?? undefined;
+    const t = report?.totals ?? undefined;
+    const birds = running ? cycle.current_population : (m?.harvested || cycle.current_population || undefined);
+    const n = (v: number | null | undefined) => (v == null || !Number.isFinite(Number(v)) ? undefined : Number(v));
+    const waterLiter = n(t?.water_liters);
+    const energyKwh = n(t?.energy_kwh);
+    const basis = n(m?.bird_basis) ?? birds;
+    const perBird = (v?: number) => (v != null && basis ? v / basis : undefined);
+    const cost = n(t?.electricity_cost_idr);
+    const depletion = cycle.initial_population ? ((cycle.initial_population - cycle.current_population - (running ? 0 : (m?.harvested ?? 0))) / cycle.initial_population) * 100 : null;
+    return {
+        lease,
+        running,
+        startDate: cycle.placement_date,
+        endDate,
+        durationDays,
+        populationStart: cycle.initial_population,
+        birds,
+        depletionPct: n(m?.depletion_pct) ?? (depletion != null ? Math.max(0, depletion) : null),
+        waterLiter,
+        energyKwh,
+        waterPerBirdL: perBird(waterLiter),
+        kwhPerBird: perBird(energyKwh),
+        energyCostPerBird: perBird(cost),
+        feedKg: n(m?.feed_kg),
+        lastWeightG: n(m?.latest_avg_weight_g),
+        fcr: n(m?.fcr),
+        ip: n(m?.performance_index),
+        recordCount,
     };
 }
 

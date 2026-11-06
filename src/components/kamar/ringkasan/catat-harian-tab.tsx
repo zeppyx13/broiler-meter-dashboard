@@ -3,7 +3,12 @@
 import Swal from "sweetalert2";
 import { ClipboardPlus, Pencil, Trash2 } from "lucide-react";
 import SectionCard from "@/components/dashboard/section-card";
-import { deleteDailyRecord, getDailyWater, localDateKey } from "@/lib/broiler-local-store";
+import { localDateKey } from "@/lib/broiler-local-store";
+import { writeData } from "@/lib/broiler-api";
+import { apiErrorMessage } from "@/lib/api-error";
+import { recordDate } from "@/lib/broiler-adapters";
+import { useCycleReport } from "@/lib/broiler-queries";
+import { useBroiler } from "@/components/broiler/broiler-provider";
 import type { KandangData } from "./use-kandang-data";
 import WaterFeedCard from "./water-feed-card";
 
@@ -14,11 +19,18 @@ type Props = {
 
 function dayNumber(date: string, startDate: string) {
     const diff = new Date(`${date}T00:00:00`).getTime() - new Date(`${startDate.slice(0, 10)}T00:00:00`).getTime();
-    return Math.floor(diff / 86_400_000);
+    // Hari chick-in = hari ke-1 (sama dengan day_age server).
+    return Math.floor(diff / 86_400_000) + 1;
 }
 
 export default function CatatHarianTab({ data, onOpenRecord }: Props) {
-    const { room, activeCycle, cycle, refreshLocal } = data;
+    const { room, activeCycle, cycle, refreshAll, serverCycle, serverRecords, canOperate } = data;
+    const { source } = useBroiler();
+    const report = useCycleReport(serverCycle?.id, room?.id, source);
+    const dailyWater: Record<string, number> = {};
+    for (const m of report.data?.series ?? []) {
+        if (m.metric_date && m.water_liters != null) dailyWater[m.metric_date.slice(0, 10)] = Number(m.water_liters);
+    }
 
     if (!activeCycle || !cycle) {
         return (
@@ -32,18 +44,31 @@ export default function CatatHarianTab({ data, onOpenRecord }: Props) {
     const recordedToday = cycle.records.some((r) => r.date === today);
 
     async function handleDelete(date: string) {
+        const server = serverRecords.find((r) => recordDate(r) === date);
+        if (!server) return;
         const result = await Swal.fire({
-            title: "Hapus catatan ini?",
-            text: new Date(`${date}T00:00:00`).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" }),
+            title: "Batalkan catatan ini?",
+            text: `${new Date(`${date}T00:00:00`).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })} — populasi dikoreksi kembali, jejak audit tetap tersimpan.`,
+            input: "textarea",
+            inputPlaceholder: "Alasan pembatalan (min. 8 karakter)",
+            inputValidator: (v) => (v.trim().length < 8 ? "Isi alasan minimal 8 karakter." : undefined),
             icon: "warning",
             showCancelButton: true,
-            confirmButtonText: "Ya, hapus",
-            cancelButtonText: "Batal",
+            confirmButtonText: "Ya, batalkan",
+            cancelButtonText: "Kembali",
             confirmButtonColor: "#b91c1c",
         });
         if (!result.isConfirmed) return;
-        deleteDailyRecord(activeCycle!.id, date);
-        refreshLocal();
+        try {
+            await writeData("delete", `/api/flock-cycles/${serverCycle!.id}/daily-records/${date}`, {
+                expected_revision: server.revision,
+                note: String(result.value).trim().slice(0, 500),
+                request_id: crypto.randomUUID(),
+            });
+            refreshAll();
+        } catch (err) {
+            Swal.fire({ icon: "error", title: "Gagal membatalkan", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
+        }
     }
 
     return (
@@ -58,16 +83,16 @@ export default function CatatHarianTab({ data, onOpenRecord }: Props) {
                 <Stat label="Populasi sekarang" value={cycle.populationNow != null ? cycle.populationNow.toLocaleString("id-ID") : "—"} />
             </div>
 
-            <button
+            {canOperate && <button
                 onClick={() => onOpenRecord(today)}
                 suppressHydrationWarning
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#7B1113] px-5 py-4 font-poppins text-base font-semibold text-[#C6A971] transition hover:opacity-90"
             >
                 <ClipboardPlus size={20} />
                 {recordedToday ? "Ubah Catatan Hari Ini" : "Catat Hari Ini"}
-            </button>
+            </button>}
 
-            {room && <WaterFeedCard records={cycle.records} dailyWater={getDailyWater(room.id)} />}
+            {room && <WaterFeedCard records={cycle.records} dailyWater={dailyWater} />}
 
             <SectionCard className="overflow-hidden p-0!">
                 {cycle.records.length === 0 ? (
@@ -90,14 +115,14 @@ export default function CatatHarianTab({ data, onOpenRecord }: Props) {
                                     </p>
                                     {r.note && <p className="mt-0.5 truncate font-inter text-xs text-[#999]">{r.note}</p>}
                                 </div>
-                                <div className="flex shrink-0 gap-2">
+                                {canOperate && <div className="flex shrink-0 gap-2">
                                     <button onClick={() => onOpenRecord(r.date)} title="Ubah" className="rounded-xl bg-[#F8F8F8] p-2.5 transition hover:bg-[#EAEAEA]">
                                         <Pencil size={15} className="text-[#555]" />
                                     </button>
-                                    <button onClick={() => handleDelete(r.date)} title="Hapus" className="rounded-xl bg-red-50 p-2.5 transition hover:bg-red-100">
+                                    <button onClick={() => handleDelete(r.date)} title="Batalkan catatan" className="rounded-xl bg-red-50 p-2.5 transition hover:bg-red-100">
                                         <Trash2 size={15} className="text-red-500" />
                                     </button>
-                                </div>
+                                </div>}
                             </li>
                         ))}
                     </ul>

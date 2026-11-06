@@ -1,13 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries } from "@tanstack/react-query";
 import { ChevronDown, History, Printer, Trophy, TrendingDown } from "lucide-react";
 import SectionCard from "@/components/dashboard/section-card";
-import { getLeases } from "@/lib/lease-api";
+import { readData } from "@/lib/broiler-api";
+import { cycleToLease } from "@/lib/broiler-adapters";
+import { useCycles, type CycleReport } from "@/lib/broiler-queries";
+import { useBroiler } from "@/components/broiler/broiler-provider";
 import { localDateKey } from "@/lib/broiler-local-store";
 import { formatRupiah } from "@/lib/broiler-reference";
-import { rankMetric, summarizeCycle, type BestWorst, type CycleSummary } from "@/lib/cycle-history";
+import { rankMetric, summarizeServerCycle, type BestWorst, type CycleSummary } from "@/lib/cycle-history";
 import type { KandangData } from "./use-kandang-data";
 
 const num = (v: number, digits = 0) => v.toLocaleString("id-ID", { maximumFractionDigits: digits, minimumFractionDigits: digits });
@@ -31,31 +34,33 @@ const METRICS: Metric[] = [
 ];
 
 export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
-    const { room, activeCycle, live, tariff } = data;
+    const { room, serverRecords } = data;
+    const b = useBroiler();
     const [openId, setOpenId] = useState<number | null>(null);
     const [printedAt, setPrintedAt] = useState("");
 
-    const { data: endedData, isLoading, isError } = useQuery({
-        queryKey: ["leases-ended-all"],
-        queryFn: () => getLeases({ status: "ended", limit: 100 }),
-        staleTime: 60 * 1000,
+    const cyclesQuery = useCycles(room?.id, 50);
+    const { isLoading, isError } = cyclesQuery;
+    const cycles = useMemo(
+        () => (cyclesQuery.data?.cycles ?? []).filter((c) => c.status === "active" || c.status === "completed"),
+        [cyclesQuery.data],
+    );
+    const reports = useQueries({
+        queries: cycles.map((c) => ({
+            queryKey: ["broiler", b.user?.id, room?.id, "cycle-report", c.id, b.source],
+            queryFn: () => readData<CycleReport>(`/api/flock-cycles/${c.id}/report`, { source: b.source }),
+            staleTime: 60_000,
+        })),
     });
+    const reportKey = reports.map((r) => r.dataUpdatedAt).join(",");
 
     const rows = useMemo(() => {
-        if (!room) return [];
         const today = localDateKey();
-        const opts = {
-            electricityRate: tariff?.electricity_rate,
-            currentWaterLiter: live?.water_total_liter,
-            currentEnergyKwh: live?.energy_kwh_total,
-            today,
-        };
-        const ended = (endedData?.leases ?? []).filter((l) => l.room_id === room.id);
-        const all = activeCycle ? [activeCycle, ...ended] : ended;
-        return all
-            .map((l) => summarizeCycle(l, opts))
+        return cycles
+            .map((c, i) => summarizeServerCycle(c, cycleToLease(c), reports[i]?.data, c.status === "active" ? serverRecords.length : 0, today))
             .sort((a, b) => b.startDate.localeCompare(a.startDate));
-    }, [room, activeCycle, endedData, tariff?.electricity_rate, live?.water_total_liter, live?.energy_kwh_total]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cycles, reportKey, serverRecords.length]);
 
     // Peringkat hanya antar siklus yang sudah selesai — siklus berjalan belum lengkap.
     const ranks = useMemo(() => {
@@ -99,7 +104,7 @@ export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
                         <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Riwayat siklus</p>
                         <p className="font-inter text-xs text-[#999]">
                             {rows.filter((r) => !r.running).length} siklus selesai
-                            {activeCycle ? " · 1 berjalan" : ""}. Tanda <Trophy size={11} className="inline text-green-600" /> terbaik dan{" "}
+                            {rows.some((r) => r.running) ? " · 1 berjalan" : ""}. Tanda <Trophy size={11} className="inline text-green-600" /> terbaik dan{" "}
                             <TrendingDown size={11} className="inline text-red-600" /> terburuk antar siklus selesai.
                         </p>
                     </div>
@@ -172,7 +177,7 @@ export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
                                             r.waterLiter != null && `air ${num(r.waterLiter)} L`,
                                             r.energyKwh != null && `listrik ${num(r.energyKwh, 1)} kWh`,
                                             r.waterLiter != null && r.feedKg && `rasio air:pakan ${num(r.waterLiter / r.feedKg, 2)}`,
-                                            `${r.recordCount} catatan harian`,
+                                            r.recordCount > 0 && `${r.recordCount} catatan harian`,
                                         ].filter(Boolean).join(" · ")}
                                     </p>
                                     {(r.fcr == null || r.ip == null) && (
