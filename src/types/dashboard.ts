@@ -1,4 +1,4 @@
-export type SidebarIconName = "home" | "kandang" | "alert" | "report" | "settings" | "cpu" | "terminal";
+export type SidebarIconName = "home" | "kandang" | "alert" | "report" | "settings" | "cpu" | "terminal" | "validasi";
 
 export type SidebarMenuItem = {
     label: string;

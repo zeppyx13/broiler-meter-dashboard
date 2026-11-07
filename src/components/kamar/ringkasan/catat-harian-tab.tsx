@@ -96,7 +96,7 @@ export default function CatatHarianTab({ data, onOpenRecord }: Props) {
             <SectionCard className="overflow-hidden p-0!">
                 {cycle.records.length === 0 ? (
                     <p className="px-6 py-10 text-center font-inter text-sm text-[#999]">
-                        Belum ada catatan. Catat ayam mati dan afkir setiap hari agar populasi dan konsumsi per ekor akurat.
+                        Belum ada catatan. Catat ayam mati dan afkir setiap hari.
                     </p>
                 ) : (
                     <ul className="divide-y divide-[#F0F0F0]">

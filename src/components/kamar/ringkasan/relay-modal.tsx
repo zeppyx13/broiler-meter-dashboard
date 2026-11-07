@@ -38,7 +38,7 @@ export default function RelayModal({ open, onClose, roomId, roomNumber, online }
         queryFn: ({ signal }) => readData<RelayPreflight>(`/api/relays/${relay!.id}/preflight`, undefined, { signal }),
         enabled: open && Boolean(b.user && relay) && b.source === "real", refetchInterval: open ? 5000 : false,
     });
-    const blocked = b.source !== "real" ? "Relay hanya bisa dikendalikan pada mode Sensor (bukan Simulasi)." : !b.canRelay ? "Akun Anda tidak punya izin mengendalikan relay di kandang ini." : relays.error ? apiErrorMessage(relays.error) : relays.isSuccess && !relay ? "Belum ada relay aktif yang terdaftar di kandang ini." : preflight.error ? apiErrorMessage(preflight.error) : !preflight.data ? "Memuat preflight keselamatan server…" : !preflight.data.allowed ? preflight.data.reason : null;
+    const blocked = b.source !== "real" ? "Relay hanya bisa dikendalikan pada mode Sensor (bukan Simulasi)." : !b.canRelay ? "Akun Anda tidak punya izin mengendalikan relay di kandang ini." : relays.error ? apiErrorMessage(relays.error) : relays.isSuccess && !relay ? "Belum ada relay aktif yang terdaftar di kandang ini." : preflight.error ? apiErrorMessage(preflight.error) : !preflight.data ? "Memeriksa perangkat…" : !preflight.data.allowed ? preflight.data.reason : null;
     const [sending, setSending] = useState<RelayCommand | null>(null);
     const [lastSent, setLastSent] = useState<{ command: RelayCommand; at: Date } | null>(null);
     const inFlight = useRef(false);
@@ -93,7 +93,7 @@ export default function RelayModal({ open, onClose, roomId, roomNumber, online }
             {!online && (
                 <p className="flex items-start gap-2 rounded-2xl bg-[#FFF4E5] px-4 py-3 font-inter text-sm text-[#9A6B14]">
                     <WifiOff size={16} className="mt-0.5 shrink-0" />
-                    Status perangkat belum online. Izin kirim ditentukan preflight heartbeat dan transport backend.
+                    Perangkat belum online.
                 </p>
             )}
 

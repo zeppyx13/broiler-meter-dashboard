@@ -121,7 +121,7 @@ export default function TariffSettingsCard() {
             <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                     <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">Tarif Energi</h3>
-                    <p className="mt-1 font-inter text-sm text-[#666]">Dipakai untuk menghitung biaya energi per siklus di lahan ini.</p>
+                    <p className="mt-1 font-inter text-sm text-[#666]">Untuk menghitung biaya listrik.</p>
                 </div>
                 <div className="flex items-center gap-2">
                     {isDirty && (

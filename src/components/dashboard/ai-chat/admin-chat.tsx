@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Swal from "sweetalert2";
-import { MessageSquare, X, Send, LoaderCircle, Bot, User, Trash2 } from "lucide-react";
+import { MessageSquare, X, Send, LoaderCircle, Bot, User, History } from "lucide-react";
 import type { ChatMessage } from "@/lib/admin-chat-api";
 import { readData, writeData } from "@/lib/broiler-api";
 import { useActiveCycle } from "@/lib/broiler-queries";
@@ -59,7 +59,7 @@ export default function AdminChat() {
         // Sapaan selalu di urutan pertama — pertanyaan dari tombol "Tanya Copilot" bisa masuk lebih dulu.
         setMessages((prev) => prev[0]?.role === "assistant" ? prev : [{
             role: "assistant",
-            content: "Petunjuk Copilot: pilih kandang dan sumber data, lalu ajukan pertanyaan. Jawaban AI tersedia jika Gemini siap. Tombol di kanan atas membuka riwayat pribadi atau percakapan baru.",
+            content: "Halo! Tanyakan apa saja tentang kandang Anda.",
             timestamp: new Date().toISOString(),
         }, ...prev]);
     }, [open, conversationKey]);
@@ -250,17 +250,18 @@ export default function AdminChat() {
                                     Copilot Coasther
                                 </p>
                                 <p className="font-inter text-xs text-white/70">
-                                    {focusRoom ? `Fokus: Kandang ${focusRoom.code} · ${b.source === "simulation" ? "SIMULASI" : "REAL"}` : "Pilih kandang dulu"}
+                                    {focusRoom ? `Fokus: Kandang ${focusRoom.code}${b.source === "simulation" ? " · SIMULASI" : ""}` : "Pilih kandang dulu"}
                                 </p>
                             </div>
                         </div>
                         <button
                             onClick={handleClear}
                             suppressHydrationWarning
-                            title="Percakapan baru / riwayat pribadi"
+                            title="Riwayat percakapan & percakapan baru"
+                            aria-label="Buka riwayat percakapan atau mulai percakapan baru"
                             className="rounded-xl p-1.5 text-white/70 transition hover:bg-white/10 hover:text-white"
                         >
-                            <Trash2 size={15} />
+                            <History size={15} />
                         </button>
                     </div>
 

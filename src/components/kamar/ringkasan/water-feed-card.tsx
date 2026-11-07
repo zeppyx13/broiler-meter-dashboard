@@ -10,17 +10,17 @@ const STATUS: Record<WaterFeedStatus, { chip: string; label: string; advice: str
     rendah: {
         chip: "bg-[#FFF4E5] text-[#B76E00]",
         label: "Di bawah normal",
-        advice: "Ayam minum lebih sedikit dari biasanya terhadap pakannya. Cek tekanan & sumbatan nipple/tempat minum, lalu amati ayam yang lesu — ini sering tanda awal sakit.",
+        advice: "Minum lebih sedikit dari biasanya. Cek nipple dan amati ayam yang lesu.",
     },
     normal: {
         chip: "bg-green-50 text-green-700",
         label: "Normal",
-        advice: "Perbandingan minum dan makan sesuai acuan. Tetap catat pakan setiap hari agar tren terpantau.",
+        advice: "Minum dan makan seimbang.",
     },
     tinggi: {
         chip: "bg-[#FFF4E5] text-[#B76E00]",
         label: "Di atas normal",
-        advice: "Minum jauh lebih banyak dari pakannya. Kemungkinan cekaman panas, kebocoran pipa/nipple, atau pakan tidak termakan — cek suhu siang hari dan jalur air.",
+        advice: "Minum jauh lebih banyak. Cek suhu siang dan kebocoran pipa.",
     },
 };
 
@@ -52,7 +52,7 @@ export default function WaterFeedCard({ records, dailyWater }: { records: DailyR
 
             {series.length < 2 ? (
                 <p className="mt-4 rounded-2xl bg-[#FAFAFA] px-4 py-6 text-center font-inter text-sm text-[#999]">
-                    Isi <span className="font-medium text-[#555]">pakan terpakai (kg)</span> di catatan harian. Rasio dihitung dari pemakaian air harian alat ÷ pakan hari itu.
+                    Isi <span className="font-medium text-[#555]">pakan terpakai (kg)</span> di Catat Harian untuk melihat rasio air : pakan.
                 </p>
             ) : (
                 <>
@@ -80,7 +80,7 @@ export default function WaterFeedCard({ records, dailyWater }: { records: DailyR
                         </ResponsiveContainer>
                     </div>
                     {status && <p className="mt-2 font-inter text-xs text-[#555]">{STATUS[status].advice}</p>}
-                    <p className="mt-1 font-inter text-[11px] text-[#AAA]">Pita hijau = rentang normal (acuan: Williams et al., 2013; Aviagen, 2018). Air harian dari meter alat, pakan dari catatan harian.</p>
+                    <p className="mt-1 font-inter text-[11px] text-[#AAA]">Pita hijau: rentang normal.</p>
                 </>
             )}
         </SectionCard>

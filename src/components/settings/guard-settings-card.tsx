@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Swal from "sweetalert2";
-import { BellRing, ShieldAlert } from "lucide-react";
 import { getGuardSettings, setGuardSettings, type GuardSettings } from "@/lib/guard-settings";
 import { notificationSupported, playAlertSound, showAlertNotification } from "@/lib/alert-notify";
 import { allPages, writeData } from "@/lib/broiler-api";
@@ -20,13 +19,13 @@ const emptyForm = (): RuleForm => ({ waterMax: "", waterRecovery: "", noFlowMax:
 
 const GROUPS: { title: string; fields: { key: NumberKey; label: string; suffix: string }[] }[] = [
     {
-        title: "Aliran inlet tandon di atas ambang",
+        title: "Aliran air terlalu tinggi",
         fields: [
             { key: "waterMax", label: "Ambang atas", suffix: "L/mnt" },
             { key: "waterRecovery", label: "Pemulihan", suffix: "L/mnt" },
         ],
     },
-    { title: "Aliran inlet minimum (perlu konteks pengisian)", fields: [{ key: "noFlowMax", label: "Ambang", suffix: "L/mnt" }] },
+    { title: "Aliran air minimum", fields: [{ key: "noFlowMax", label: "Ambang", suffix: "L/mnt" }] },
     {
         title: "Daya panel di bawah ambang",
         fields: [
@@ -56,7 +55,7 @@ function validate(s: RuleForm): string | null {
     if (s.voltageMin && !(Number(s.voltageMin) > 0 && Number(s.voltageMin) < Number(s.voltageMax))) return "Tegangan minimum harus positif dan lebih kecil dari maksimum.";
     if ((s.waterEnabled && !s.waterMax) || (s.powerEnabled && !s.powerMin) || (s.offlineEnabled && !s.offlineMinutes) || (s.voltageEnabled && !s.voltageMin)) return "Aktivasi aturan memerlukan parameter ambang yang lengkap.";
     if ((s.noFlowEnabled || s.contextNote || s.expectedFlowUntil) && s.noFlowMax === "") return "Isi ambang no-flow sebelum mengatur konteks pengisian.";
-    if (s.noFlowEnabled && (!s.noFlowMax || s.contextNote.trim().length < 8 || !Number.isFinite(Date.parse(s.expectedFlowUntil)) || Date.parse(s.expectedFlowUntil) <= Date.now() || Date.parse(s.expectedFlowUntil) > Date.now() + 86400000)) return "Aktivasi no-flow memerlukan ambang, alasan minimal 8 karakter, dan expiry dalam 24 jam ke depan.";
+    if (s.noFlowEnabled && (!s.noFlowMax || s.contextNote.trim().length < 8 || !Number.isFinite(Date.parse(s.expectedFlowUntil)) || Date.parse(s.expectedFlowUntil) <= Date.now() || Date.parse(s.expectedFlowUntil) > Date.now() + 86400000)) return "Isi ambang, alasan (min. 8 karakter), dan batas waktu ≤ 24 jam.";
     return null;
 }
 
@@ -119,7 +118,7 @@ export default function GuardSettingsCard() {
     function handleTest() {
         showAlertNotification({
             key: "test", roomId: 0, tier: "kritis", roomNumber: "Contoh",
-            title: "Pratinjau notifikasi browser", action: "Contoh tampilan; bukan bukti pengiriman alert atau kondisi perangkat.",
+            title: "Pratinjau notifikasi browser", action: "Contoh tampilan notifikasi.",
         });
         if (form.notifySound) playAlertSound();
     }
@@ -152,37 +151,28 @@ export default function GuardSettingsCard() {
             await saveRule("voltage_abnormal", ["voltageMin", "voltageMax"], { min_voltage_v: min, max_voltage_v: max, recovery_min_voltage_v: validRecovery ? recoveryMin : min + band * 0.2, recovery_max_voltage_v: validRecovery ? recoveryMax : max - band * 0.2 });
             persist(form);
             await b.refresh();
-            await Swal.fire({ icon: "success", title: "Pengaturan tersimpan", text: "Aturan tersimpan di server; preferensi bunyi/browser hanya di browser ini. Aktivasi no-flow mengikuti konfirmasi konteks dan expiry yang Anda isi.", confirmButtonColor: "#7B1113" });
+            await Swal.fire({ icon: "success", title: "Pengaturan tersimpan", text: "Ambang Guard disimpan di server.", confirmButtonColor: "#7B1113" });
         } catch (err) {
             await b.refresh();
-            await Swal.fire({ icon: "error", title: "Pengaturan belum lengkap", text: `${apiErrorMessage(err)} Sebagian perubahan sebelumnya mungkin sudah tersimpan; nilai server dimuat ulang.`, confirmButtonColor: "#7B1113" });
+            await Swal.fire({ icon: "error", title: "Pengaturan belum lengkap", text: `${apiErrorMessage(err)}`, confirmButtonColor: "#7B1113" });
         } finally { inFlight.current = false; setSaving(false); }
     }
 
     return (
         <div className="rounded-3xl border border-[#EAEAEA] bg-white p-6 sm:p-8">
-            <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#7B1113]/10">
-                    <ShieldAlert size={20} className="text-[#7B1113]" />
-                </div>
-                <div>
-                    <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">Guard & Notifikasi</h3>
-                    <p className="mt-1 font-inter text-sm text-[#666]">Aturan backend untuk kandang terpilih; nilai kosong belum dikonfigurasi. Air adalah inlet tandon, daya adalah panel agregat.</p>
-                </div>
-            </div>
+            <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">Guard & Notifikasi</h3>
+            <p className="mt-1 font-inter text-sm text-[#666]">Ambang peringatan untuk kandang terpilih.</p>
 
             {/* Notifikasi */}
             <div className="mt-6 space-y-3 rounded-2xl border border-[#F0F0F0] bg-[#FAFAFA] p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-start gap-2">
-                        <BellRing size={18} className="mt-0.5 text-[#7B1113]" />
                         <div>
                             <p className="font-inter text-sm font-medium text-[#2F2F2F]">Notifikasi browser</p>
                             <p className="font-inter text-xs text-[#999]">
                                 {permission === "unsupported" && "Browser ini tidak mendukung notifikasi."}
-                                {permission === "denied" && "Diblokir browser. Izinkan notifikasi untuk situs ini di pengaturan browser."}
-                                {permission === "default" && "Muncul di layar untuk peringatan waspada & kritis baru selama dashboard terbuka."}
-                                {permission === "granted" && "Muncul di layar untuk peringatan waspada & kritis baru selama dashboard terbuka."}
+                                {permission === "denied" && "Diblokir. Izinkan di pengaturan browser."}
+                                {(permission === "default" || permission === "granted") && "Untuk peringatan waspada & kritis."}
                             </p>
                         </div>
                     </div>
@@ -196,13 +186,13 @@ export default function GuardSettingsCard() {
                     )}
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                    <div className="pl-6">
+                    <div>
                         <p className="font-inter text-sm font-medium text-[#2F2F2F]">Bunyi untuk peringatan kritis</p>
                         <p className="font-inter text-xs text-[#999]">Tiga bunyi pendek saat ada peringatan kritis baru.</p>
                     </div>
                     <Toggle checked={form.notifySound} onChange={(v) => setForm({ ...form, notifySound: v })} label="Bunyi" />
                 </div>
-                <button onClick={handleTest} suppressHydrationWarning className="ml-6 font-inter text-sm font-semibold text-[#7B1113] hover:underline">
+                <button onClick={handleTest} suppressHydrationWarning className="font-inter text-sm font-semibold text-[#7B1113] hover:underline">
                     Tes notifikasi
                 </button>
             </div>
@@ -234,7 +224,7 @@ export default function GuardSettingsCard() {
                                 </label>
                             ))}
                         </div>
-                        {group.fields.some((field) => field.key === "noFlowMax") && <details className="mt-3 font-inter text-xs text-[#777]"><summary className="cursor-pointer font-medium text-[#7B1113]">Konteks dan aktivasi no-flow</summary><fieldset disabled={!b.canManage || rules.isPending || rules.isError || saving} className="mt-3 space-y-3"><label className="flex items-center gap-2"><input type="checkbox" checked={form.noFlowEnabled} onChange={(event) => setForm({ ...form, noFlowEnabled: event.target.checked })} />Aliran inlet memang diharapkan; aktifkan aturan</label><label className="block">Berlaku sampai (waktu browser, maksimal 24 jam)<input type="datetime-local" value={form.expectedFlowUntil} onChange={(event) => setForm({ ...form, expectedFlowUntil: event.target.value })} className="mt-1 w-full rounded-xl border border-[#E5E5E5] bg-white px-3 py-2 outline-none focus:border-[#7B1113]" /></label><label className="block">Alasan pengisian (minimal 8 karakter)<input value={form.contextNote} maxLength={255} onChange={(event) => setForm({ ...form, contextNote: event.target.value })} className="mt-1 w-full rounded-xl border border-[#E5E5E5] bg-white px-3 py-2 outline-none focus:border-[#7B1113]" /></label></fieldset></details>}
+                        {group.fields.some((field) => field.key === "noFlowMax") && <details className="mt-3 font-inter text-xs text-[#777]"><summary className="cursor-pointer font-medium text-[#7B1113]">Aktifkan aturan aliran minimum</summary><fieldset disabled={!b.canManage || rules.isPending || rules.isError || saving} className="mt-3 space-y-3"><label className="flex items-center gap-2"><input type="checkbox" checked={form.noFlowEnabled} onChange={(event) => setForm({ ...form, noFlowEnabled: event.target.checked })} />Aliran inlet memang diharapkan; aktifkan aturan</label><label className="block">Berlaku sampai (waktu browser, maksimal 24 jam)<input type="datetime-local" value={form.expectedFlowUntil} onChange={(event) => setForm({ ...form, expectedFlowUntil: event.target.value })} className="mt-1 w-full rounded-xl border border-[#E5E5E5] bg-white px-3 py-2 outline-none focus:border-[#7B1113]" /></label><label className="block">Alasan pengisian (minimal 8 karakter)<input value={form.contextNote} maxLength={255} onChange={(event) => setForm({ ...form, contextNote: event.target.value })} className="mt-1 w-full rounded-xl border border-[#E5E5E5] bg-white px-3 py-2 outline-none focus:border-[#7B1113]" /></label></fieldset></details>}
                     </div>
                 ))}
             </div>

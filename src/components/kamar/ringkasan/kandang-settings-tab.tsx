@@ -18,7 +18,7 @@ export default function KandangSettingsTab({ data, onEditRoom }: { data: Kandang
     async function handleDelete() {
         const result = await Swal.fire({
             title: `Nonaktifkan Kandang ${room!.number}?`,
-            text: "Kandang disembunyikan dari daftar. Riwayat siklus, sensor, dan peringatan tetap tersimpan di server.",
+            text: "Kandang disembunyikan. Riwayatnya tetap tersimpan.",
             icon: "warning",
             showCancelButton: true,
             confirmButtonText: "Ya, nonaktifkan",

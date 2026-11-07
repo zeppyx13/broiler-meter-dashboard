@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { LoaderCircle, User } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import Swal from "sweetalert2";
 import { writeData } from "@/lib/broiler-api";
 import { useBroiler } from "@/components/broiler/broiler-provider";
@@ -57,18 +57,13 @@ export default function PeternakProfileCard() {
     return (
         <div className="rounded-3xl border border-[#EAEAEA] bg-white p-6 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
             <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7B1113]/10">
-                    <User size={20} className="text-[#7B1113]" />
-                </div>
                 <div>
-                    <p className="font-inter text-sm text-[#666]">Akun Peternak</p>
                     <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">Profil Peternak</h3>
                 </div>
             </div>
 
             <p className="mt-3 font-inter text-xs text-[#999]">
-                Data akun yang sedang login. Akses ke lahan dan kandang diatur pemilik lahan di bagian Lahan &amp; Tim.
-                {user?.id != null && <> ID akun Anda: <span className="font-semibold text-[#555]">{user.id}</span> (dipakai saat ditambahkan ke tim).</>}
+                {user?.id != null && <>ID akun: <span className="font-semibold text-[#555]">{user.id}</span></>}
             </p>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">

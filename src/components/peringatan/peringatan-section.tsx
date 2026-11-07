@@ -90,10 +90,10 @@ export default function PeringatanSection() {
                 <div className="flex flex-col gap-3 rounded-3xl border border-[#EAEAEA] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="flex items-start gap-2 font-inter text-sm text-[#555]">
                         <BellOff size={16} className="mt-0.5 shrink-0 text-[#999]" />
-                        Guard tetap berjalan di server walau browser ditutup. Aktifkan notifikasi browser agar peringatan baru langsung muncul saat dashboard terbuka.
+                        Notifikasi browser belum aktif.
                     </p>
                     <Link href="/dashboard/settings" className="shrink-0 font-inter text-sm font-semibold text-[#7B1113] hover:underline">
-                        Aktifkan di Pengaturan
+                        Aktifkan
                     </Link>
                 </div>
             )}
@@ -141,7 +141,7 @@ export default function PeringatanSection() {
                 <div className="flex flex-col items-center gap-2 rounded-3xl border border-[#EAEAEA] bg-white px-6 py-14 text-center">
                     <ShieldCheck size={28} className="text-green-600" />
                     <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Tidak ada peringatan tercatat</p>
-                    <p className="font-inter text-sm text-[#999]">Ini belum membuktikan kondisi fisik kandang aman atau seluruh data tersedia.</p>
+                    <p className="font-inter text-sm text-[#999]">Semua kandang terpantau normal.</p>
                 </div>
             ) : (
                 <div className="space-y-3">
@@ -159,7 +159,6 @@ export default function PeringatanSection() {
             {tab === "riwayat" && (
                 <>
                     <KejadianTimeline key={`${b.user?.id}:${b.source}`} active={active} history={history} sinceMs={sinceMs} notifications={[...new Map((inbox.data?.pages.flatMap((page) => page.notifications) ?? []).map((entry) => [entry.id, entry])).values()]} unread={inbox.data?.pages[0]?.unread_count} onRead={(id) => { void run(async () => { await writeData("patch", `/api/notifications/${id}/read`, {}); await b.refresh(); }); }} onReadAll={() => { void run(async () => { await writeData("patch", "/api/notifications/read-all", {}); await b.refresh(); }); }} moreInbox={inbox.hasNextPage} loadingInbox={inbox.isFetching} inboxError={actionError ?? (inbox.error ? apiErrorMessage(inbox.error) : null)} loadMoreInbox={() => { void inbox.fetchNextPage(); }} />
-                    <p className="font-inter text-xs text-[#999]">Riwayat dan inbox akun disimpan di server sebagai audit. Provenance REAL/SIM setiap notifikasi dipertahankan.</p>
                 </>
             )}
         </div>

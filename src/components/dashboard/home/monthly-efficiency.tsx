@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { BarChart3, TrendingDown, TrendingUp } from "lucide-react";
+import { TrendingDown, TrendingUp } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
 import { formatRupiah } from "@/lib/broiler-reference";
 import { readData, metric as formatMetric, type DailyMetric } from "@/lib/broiler-api";
@@ -36,8 +36,8 @@ const METRICS: Record<MetricKey, { tab: string; title: string; format: (v: numbe
 };
 
 type Props = {
-    /** Kandang yang dijumlahkan (lahan terpilih di Beranda). */
-    coopIds: number[];
+    /** Kandang yang dijumlahkan; default semua kandang di lahan terpilih. */
+    coopIds?: number[];
 };
 
 const MONTHS = 6;
@@ -73,10 +73,11 @@ function combineMonths(rows: MonthRow[][], today: string): MonthlyEfficiency[] {
     return out;
 }
 
-/** Grafik efisiensi umum per bulan (semua kandang) untuk Beranda. */
-export default function MonthlyEfficiencyChart({ coopIds }: Props) {
+/** Grafik efisiensi umum per bulan (semua kandang). */
+export default function MonthlyEfficiencyChart({ coopIds: coopIdsProp }: Props) {
     const [metric, setMetric] = useState<MetricKey>("energyCost");
     const b = useBroiler();
+    const coopIds = coopIdsProp ?? b.coops.map((c) => c.id);
     const monthly = useQueries({
         queries: coopIds.map((id) => ({
             queryKey: ["broiler", b.user?.id, id, "monthly", b.source],
@@ -113,7 +114,6 @@ export default function MonthlyEfficiencyChart({ coopIds }: Props) {
         <section className="rounded-3xl border border-[#EAEAEA] bg-white p-5 sm:p-6" aria-labelledby="monthly-eff-title">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
-                    <BarChart3 size={20} className="mt-0.5 shrink-0 text-[#7B1113]" />
                     <div>
                         <h3 id="monthly-eff-title" className="font-poppins text-base font-semibold text-[#2F2F2F]">Efisiensi bulanan</h3>
                         <p className="font-inter text-xs text-[#999]">Semua kandang · 6 bulan terakhir</p>
@@ -137,7 +137,7 @@ export default function MonthlyEfficiencyChart({ coopIds }: Props) {
 
             {!hasData ? (
                 <p className="mt-5 rounded-2xl bg-[#FAFAFA] px-4 py-10 text-center font-inter text-sm text-[#999]">
-                    {monthly.some((query) => query.isError) ? "Sebagian laporan bulanan belum dapat dimuat dari server." : monthly.some((query) => query.isPending) ? "Memuat bukti laporan bulanan…" : "Belum ada data konsumsi. Grafik terisi setelah siklus berjalan dan alat mencatat angka meter."}
+                    {monthly.some((query) => query.isError) ? "Sebagian data bulanan gagal dimuat." : monthly.some((query) => query.isPending) ? "Memuat…" : "Belum ada data."}
                 </p>
             ) : (
                 <>
@@ -182,7 +182,7 @@ export default function MonthlyEfficiencyChart({ coopIds }: Props) {
                     </div>
 
                     <p className="mt-2 font-inter text-[11px] text-[#AAA]">
-                        {b.source === "simulation" ? "SIMULASI BACKEND" : "REAL"} · Bucket harian accepted dari server; bulan tanpa bukti tetap kosong. Per ekor memakai bird-days yang tersedia. Cakupan sampel belum terverifikasi.
+                        {b.source === "simulation" ? "SIMULASI · " : ""}Bulan tanpa data dibiarkan kosong.
                     </p>
                 </>
             )}

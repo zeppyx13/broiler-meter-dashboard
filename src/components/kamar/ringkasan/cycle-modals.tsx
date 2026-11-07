@@ -250,7 +250,7 @@ export function CycleCloseModal({ open, onClose, data, onSaved }: CloseProps) {
                 />
             </Field>
             <p className="rounded-2xl bg-[#F8F8F8] px-4 py-3 font-inter text-xs text-[#777]">
-                Siklus ditutup dan total air & listrik siklus dihitung server dari data sensor untuk laporan.
+                Siklus ditutup.
             </p>
         </ModalShell>
     );

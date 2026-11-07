@@ -32,13 +32,8 @@ export default function EfficiencyReportGenerator() {
             `}</style>
 
             <div className="no-print rounded-3xl border border-[#EAEAEA] bg-white p-6">
-                <div className="flex items-center gap-2">
-                    <FileText size={18} className="text-[#7B1113]" />
-                    <h3 className="font-poppins text-base font-semibold text-[#2F2F2F]">Laporan Efisiensi Kandang</h3>
-                </div>
-                <p className="mt-1 font-inter text-xs text-[#999]">
-                    Ringkasan efisiensi air, listrik, dan biaya energi siklus berjalan, siap dicetak atau disimpan sebagai PDF.
-                </p>
+                <h3 className="font-poppins text-base font-semibold text-[#2F2F2F]">Cetak laporan kandang</h3>
+                <p className="mt-1 font-inter text-xs text-[#999]">Air, listrik, dan biaya siklus berjalan (PDF).</p>
 
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                     <select
@@ -90,7 +85,7 @@ function EfficiencyReport({ roomId }: { roomId: number }) {
                         Kandang {room.number}
                     </h2>
                     <p className="mt-1 font-inter text-xs text-[#999]">
-                        Dicetak {new Date().toLocaleString("id-ID", { timeZone: data.timezone, day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · {source === "simulation" ? "SIMULASI BACKEND" : "REAL"} · {data.timezone}
+                        Dicetak {new Date().toLocaleString("id-ID", { timeZone: data.timezone, day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · {source === "simulation" ? "SIMULASI BACKEND · " : ""}{data.timezone}
                     </p>
                 </div>
                 <button
@@ -104,7 +99,7 @@ function EfficiencyReport({ roomId }: { roomId: number }) {
 
             {!activeCycle || !cycle ? (
                 <p className="mt-6 rounded-2xl bg-[#FFF8EC] px-4 py-3 font-inter text-sm text-[#9A6B14]">
-                    Kandang ini sedang istirahat. Laporan efisiensi tersedia saat ada siklus berjalan.
+                    Kandang sedang istirahat.
                 </p>
             ) : (
                 <>
@@ -167,8 +162,7 @@ function EfficiencyReport({ roomId }: { roomId: number }) {
                     </div>
 
                     <p className="mt-5 font-inter text-[11px] text-[#AAA]">
-                                Konsumsi siklus memakai interval accepted server sejak {cycleUsage ? cycleUsage.since.toLocaleDateString("id-ID", { timeZone: data.timezone, day: "2-digit", month: "long", year: "numeric" }) : "—"}.
-                        Air adalah inlet tandon; listrik agregat panel. Forecast hanya hari mendatang dan confidence rendah; coverage dapat partial.
+                                Data siklus sejak {cycleUsage ? cycleUsage.since.toLocaleDateString("id-ID", { timeZone: data.timezone, day: "2-digit", month: "long", year: "numeric" }) : "—"}. Air dari inlet tandon, listrik dari panel kandang.
                     </p>
                 </>
             )}

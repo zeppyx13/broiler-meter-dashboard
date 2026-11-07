@@ -6,7 +6,6 @@ import { useKandangSnapshots, type KandangSnapshot } from "@/lib/kandang-snapsho
 import { useBroiler } from "@/components/broiler/broiler-provider";
 import { ALERT_TIER_ORDER, type AlertTier } from "@/lib/kandang-insights";
 import { formatRupiah } from "@/lib/broiler-reference";
-import MonthlyEfficiencyChart from "./monthly-efficiency";
 
 type Status = AlertTier | "normal" | "unknown";
 
@@ -72,7 +71,9 @@ export default function BerandaOverview() {
     const powerNow = subtotal(snapshots.map((s) => s.insights.actualPowerKw));
     const onlineCount = subtotal(snapshots.map((s) => s.onlineDeviceCount));
     const deviceCount = subtotal(snapshots.map((s) => s.deviceCount));
-    const provenance = source === "simulation" ? "SIMULASI BACKEND" : "REAL";
+    // Label sumber hanya ditampilkan untuk data simulasi; data sensor nyata tidak diberi label.
+    const provenance = source === "simulation" ? "SIMULASI BACKEND" : "";
+    const withSource = (text: string) => (provenance ? `${provenance} · ${text}` : text);
 
     const headline = counts.kritis > 0
         ? { text: `${counts.kritis} kandang butuh tindakan segera`, tone: "text-[#B42318]", icon: <ShieldAlert size={22} className="text-[#B42318]" /> }
@@ -81,7 +82,7 @@ export default function BerandaOverview() {
             : unknownCount > 0 || active.some((s) => worstStatus(s) === "unknown")
                 ? { text: "Sebagian status kandang belum tersedia", tone: "text-[#B76E00]", icon: <ShieldAlert size={22} className="text-[#B76E00]" /> }
                 : active.length > 0
-                    ? { text: "Tidak ada peringatan kritis/waspada pada Guard", tone: "text-green-700", icon: <ShieldCheck size={22} className="text-green-600" /> }
+                    ? { text: "Semua kandang normal", tone: "text-green-700", icon: <ShieldCheck size={22} className="text-green-600" /> }
                     : { text: "Belum ada siklus berjalan", tone: "text-[#2F2F2F]", icon: <Sprout size={22} className="text-[#7B1113]" /> };
 
     return (
@@ -93,7 +94,7 @@ export default function BerandaOverview() {
                     <div className="min-w-0 flex-1">
                         <h2 className={`font-poppins text-xl font-bold sm:text-2xl ${headline.tone}`}>{headline.text}</h2>
                         <p className="mt-1 font-inter text-sm text-[#777]">
-                            {active.length} kandang aktif · {resting.length} istirahat · {provenance}{unknownCount > 0 ? ` · ${unknownCount} data/Guard belum tersedia` : ""}
+                            {active.length} kandang aktif · {resting.length} istirahat{provenance ? ` · ${provenance}` : ""}{unknownCount > 0 ? ` · ${unknownCount} belum ada data` : ""}
                             {lastUpdate && ` · data alat ${new Date(lastUpdate).toLocaleTimeString("id-ID", { timeZone: timezone, hour: "2-digit", minute: "2-digit" })}`}
                         </p>
                     </div>
@@ -107,14 +108,12 @@ export default function BerandaOverview() {
                 )}
             </div>
 
-            <MonthlyEfficiencyChart coopIds={snapshots.map((s) => s.room.id)} />
-
             {/* Total hari ini */}
             <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-                <Kpi icon={<Droplets size={16} className="text-blue-500" />} label="Air inlet hari ini" value={waterToday.value == null ? "—" : `${waterToday.value.toLocaleString("id-ID", { maximumFractionDigits: 0 })} L`} sub={`${provenance} · ${waterToday.value == null ? "Belum ada data" : waterToday.partial ? "Data parsial kandang aktif" : "Semua kandang aktif"}`} />
-                <Kpi icon={<Zap size={16} className="text-amber-500" />} label="Daya sekarang" value={powerNow.value == null ? "—" : `${powerNow.value.toFixed(2)} kW`} sub={`${provenance} · ${powerNow.value == null ? "Belum ada data" : powerNow.partial ? "Data panel parsial" : "Total panel teramati"}`} />
-                <Kpi icon={<Wallet size={16} className="text-[#7B1113]" />} label="Energi hari ini" value={energyToday.value == null ? "—" : `${energyToday.value.toFixed(1)} kWh`} sub={`${provenance} · ${energyCost.value == null ? "Biaya belum tersedia" : `≈ ${formatRupiah(energyCost.value)}`}${energyToday.partial || energyCost.partial ? " · parsial" : ""}`} />
-                <Kpi icon={<Wifi size={16} className="text-green-600" />} label="Perangkat online" value={onlineCount.value == null || deviceCount.value == null ? "—" : `${onlineCount.value} / ${deviceCount.value}`} sub={deviceCount.value == null ? "Heartbeat REAL belum tersedia" : deviceCount.value === 0 ? "Belum ada perangkat terdaftar" : `Heartbeat REAL${onlineCount.partial ? " · data parsial" : ""}`} />
+                <Kpi icon={<Droplets size={16} className="text-blue-500" />} label="Air inlet hari ini" value={waterToday.value == null ? "—" : `${waterToday.value.toLocaleString("id-ID", { maximumFractionDigits: 0 })} L`} sub={withSource(waterToday.value == null ? "Belum ada data" : waterToday.partial ? "Data parsial kandang aktif" : "Semua kandang aktif")} />
+                <Kpi icon={<Zap size={16} className="text-amber-500" />} label="Daya sekarang" value={powerNow.value == null ? "—" : `${powerNow.value.toFixed(2)} kW`} sub={withSource(powerNow.value == null ? "Belum ada data" : powerNow.partial ? "Data panel parsial" : "Total panel teramati")} />
+                <Kpi icon={<Wallet size={16} className="text-[#7B1113]" />} label="Energi hari ini" value={energyToday.value == null ? "—" : `${energyToday.value.toFixed(1)} kWh`} sub={withSource(`${energyCost.value == null ? "Biaya belum tersedia" : `≈ ${formatRupiah(energyCost.value)}`}${energyToday.partial || energyCost.partial ? " · parsial" : ""}`)} />
+                <Kpi icon={<Wifi size={16} className="text-green-600" />} label="Perangkat online" value={onlineCount.value == null || deviceCount.value == null ? "—" : `${onlineCount.value} / ${deviceCount.value}`} sub={deviceCount.value == null ? "Heartbeat belum tersedia" : deviceCount.value === 0 ? "Belum ada perangkat terdaftar" : `Heartbeat perangkat${onlineCount.partial ? " · data parsial" : ""}`} />
             </div>
 
             {/* Kandang aktif */}
@@ -134,7 +133,7 @@ export default function BerandaOverview() {
                             </>
                         ) : (
                             <>
-                                <p className="font-inter text-sm text-[#777]">{unknownCount > 0 ? "Status siklus belum dapat dimuat untuk sebagian kandang." : "Belum ada siklus berjalan. Mulai siklus saat DOC masuk (chick-in)."}</p>
+                                <p className="font-inter text-sm text-[#777]">{unknownCount > 0 ? "Sebagian data kandang gagal dimuat." : "Belum ada siklus berjalan."}</p>
                                 <Link href={`/dashboard/kamar/${snapshots[0].room.id}`} className="mt-3 inline-flex items-center gap-1.5 rounded-2xl bg-[#7B1113] px-5 py-2.5 font-poppins text-sm font-semibold text-[#C6A971] transition hover:opacity-90">
                                     <Sprout size={15} /> Mulai siklus di Kandang {snapshots[0].room.number}
                                 </Link>
@@ -190,7 +189,7 @@ function KandangCard({ snapshot: s }: { snapshot: KandangSnapshot }) {
             <div className="flex items-start justify-between gap-2">
                 <div>
                     <p className="font-poppins text-base font-bold text-[#2F2F2F]">Kandang {s.room.number}</p>
-                    <p className="font-inter text-xs text-[#999]">Hari ke-{s.ageDays} dari {s.harvestTargetDays}{s.source === "simulation" ? " · SIMULASI" : " · REAL"}</p>
+                    <p className="font-inter text-xs text-[#999]">Hari ke-{s.ageDays} dari {s.harvestTargetDays}{s.source === "simulation" ? " · SIMULASI" : ""}</p>
                 </div>
                 <span className={`rounded-full px-2.5 py-1 font-inter text-xs font-semibold ${style.pill}`}>{style.label}</span>
             </div>
@@ -215,7 +214,7 @@ function KandangCard({ snapshot: s }: { snapshot: KandangSnapshot }) {
 
             <div className="mt-4 flex items-center justify-between gap-2 border-t border-[#F0F0F0] pt-3">
                 <p className={`min-w-0 truncate font-inter text-xs ${topAlert ? "font-medium text-[#2F2F2F]" : "text-[#999]"}`}>
-                    {topAlert ? topAlert.title : !s.guardAvailable ? "Evaluasi Guard belum tersedia" : s.telemetryAvailable ? "Tidak ada peringatan aktif" : "Menunggu data pembacaan"}
+                    {topAlert ? topAlert.title : !s.guardAvailable ? "Belum ada data" : s.telemetryAvailable ? "Tidak ada peringatan" : "Menunggu data alat"}
                 </p>
                 <span className={`flex shrink-0 items-center gap-1 font-inter text-xs ${s.online ? "text-green-700" : "text-[#999]"}`}>
                     {s.online ? <Wifi size={12} /> : <WifiOff size={12} />}

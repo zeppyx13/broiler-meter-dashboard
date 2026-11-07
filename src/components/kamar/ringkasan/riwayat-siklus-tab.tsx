@@ -80,7 +80,7 @@ export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
                     <History size={28} className="text-[#C6A971]" />
                     <p className="font-poppins text-sm font-semibold text-[#2F2F2F]">Belum ada riwayat siklus</p>
                     <p className="max-w-sm font-inter text-xs text-[#999]">
-                        Setelah siklus pertama ditutup (panen), kinerjanya muncul di sini dan bisa dibandingkan dengan siklus berikutnya.
+                        Belum ada siklus yang selesai.
                     </p>
                 </div>
             </SectionCard>
@@ -109,7 +109,7 @@ export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
                     </div>
                     <button
                         onClick={() => {
-                            setPrintedAt(`${new Date().toLocaleString("id-ID", { timeZone: data.timezone })} · ${b.source === "simulation" ? "SIMULASI BACKEND" : "REAL"} · zona ${data.timezone}`);
+                            setPrintedAt(`${new Date().toLocaleString("id-ID", { timeZone: data.timezone })} · ${b.source === "simulation" ? "SIMULASI BACKEND · " : ""}zona ${data.timezone}`);
                             setTimeout(() => window.print(), 0);
                         }}
                         suppressHydrationWarning
@@ -181,7 +181,7 @@ export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
                                     </p>
                                     {(r.fcr == null || r.ip == null) && (
                                         <p className="mt-2 font-inter text-xs text-[#9A6B14]">
-                                            FCR dan IP butuh pakan (kg) dan bobot rata-rata di Catat Harian, serta populasi awal saat chick-in.
+                                            FCR dan IP perlu data pakan dan bobot di Catat Harian.
                                         </p>
                                     )}
                                 </div>

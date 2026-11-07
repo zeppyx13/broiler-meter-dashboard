@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import Swal from "sweetalert2";
-import { MapPin, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import { allPages, readData, writeData, type Farm } from "@/lib/broiler-api";
 import { apiErrorMessage } from "@/lib/api-error";
 import { useBroiler } from "@/components/broiler/broiler-provider";
@@ -45,13 +45,10 @@ export default function LahanTeamCard() {
         <div className="rounded-3xl border border-[#EAEAEA] bg-white p-6 sm:p-8">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#7B1113]/10">
-                        <Users size={20} className="text-[#7B1113]" />
-                    </div>
                     <div>
                         <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">Lahan &amp; Tim</h3>
                         <p className="mt-1 font-inter text-sm text-[#666]">
-                            Pemilik mengelola lahan dan admin lahan. Admin lahan menugaskan operator ke kandang (maks. {MAX_KANDANG_PER_LAHAN} kandang per lahan).
+                            Maks. {MAX_KANDANG_PER_LAHAN} kandang per lahan.
                         </p>
                     </div>
                 </div>
@@ -273,7 +270,7 @@ function FarmFormModal({ farm, onClose, onSubmit }: { farm: Farm | null; onClose
             <Field label="Lokasi">
                 <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="cth. Desa Marga, Tabanan" suppressHydrationWarning className={inputClass} />
             </Field>
-            {!farm && <p className="font-inter text-xs text-[#999]">Anda menjadi pemilik lahan baru. Tarif energi bisa diatur di kartu Tarif Energi.</p>}
+            {!farm && <p className="font-inter text-xs text-[#999]">Anda menjadi pemilik lahan ini.</p>}
         </ModalShell>
     );
 }

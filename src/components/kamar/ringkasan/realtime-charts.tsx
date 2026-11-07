@@ -71,7 +71,7 @@ export default function RealtimeCharts({ samples, expectedPowerKw, online }: Pro
                 </div>
             )}
             <p className="mt-3 font-inter text-[11px] text-[#AAA]">
-                Histori telemetri berasal dari server untuk sumber terpilih. Jeda atau nilai kosong berarti belum ada sampel accepted.
+                Bagian kosong berarti belum ada data.
             </p>
         </SectionCard>
     );

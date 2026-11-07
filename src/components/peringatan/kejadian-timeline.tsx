@@ -54,7 +54,7 @@ export default function KejadianTimeline({ active, history, sinceMs, notificatio
             </div>
 
             <div className="flex items-center justify-between gap-3">
-                <p className="font-inter text-xs text-[#999]">Inbox akun: {unread ?? "—"} belum dibaca. Latensi fisik memerlukan bukti instrumen independen.{onReadAll && <button onClick={onReadAll} className="ml-2 font-medium text-[#7B1113] hover:underline">Tandai semua dibaca</button>}{inboxError && <span role="alert"> {inboxError}</span>}</p>
+                <p className="font-inter text-xs text-[#999]">Inbox akun: {unread ?? "—"} belum dibaca.{onReadAll && <button onClick={onReadAll} className="ml-2 font-medium text-[#7B1113] hover:underline">Tandai semua dibaca</button>}{inboxError && <span role="alert"> {inboxError}</span>}</p>
                 <label className="flex shrink-0 cursor-pointer items-center gap-2 font-inter text-xs text-[#555]">
                     <input type="checkbox" checked={!onlyImportant} onChange={(e) => setOnlyImportant(!e.target.checked)} className="h-3.5 w-3.5 accent-[#7B1113]" />
                     Tampilkan info
@@ -63,7 +63,7 @@ export default function KejadianTimeline({ active, history, sinceMs, notificatio
 
             {combined.length === 0 ? (
                 <div className="rounded-3xl border border-[#EAEAEA] bg-white px-6 py-14 text-center">
-                    <p className="font-inter text-sm text-[#999]">{loadingInbox ? "Memuat inbox akun…" : `Belum ada kejadian dalam ${WINDOW_DAYS} hari terakhir atau notifikasi yang termuat.`}</p>
+                    <p className="font-inter text-sm text-[#999]">{loadingInbox ? "Memuat…" : `Belum ada kejadian dalam ${WINDOW_DAYS} hari terakhir.`}</p>
                 </div>
             ) : (
                 <div className="rounded-3xl border border-[#EAEAEA] bg-white p-5">
@@ -87,7 +87,7 @@ export default function KejadianTimeline({ active, history, sinceMs, notificatio
 }
 
 function NotificationItem({ entry, onRead }: { entry: InboxEntry; onRead?: (id: number) => void }) {
-    return <li className="relative pb-4 pl-5 last:pb-0"><span className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full bg-[#2F5BBA] ring-2 ring-white" aria-hidden /><p className="font-inter text-sm text-[#2F2F2F]"><span className="mr-1.5 font-mono text-xs text-[#999]">{clock(entry.created_at)}</span><span className="font-semibold">{entry.title}</span></p><p className="mt-1.5 font-inter text-xs text-[#555]">{entry.body}</p><div className="mt-1.5 flex flex-wrap gap-1.5 font-inter text-[11px]"><Chip>{entry.source === "simulation" ? "SIMULASI BACKEND" : "REAL"} · inbox akun</Chip>{entry.read_at ? <Chip><Check size={11} /> dibaca {clock(entry.read_at)}</Chip> : onRead && <button onClick={() => onRead(entry.id)} className="font-medium text-[#7B1113] hover:underline">Tandai dibaca</button>}</div></li>;
+    return <li className="relative pb-4 pl-5 last:pb-0"><span className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full bg-[#2F5BBA] ring-2 ring-white" aria-hidden /><p className="font-inter text-sm text-[#2F2F2F]"><span className="mr-1.5 font-mono text-xs text-[#999]">{clock(entry.created_at)}</span><span className="font-semibold">{entry.title}</span></p><p className="mt-1.5 font-inter text-xs text-[#555]">{entry.body}</p><div className="mt-1.5 flex flex-wrap gap-1.5 font-inter text-[11px]"><Chip>{entry.source === "simulation" ? "SIMULASI BACKEND · " : ""}inbox akun</Chip>{entry.read_at ? <Chip><Check size={11} /> dibaca {clock(entry.read_at)}</Chip> : onRead && <button onClick={() => onRead(entry.id)} className="font-medium text-[#7B1113] hover:underline">Tandai dibaca</button>}</div></li>;
 }
 
 function TimelineItem({ alert }: { alert: LoggedAlert }) {

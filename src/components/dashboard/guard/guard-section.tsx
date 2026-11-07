@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShieldAlert, ShieldCheck, ChevronRight } from "lucide-react";
+import { ShieldCheck, ChevronRight } from "lucide-react";
 import SectionCard from "../section-card";
 import { useGuard } from "./guard-monitor";
 import { ALERT_TIER_STYLE } from "@/components/peringatan/peringatan-section";
@@ -13,15 +13,7 @@ export default function GuardSection() {
     return (
         <SectionCard>
             <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#7B1113]/10">
-                        <ShieldAlert size={18} className="text-[#7B1113]" />
-                    </div>
-                    <div>
-                        <p className="font-inter text-sm text-[#666]">Semua kandang aktif</p>
-                        <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">Guard — Peringatan</h3>
-                    </div>
-                </div>
+                <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">Peringatan aktif</h3>
                 <Link href="/dashboard/peringatan" className="shrink-0 font-inter text-sm font-semibold text-[#7B1113] hover:underline">
                     Lihat semua
                 </Link>
@@ -30,14 +22,14 @@ export default function GuardSection() {
             <div className="mt-4 space-y-3">
                 {error ? (
                     <p className="rounded-2xl bg-red-50 p-4 font-inter text-sm text-red-700">
-                        Data kandang atau alat belum bisa dimuat. Guard berhenti sementara.
+                        Data peringatan gagal dimuat.
                     </p>
                 ) : !ready ? (
                     <div className="h-16 animate-pulse rounded-2xl bg-[#F8F8F8]" />
                 ) : shown.length === 0 ? (
                     <div className="flex items-center gap-2 rounded-2xl border border-dashed border-[#D8D8D8] bg-[#FAFAFA] p-4">
                         <ShieldCheck size={16} className="text-green-600" />
-                        <p className="font-inter text-sm text-[#777]">Tidak ada peringatan di kandang aktif.</p>
+                        <p className="font-inter text-sm text-[#777]">Tidak ada peringatan.</p>
                     </div>
                 ) : (
                     shown.map((a) => (

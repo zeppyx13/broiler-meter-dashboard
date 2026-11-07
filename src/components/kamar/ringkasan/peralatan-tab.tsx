@@ -47,7 +47,7 @@ export default function PeralatanTab({ data }: { data: KandangData }) {
     const expectedKw = items.length ? items.filter((e) => e.schedule ? (e.schedule.start <= e.schedule.end ? clock >= e.schedule.start && clock < e.schedule.end : clock >= e.schedule.start || clock < e.schedule.end) : e.active).reduce((sum, e) => sum + e.count * e.watt, 0) / 1000 : undefined;
     async function editSchedule(e: Equipment) {
         if (!canManage || saving) return;
-        const result = await Swal.fire({ title: "Jadwal deklaratif", text: `${e.name ?? TYPES[e.type].label} · zona ${data.timezone}. Mengubah perkiraan beban, tidak mengendalikan relay.`, input: "text", inputValue: e.schedule ? `${e.schedule.start}-${e.schedule.end}` : "", inputPlaceholder: "06:00-18:00", inputValidator: (value) => /^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/.test(value.trim()) ? undefined : "Gunakan HH:mm-HH:mm (24 jam).", showCancelButton: true, showDenyButton: true, confirmButtonText: "Simpan jadwal", denyButtonText: "Tanpa jadwal", cancelButtonText: "Batal", confirmButtonColor: "#7B1113" });
+        const result = await Swal.fire({ title: "Jadwal menyala", text: `${e.name ?? TYPES[e.type].label} · zona ${data.timezone}`, input: "text", inputValue: e.schedule ? `${e.schedule.start}-${e.schedule.end}` : "", inputPlaceholder: "06:00-18:00", inputValidator: (value) => /^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/.test(value.trim()) ? undefined : "Gunakan HH:mm-HH:mm (24 jam).", showCancelButton: true, showDenyButton: true, confirmButtonText: "Simpan jadwal", denyButtonText: "Tanpa jadwal", cancelButtonText: "Batal", confirmButtonColor: "#7B1113" });
         if (result.isDenied) update(e.id, { schedule: null });
         if (result.isConfirmed) { const [start, end] = String(result.value).trim().split("-"); update(e.id, { schedule: { start, end } }); }
     }
@@ -111,12 +111,12 @@ export default function PeralatanTab({ data }: { data: KandangData }) {
                     <div>
                         <p className="font-inter text-xs text-[#999]">Daya seharusnya</p>
                         <p className="mt-1 font-poppins text-2xl font-bold text-[#2F2F2F]">{expectedKw != null ? `${expectedKw.toFixed(2)} kW` : "—"}</p>
-                        <p className="mt-1 font-inter text-xs text-[#999]">Deklarasi dan jadwal zona {data.timezone}; klik ikon alat untuk mengatur jadwal.</p>
+                        <p className="mt-1 font-inter text-xs text-[#999]">Klik ikon alat untuk atur jadwal.</p>
                     </div>
                     <div>
                         <p className="font-inter text-xs text-[#999]">Daya terukur sekarang</p>
                         <p className="mt-1 font-poppins text-2xl font-bold text-[#2F2F2F]">{live && insights.actualPowerKw != null ? `${insights.actualPowerKw.toFixed(2)} kW` : "—"}</p>
-                        <p className="mt-1 font-inter text-xs text-[#999]">Daya panel agregat. Guard memakai aturan server; deklarasi tidak membuktikan keadaan masing-masing kipas.</p>
+                        <p className="mt-1 font-inter text-xs text-[#999]">Total daya panel.</p>
                     </div>
                 </div>
             </SectionCard>
@@ -125,7 +125,7 @@ export default function PeralatanTab({ data }: { data: KandangData }) {
                 {items.length === 0 ? (
                     <div className="px-6 py-8">
                         <p className="font-inter text-sm text-[#777]">
-                            Belum ada deklarasi peralatan. Catat kipas, lampu, dan pemanas sebagai konteks operator; aturan Guard diatur terpisah di server.
+                            Belum ada peralatan. Tambahkan kipas, lampu, dan pemanas.
                         </p>
                     </div>
                 ) : (
@@ -135,7 +135,7 @@ export default function PeralatanTab({ data }: { data: KandangData }) {
                             return (
                                 <li key={e.id} className={`px-5 py-4 ${e.active ? "" : "opacity-60"}`}>
                                     <div className="flex items-center gap-3">
-                                        <button type="button" disabled={!canManage} onClick={() => editSchedule(e)} title={`Jadwal deklaratif · ${data.timezone}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#7B1113]/10">
+                                        <button type="button" disabled={!canManage} onClick={() => editSchedule(e)} title="Atur jadwal" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#7B1113]/10">
                                             <Icon size={17} className="text-[#7B1113]" />
                                         </button>
                                         <input
@@ -179,7 +179,7 @@ export default function PeralatanTab({ data }: { data: KandangData }) {
                                             />
                                         </label>
                                         <label className="flex flex-col font-inter text-xs text-[#999]">
-                                            Deklarasi aktif
+                                            Aktif
                                             <button
                                                 type="button"
                                                 role="switch"
@@ -214,7 +214,7 @@ export default function PeralatanTab({ data }: { data: KandangData }) {
             </SectionCard>
 
             {canManage && <div className="flex items-center justify-between gap-3">
-                <p className="font-inter text-xs text-[#999]">Matikan &quot;Menyala&quot; untuk peralatan yang memang sedang tidak dipakai (misal pemanas setelah masa brooding).</p>
+                <p className="font-inter text-xs text-[#999]">Matikan peralatan yang tidak dipakai, misalnya pemanas setelah brooding.</p>
                 <button
                     onClick={handleSave}
                     disabled={!dirty || saving}
