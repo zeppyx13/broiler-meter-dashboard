@@ -9,12 +9,12 @@ import { getToken, clearAuth } from "@/lib/auth";
 import { allPages, readData, writeData, type User, type Farm, type Coop, type Cycle, type Source } from "@/lib/broiler-api";
 import { apiErrorMessage } from "@/lib/api-error";
 
-type Capabilities = { read?: boolean; operate?: boolean; manage?: boolean; relay_operate?: boolean; [key: string]: unknown };
+type Capabilities = { read?: boolean; operate?: boolean; manage?: boolean; relay_operate?: boolean;[key: string]: unknown };
 type ContextValue = { user?: User; farms: Farm[]; coops: Coop[]; farmId?: number; coopId?: number; coop?: Coop; source: Source; selectFarm: (id: number) => void; selectCoop: (id: number) => void; setSource: (source: Source) => void; refresh: () => Promise<void>; capabilities: Capabilities; canOperate: boolean; canManage: boolean; canRelay: boolean; loading: boolean; error: string | null; socketStatus: "idle" | "connecting" | "live" | "rest"; socketError: string | null };
 const Context = createContext<ContextValue | null>(null);
 const EMPTY_COOPS: Coop[] = [];
 const EMPTY_CAPABILITIES: Capabilities = {};
-const subscribeHydration = () => () => {};
+const subscribeHydration = () => () => { };
 
 export function BroilerProvider({ children }: { children: ReactNode }) {
     const router = useRouter();
@@ -70,7 +70,7 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
         const selectedToken = getToken();
         setSelectionError(null);
         // Serialize preference writes so rapid coop switches persist the last selection.
-        defaultWrite.current = defaultWrite.current.catch(() => {}).then(async () => {
+        defaultWrite.current = defaultWrite.current.catch(() => { }).then(async () => {
             if (getToken() !== selectedToken || version !== selectionVersion.current) return;
             await writeData("put", "/api/users/me", { default_coop_id: id });
             if (getToken() === selectedToken && version === selectionVersion.current) await client.invalidateQueries({ queryKey: ["broiler-session"] });
@@ -101,6 +101,7 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
             device_status: ["summary", "device", "maintenance-status", "relay-preflight"],
             alert_created: ["alerts", "guard", "eco"], alert_updated: ["alerts", "guard", "eco"],
             relay_state_update: ["relay", "maintenance-status"], relay_command_update: ["relay", "diagnostics"],
+            maintenance_request_update: ["maintenance-status", "maintenance-request", "diagnostics"],
         };
         const update = (event: string, payload?: { coop_id?: number }) => {
             if (!active) return;
@@ -110,19 +111,22 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
                 (groups[event] ?? []).forEach(name => names.add(name)); changes.set(payload.coop_id, names);
             }
             if (timer) return; timer = setTimeout(() => {
-            timer = undefined;
-            if (active) void client.invalidateQueries({ predicate: q => {
-                const key = q.queryKey;
-                if (key[1] !== userId) return false;
-                if (["broiler-nav-alerts", "broiler-nav-unread"].includes(String(key[0]))) return true;
-                if (key[0] === "broiler-overview") return changes.has(Number(key[3]));
-                if (key[0] !== "broiler") return false;
-                if (inbox && key.some(part => typeof part === "string" && /notification|inbox|unread/.test(part))) return true;
-                const names = changes.get(Number(typeof key[3] === "number" ? key[3] : key[2]));
-                return Boolean(names && key.some(part => typeof part === "string" && [...names].some(name => part.includes(name))));
-            } });
-            changes.clear(); inbox = false;
-        }, 2000); };
+                timer = undefined;
+                if (active) void client.invalidateQueries({
+                    predicate: q => {
+                        const key = q.queryKey;
+                        if (key[1] !== userId) return false;
+                        if (["broiler-nav-alerts", "broiler-nav-unread"].includes(String(key[0]))) return true;
+                        if (key[0] === "broiler-overview") return changes.has(Number(key[3]));
+                        if (key[0] !== "broiler") return false;
+                        if (inbox && key.some(part => typeof part === "string" && /notification|inbox|unread/.test(part))) return true;
+                        const names = changes.get(Number(typeof key[3] === "number" ? key[3] : key[2]));
+                        return Boolean(names && key.some(part => typeof part === "string" && [...names].some(name => part.includes(name))));
+                    }
+                });
+                changes.clear(); inbox = false;
+            }, 2000);
+        };
         const notified = new Set<number>();
         const notify = (payload: { id?: number; coop_id?: number; source?: string; severity?: string; title?: string; message?: string }) => {
             update("alert_created", payload);
@@ -157,7 +161,7 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
             if (scopeRef.current.coopId === coop_id) { setSelection({}); setSocketStatus("rest"); setSocketError("Akses kandang berubah; daftar dan izin sedang dimuat ulang."); }
             void refresh();
         };
-        const events = ["telemetry_update", "meter_update", "device_status", "alert_updated", "notification_created", "notification_updated", "notification_unread_count", "relay_state_update", "relay_command_update"];
+        const events = ["telemetry_update", "meter_update", "device_status", "alert_updated", "notification_created", "notification_updated", "notification_unread_count", "relay_state_update", "relay_command_update", "maintenance_request_update"];
         const handlers = events.map(event => ({ event, handler: (payload: { coop_id?: number }) => update(event, payload) }));
         handlers.forEach(({ event, handler }) => connection.on(event, handler));
         connection.on("alert_created", notify); connection.on("coop:revoked", revoked);
