@@ -145,8 +145,8 @@ function DeviceSetup({ device: initialDevice, onClose, onNavigate }: SetupProps)
     const sessionToken = useRef(getToken());
     const currentSession = () => mounted.current && getToken() === sessionToken.current;
     const coop = context.coops.find(row => row.id === coopId);
-    const ownerFarm = context.farms.find(farm => farm.id === coop?.farm_id);
-    const allowed = Boolean(context.user && coop && (context.user.role === "admin" || coop.member_role === "owner" || ownerFarm?.member_role === "owner" || ownerFarm?.owner_user_id === context.user.id));
+    const targetFarm = context.farms.find(farm => farm.id === coop?.farm_id);
+    const allowed = Boolean(context.user && coop && targetFarm?.capabilities?.["device:manage"] === true);
     const selectedWater = meters.find(meter => meter.type === "water");
     const selectedElectric = meters.find(meter => meter.type === "electricity");
 

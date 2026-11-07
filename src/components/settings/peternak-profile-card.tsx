@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import Swal from "sweetalert2";
-import { writeData } from "@/lib/broiler-api";
+import { writeData, roleLabel } from "@/lib/broiler-api";
 import { useBroiler } from "@/components/broiler/broiler-provider";
 import { apiErrorMessage } from "@/lib/api-error";
 
@@ -15,7 +15,6 @@ type ProfileUser = {
     role?: string;
 };
 
-const ROLE_LABEL: Record<string, string> = { owner: "Pemilik", manager: "Admin lahan", operator: "Operator kandang", viewer: "Pemantau" };
 
 export default function PeternakProfileCard() {
     const b = useBroiler();
@@ -104,7 +103,7 @@ export default function PeternakProfileCard() {
                     <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">Peran</label>
                     <input
                         type="text"
-                        value={user?.role === "admin" ? "Admin sistem" : b.farms.map((f) => `${f.name}: ${ROLE_LABEL[f.member_role ?? ""] ?? f.member_role ?? "-"}`).join(" · ") || "-"}
+                        value={roleLabel(b.effectiveRole)}
                         disabled
                         className="w-full rounded-2xl border border-[#EAEAEA] bg-[#F0F0F0] px-4 py-3 font-inter text-sm text-[#999] outline-none"
                     />

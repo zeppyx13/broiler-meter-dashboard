@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Swal from "sweetalert2";
 import type { ReactNode } from "react";
 import DashboardSidebar from "./dashboard-sidebar";
 import MobileDrawer from "./mobile-drawer";
@@ -19,16 +20,20 @@ type DashboardShellProps = {
 
 export default function DashboardShell({ menus, children }: DashboardShellProps) {
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const { loading, error, socketError } = useBroiler();
+    const b = useBroiler();
+    const { loading, error, socketError } = b;
+    const availableMenus = menus.filter(item => item.href !== "/dashboard/terminal" || b.canMaintenance);
+    const scopeKey = `${b.user?.id ?? "none"}:${b.farmId ?? "none"}:${b.coopId ?? "none"}:${b.accessVersion}:${JSON.stringify(b.capabilities)}:${JSON.stringify(b.farmCapabilities)}`;
+    useEffect(() => { Swal.close(); setDrawerOpen(false); }, [scopeKey]);
 
     return (
-        <GuardMonitorProvider>
+        <GuardMonitorProvider key={scopeKey}>
             <main className="min-h-screen bg-[#F8F8F8] text-[#2F2F2F]">
                 <div className="flex min-h-screen">
-                    <DashboardSidebar menus={menus} />
+                    <DashboardSidebar menus={availableMenus} />
 
                     <MobileDrawer
-                        menus={menus}
+                        menus={availableMenus}
                         open={drawerOpen}
                         onClose={() => setDrawerOpen(false)}
                     />
@@ -39,7 +44,7 @@ export default function DashboardShell({ menus, children }: DashboardShellProps)
                             <ContextBar />
                             {(error || socketError) && (
                                 <div className="rounded-3xl border border-red-100 bg-red-50 p-5 font-inter text-sm text-red-700">
-                                    {error ? `${error}. Periksa koneksi ke server, lalu muat ulang halaman.` : socketError}
+                                    {error ?? socketError}
                                 </div>
                             )}
                             {loading ? (
@@ -51,8 +56,8 @@ export default function DashboardShell({ menus, children }: DashboardShellProps)
                         </div>
                     </section>
                 </div>
-                <MobileBottomNav menus={menus} moreOpen={drawerOpen} onMoreClick={() => setDrawerOpen((v) => !v)} />
-                <AdminChat />
+                <MobileBottomNav menus={availableMenus} moreOpen={drawerOpen} onMoreClick={() => setDrawerOpen((v) => !v)} />
+                {b.canInsights && <AdminChat />}
             </main>
         </GuardMonitorProvider>
     );

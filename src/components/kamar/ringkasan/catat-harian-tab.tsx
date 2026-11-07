@@ -23,7 +23,7 @@ function dayNumber(date: string, startDate: string) {
 }
 
 export default function CatatHarianTab({ data, onOpenRecord }: Props) {
-    const { room, activeCycle, cycle, refreshAll, serverCycle, serverRecords, canOperate } = data;
+    const { room, activeCycle, cycle, refreshAll, serverCycle, serverRecords, canOperate, canDailyCorrect } = data;
     const { source } = useBroiler();
     const report = useCycleReport(serverCycle?.id, room?.id, source);
     const dailyWater: Record<string, number> = {};
@@ -44,7 +44,7 @@ export default function CatatHarianTab({ data, onOpenRecord }: Props) {
 
     async function handleDelete(date: string) {
         const server = serverRecords.find((r) => recordDate(r) === date);
-        if (!server) return;
+        if (!server || !canDailyCorrect) return;
         const result = await Swal.fire({
             title: "Batalkan catatan ini?",
             text: `${new Date(`${date}T00:00:00`).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })} — populasi dikoreksi kembali, jejak audit tetap tersimpan.`,
@@ -82,7 +82,7 @@ export default function CatatHarianTab({ data, onOpenRecord }: Props) {
                 <Stat label="Populasi sekarang" value={cycle.populationNow != null ? cycle.populationNow.toLocaleString("id-ID") : "—"} />
             </div>
 
-            {canOperate && <button
+            {canOperate && (!recordedToday || canDailyCorrect) && <button
                 onClick={() => onOpenRecord(today)}
                 suppressHydrationWarning
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#7B1113] px-5 py-4 font-poppins text-base font-semibold text-[#C6A971] transition hover:opacity-90"
@@ -114,7 +114,7 @@ export default function CatatHarianTab({ data, onOpenRecord }: Props) {
                                     </p>
                                     {r.note && <p className="mt-0.5 truncate font-inter text-xs text-[#999]">{r.note}</p>}
                                 </div>
-                                {canOperate && <div className="flex shrink-0 gap-2">
+                                {canDailyCorrect && <div className="flex shrink-0 gap-2">
                                     <button onClick={() => onOpenRecord(r.date)} title="Ubah" className="rounded-xl bg-[#F8F8F8] p-2.5 transition hover:bg-[#EAEAEA]">
                                         <Pencil size={15} className="text-[#555]" />
                                     </button>

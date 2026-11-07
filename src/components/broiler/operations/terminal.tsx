@@ -47,6 +47,7 @@ function requestLog(request: MaintenanceRequest): LogEntry {
 
 export function TerminalOperations() {
     const context = useBroiler();
+    if (!context.canMaintenance) return <Card title="IoT Terminal"><p className="text-sm text-[#777]">Terminal administrasi tersedia bagi Owner dan Admin pada farm yang ditugaskan. Monitoring tetap tersedia melalui Live Monitor; izin relay terpisah melalui Relay Manual.</p></Card>;
     return <TerminalScope key={`${context.user?.id ?? "none"}:${context.coopId ?? "none"}`} />;
 }
 
@@ -112,7 +113,7 @@ function DeviceTerminal({ device, snapshot, available, refreshStatus }: { device
     const relayCommands = useScopedQuery<{ commands: CommandRow[] }>(`terminal-relay-commands-${relay?.id}`, `/api/relays/${relay?.id}/commands`, { page: 1, limit: 20 }, Boolean(relay), 10_000);
     const lookup = useScopedQuery<MaintenanceResult>(`maintenance-request-${requestId}`, `/api/coops/${context.coopId}/maintenance/requests/${requestId}`, undefined, Boolean(requestId) && !busy, polling ? 3_000 : undefined);
     const request = lookup.data?.request ?? submitted?.request;
-    const canCommand = context.canAdminIot && Boolean(device && available);
+    const canCommand = context.canMaintenance && Boolean(device && available);
     const entries = logs.filter(entry => level === "ALL" || entry.level === level);
     const append = useCallback((items: LogEntry[]) => {
         const fresh = items.filter(item => !seen.current.has(item.key));
@@ -160,8 +161,8 @@ function DeviceTerminal({ device, snapshot, available, refreshStatus }: { device
         if (command === "status") return context.coopId ? null : "Pilih kandang terlebih dahulu.";
         if (command === "clear_buf" || command === "reset_nvs") return dataProtection;
         if (!device) return "Belum ada ESP32 terhubung. Daftarkan perangkat melalui Kelola Alat.";
+        if (command === "relay_on" || command === "relay_off") return !context.canRelay ? "Izin Relay Manual belum diberikan untuk kandang ini." : !relay ? "Hubungkan mapping relay kanal 1 melalui Kelola Alat." : relayPreflight.isError || !relayPreflight.data ? "Preflight relay belum tersedia." : relayPreflight.data.allowed ? null : relayPreflight.data.reason;
         if (!canCommand) return "Command hanya tersedia untuk Admin atau Owner pada perangkat dalam cakupannya.";
-        if (command === "relay_on" || command === "relay_off") return !relay ? "Hubungkan mapping relay kanal 1 melalui Kelola Alat." : relayPreflight.isError || !relayPreflight.data ? "Preflight relay belum tersedia." : relayPreflight.data.allowed ? null : relayPreflight.data.reason;
         const capability = device?.command_capabilities?.[command];
         return capability?.allowed === true ? null : capability?.explanation ?? "Kesiapan command belum tersedia dari server.";
     }
@@ -265,7 +266,7 @@ function DeviceTerminal({ device, snapshot, available, refreshStatus }: { device
         <aside className="space-y-5">
             <Card title="Quick Commands">
                 <div className="space-y-2">{commandButton("status", "Status")}{commandButton("sync_ntp", "Sync NTP")}{commandButton("relay_on", "Relay ON")}{commandButton("relay_off", "Relay OFF")}</div>
-                {!context.canAdminIot && <p className="text-xs text-[#888]">Snapshot dapat dibaca sesuai akses. Command administrasi memerlukan Admin atau Owner.</p>}
+                {!context.canMaintenance && <p className="text-xs text-[#888]">Snapshot dapat dibaca sesuai akses. Command administrasi memerlukan Admin atau Owner.</p>}
                 {device?.command_capabilities?.sync_ntp?.allowed !== true && <p className="text-xs text-[#888]">{clean(blockedReason("sync_ntp"))}</p>}
                 {relay ? <p className="text-xs text-[#888]">{relay.name} · kanal 1<br />Desired: {relay.desired_state ?? "unknown"} · Reported: {relay.reported_state ?? "unknown"} ({relay.reported_status ?? "unknown"})<br />{clean(relayPreflight.data?.reason ?? "Menunggu preflight relay.")}</p> : <p className="text-xs text-[#888]">Hubungkan relay opsional di Kelola Alat untuk memakai ON/OFF.</p>}
                 <p className="text-xs leading-relaxed text-[#888]">Status membaca snapshot REST. Dikirim berarti publikasi transport; laporan perangkat belum membuktikan eksekusi fisik.</p>

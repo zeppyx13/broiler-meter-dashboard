@@ -21,7 +21,7 @@ export default function RoomOverviewSection() {
     const [formOpen, setFormOpen] = useState(false);
 
     const canManageFarm = (farmId: number) =>
-        b.user?.role === "admin" || ["owner", "manager"].includes(b.farms.find((f) => f.id === farmId)?.member_role ?? "");
+        b.farms.find((f) => f.id === farmId)?.capabilities?.manage === true;
     const manageableFarms = b.farms.filter((f) => canManageFarm(f.id));
 
     const matches = snapshots.filter((s) => {
