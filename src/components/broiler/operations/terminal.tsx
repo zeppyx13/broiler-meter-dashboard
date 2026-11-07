@@ -10,6 +10,7 @@ import { getToken } from "@/lib/auth";
 import { maintenanceCommands, type MaintenanceCommand, type MaintenanceDevice, type MaintenanceRequest, type MaintenanceResult, type MaintenanceStatus } from "@/types/maintenance";
 import { useBroiler } from "../broiler-provider";
 import { Card, DataState, controlClass, dateTime, secondaryClass, useScopedQuery } from "./shared";
+import { HardwareAcceptancePanel } from "./hardware-acceptance";
 
 type Diagnostic = { id: number; device_id?: number | null; level: string; code: string; message: string; source: string; recorded_at?: string | null; received_at?: string | null };
 type DiagnosticsResponse = { entries: Diagnostic[] };
@@ -38,6 +39,11 @@ function TerminalScope() {
     const capabilities = status.data?.capabilities;
     const entries = (diagnostics.data?.entries ?? []).filter(entry => level === "all" || entry.level === level);
     const device = status.data?.devices.find(item => item.id === selectedDevice) ?? status.data?.devices[0];
+    async function refreshStatus() {
+        const latest = await status.refetch();
+        if (latest.isError || !latest.data) throw latest.error ?? new Error("Preflight server tidak tersedia.");
+        return latest.data;
+    }
     function exportLog() {
         const text = entries.map(entry => `${entry.received_at ?? entry.recorded_at ?? "unknown"}\t${entry.level}\t${entry.source}\t${entry.code}\t${entry.message}`).join("\n");
         const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
@@ -82,12 +88,9 @@ function TerminalScope() {
                     </select>
                 </label>
             </div>
-            {device ? <DeviceMaintenance key={`${device.id}:${device.device_uid}:${device.firmware_version}:${device.mqtt_topic_key}`} device={device} available={!status.isError && Boolean(capabilities)} refreshStatus={async () => {
-                const latest = await status.refetch();
-                if (latest.isError || !latest.data) throw latest.error ?? new Error("Preflight server tidak tersedia.");
-                return latest.data;
-            }} recentRequests={status.data?.recent_requests?.filter(request => request.device_id === device.id) ?? []} /> : <p className="text-xs text-[#777]">Daftarkan perangkat dan binding kandang melalui Alat IoT sebelum meminta maintenance.</p>}
-            <p className="text-xs text-[#999]">Kontrol relay manual tersedia di Alat IoT → Relay Manual. Pemilik berwenang mencatat atau mencabut acceptance per perangkat dan command melalui API resmi berdasarkan bukti penerimaan hardware.</p>
+            {device ? <DeviceMaintenance key={`${device.id}:${device.device_uid}:${device.firmware_version}:${device.mqtt_topic_key}`} device={device} available={!status.isError && Boolean(capabilities)} refreshStatus={refreshStatus} recentRequests={status.data?.recent_requests?.filter(request => request.device_id === device.id) ?? []} /> : <p className="text-xs text-[#777]">Daftarkan perangkat dan binding kandang melalui Alat IoT sebelum meminta maintenance.</p>}
+            <HardwareAcceptancePanel device={device} snapshot={status.data} loading={status.isLoading} error={status.error} refreshStatus={refreshStatus} />
+            <p className="text-xs text-[#999]">Kontrol relay manual tersedia di Alat IoT → Relay Manual. Persetujuan hardware dicatat per perangkat dan command berdasarkan bukti pemeriksaan operator; persetujuan tidak mengirim command.</p>
         </Card>
     </div>;
 }
