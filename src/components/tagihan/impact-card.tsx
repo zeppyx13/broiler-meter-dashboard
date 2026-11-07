@@ -4,21 +4,23 @@ import { useEffect, useMemo, useState } from "react";
 import { HandCoins, ShieldAlert } from "lucide-react";
 import { useKandangSnapshots } from "@/lib/kandang-snapshot";
 import { formatRupiah } from "@/lib/broiler-reference";
-import { DEFAULT_IMPACT_SETTINGS, getImpactSettings, kandangImpact, setImpactSettings, type ImpactSettings } from "@/lib/impact";
+import { DEFAULT_IMPACT_SETTINGS, DEVICE_LIFETIME_YEARS, farmEconomics, getImpactSettings, kandangImpact, setImpactSettings, type ImpactSettings } from "@/lib/impact";
 import { useGuard } from "@/components/dashboard/guard/guard-monitor";
 
 const num = (v: number, d = 0) => v.toLocaleString("id-ID", { maximumFractionDigits: d, minimumFractionDigits: d });
-const DEFAULT_HARVEST_KG = 2;
 const EVIDENCE_DAYS = 30;
 
 const EVENT_LABEL: Record<string, string> = {
-    power: "Kipas mati / daya turun",
-    offline: "Listrik padam / alat offline",
+    power: "Daya panel turun (cek kipas/pemanas)",
+    offline: "Data terputus (cek listrik/internet)",
     voltage: "Tegangan tidak stabil",
     water: "Air minum tidak normal",
 };
 
-/** Kartu dampak: nilai kematian yang dicegah per siklus & berapa lama perangkat balik modal. */
+const pct = (v: number | null) => (v == null ? "—" : `${v >= 0 ? "+" : "−"}${num(Math.abs(v) * 100)}%`);
+const months = (v: number | null) => (v == null ? "Tidak tercapai" : v < 1 ? "< 1 bulan" : `±${num(v, 1)} bulan`);
+
+/** Kartu dampak: manfaat per tahun dibanding perangkat DAN semua biaya berjalan (internet, server, AI, perawatan). */
 export default function ImpactCard() {
     const [settings, setSettings] = useState<ImpactSettings>(DEFAULT_IMPACT_SETTINGS);
     // Asumsi tersimpan di browser → dibaca setelah mount agar HTML server & klien sama.
@@ -32,17 +34,13 @@ export default function ImpactCard() {
         .filter((s) => s.cycle)
         .map((s) => {
             const population = s.populationNow ?? 0;
-            // Bobot panen acuan 2 kg (bobot sampel per siklus ada di laporan siklus tiap kandang).
-            const harvestKg = DEFAULT_HARVEST_KG;
+            // Bobot panen acuan dari pengaturan (default 1,73 kg Kementan); bobot sampel per siklus ada di laporan siklus.
+            const harvestKg = settings.harvestWeightKg;
             return { lease: s.cycle!, number: s.room.number, population, harvestKg, impact: kandangImpact(population, harvestKg, settings) };
         })
         .sort((a, c) => a.number.localeCompare(c.number, "id", { numeric: true })), [snapshots, settings]);
 
-    const totalPopulation = rows.reduce((s, r) => s + r.population, 0);
-    const totalValue = rows.reduce((s, r) => s + r.impact.valuePerCycle, 0);
-    const totalCost = rows.length * settings.deviceCost;
-    const totalPaybackCycles = totalValue > 0 ? totalCost / totalValue : null;
-    const avgKg = totalPopulation > 0 ? rows.reduce((s, r) => s + r.population * r.harvestKg, 0) / totalPopulation : DEFAULT_HARVEST_KG;
+    const economics = useMemo(() => farmEconomics(rows, settings), [rows, settings]);
 
     const evidence = useMemo(() => {
         const counts: Record<string, number> = {};
@@ -66,7 +64,7 @@ export default function ImpactCard() {
                 <h3 id="impact-title" className="font-poppins text-base font-semibold text-[#2F2F2F]">Dampak & balik modal</h3>
             </div>
             <p className="mt-1 font-inter text-xs text-[#999]">
-                Nilai ayam yang terselamatkan bila COASTHER mencegah sebagian kematian, dibanding biaya perangkat. Rumus sesuai proposal: populasi × kematian dicegah × bobot panen × harga.
+                Manfaat setahun (kematian dicegah × bobot panen × harga, ditambah hemat listrik) dibanding biaya perangkat dan semua biaya berjalan lahan: internet, server, AI, dan perawatan.
             </p>
 
             {/* Asumsi */}
@@ -75,6 +73,10 @@ export default function ImpactCard() {
                 <AssumptionInput label="Kematian dicegah" suffix="% / siklus" value={settings.preventedMortalityPct} step={0.5} onChange={(v) => update("preventedMortalityPct", v)} />
                 <AssumptionInput label="Biaya perangkat" prefix="Rp" suffix="/kandang" value={settings.deviceCost} step={10_000} onChange={(v) => update("deviceCost", v)} />
                 <AssumptionInput label="Siklus + istirahat" suffix="hari" value={settings.cycleDays} step={1} onChange={(v) => update("cycleDays", v)} />
+                <AssumptionInput label="Bobot panen" suffix="kg/ekor" value={settings.harvestWeightKg} step={0.05} onChange={(v) => update("harvestWeightKg", v)} />
+                <AssumptionInput label="Hemat listrik (hasil uji)" prefix="Rp" suffix="/kandang/siklus" value={settings.electricitySavingPerCycle} step={5_000} onChange={(v) => update("electricitySavingPerCycle", v)} />
+                <AssumptionInput label="Langganan internet, server, AI" prefix="Rp" suffix="/lahan/bulan" value={settings.opexMonthly} step={5_000} onChange={(v) => update("opexMonthly", v)} />
+                <AssumptionInput label="Perawatan perangkat" prefix="Rp" suffix="/kandang/tahun" value={settings.maintenancePerYear} step={10_000} onChange={(v) => update("maintenancePerYear", v)} />
             </div>
 
             {rows.length === 0 ? (
@@ -82,16 +84,26 @@ export default function ImpactCard() {
             ) : (
                 <>
                     {/* Ringkasan */}
-                    <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                        <Big label="Nilai terselamatkan / siklus" value={formatRupiah(totalValue)} sub={`±${num(totalPopulation * settings.preventedMortalityPct / 100)} ekor dari ${num(totalPopulation)} ekor`} />
-                        <Big label="Biaya perangkat" value={formatRupiah(totalCost)} sub={`${rows.length} kandang × ${formatRupiah(settings.deviceCost)}`} />
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <Big
-                            label="Balik modal"
-                            value={totalPaybackCycles != null ? `${num(totalPaybackCycles, 1)} siklus` : "—"}
-                            sub={totalPaybackCycles != null ? `≈ ${num((totalPaybackCycles * settings.cycleDays) / 30, 1)} bulan` : "isi populasi siklus"}
-                            highlight
+                            label="Manfaat / tahun"
+                            value={formatRupiah(economics.benefitPerYear)}
+                            sub={`±${num(economics.cyclesPerYear, 1)} siklus × (${formatRupiah(economics.mortalityValuePerCycle)} ayam + ${formatRupiah(economics.electricityPerCycle)} listrik)`}
                         />
+                        <Big
+                            label="Investasi + operasional / tahun"
+                            value={formatRupiah(economics.investment + economics.opexPerYear)}
+                            sub={`perangkat ${formatRupiah(economics.investment)} · operasional ${formatRupiah(economics.opexPerYear)}`}
+                        />
+                        <Big label="ROI tahun pertama" value={pct(economics.roiFirstYear)} sub="(manfaat − operasional − investasi) ÷ (investasi + operasional)" />
+                        <Big label="Balik modal" value={months(economics.paybackMonths)} sub="sudah termasuk biaya operasional" highlight />
                     </div>
+                    <p className={`mt-3 rounded-2xl px-4 py-3 font-inter text-xs ${economics.paybackMonths == null ? "bg-[#FBEDED] text-[#7B1113]" : "bg-[#FAFAFA] text-[#555]"}`}>
+                        {economics.breakEvenPopulation != null
+                            ? `Titik impas ±${num(economics.breakEvenPopulation)} ekor per kandang (perangkat disusutkan ${DEVICE_LIFETIME_YEARS} tahun, ${economics.kandangCount} kandang berbagi satu langganan). `
+                            : "Titik impas belum bisa dihitung: isi kematian dicegah atau hemat listrik. "}
+                        {economics.paybackMonths == null && "Biaya operasional lebih besar dari manfaat: gabungkan beberapa kandang dalam satu lahan agar langganan dipakai bersama."}
+                    </p>
 
                     {/* Per kandang */}
                     <div className="mt-4 overflow-x-auto">
@@ -102,7 +114,7 @@ export default function ImpactCard() {
                                     <th className="py-2 text-right font-medium">Populasi</th>
                                     <th className="py-2 text-right font-medium">Bobot panen</th>
                                     <th className="py-2 text-right font-medium">Nilai / siklus</th>
-                                    <th className="py-2 text-right font-medium">Balik modal</th>
+                                    <th className="py-2 text-right font-medium">Balik modal alat*</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -119,20 +131,20 @@ export default function ImpactCard() {
                                 ))}
                             </tbody>
                         </table>
+                        <p className="mt-1 font-inter text-[11px] text-[#AAA]">*Hanya harga perangkat ÷ nilai kematian dicegah, belum termasuk langganan dan perawatan.</p>
                     </div>
 
                     {/* Sensitivitas */}
                     <div className="mt-4 rounded-2xl bg-[#FAFAFA] p-4">
                         <p className="font-inter text-xs font-medium text-[#555]">Bila kematian yang dicegah berbeda:</p>
                         <div className="mt-2 grid grid-cols-3 gap-2">
-                            {[0.5, 1, 2].map((pct) => {
-                                const value = (totalPopulation * pct / 100) * avgKg * settings.pricePerKg;
-                                const cycles = value > 0 ? totalCost / value : null;
+                            {[0.5, 1, 2].map((mortality) => {
+                                const e = farmEconomics(rows, settings, mortality);
                                 return (
-                                    <div key={pct} className={`rounded-xl px-3 py-2 ${pct === settings.preventedMortalityPct ? "bg-white ring-1 ring-[#7B1113]/30" : "bg-white"}`}>
-                                        <p className="font-inter text-[11px] text-[#999]">{num(pct, 1)}% dicegah</p>
-                                        <p className="font-poppins text-sm font-semibold text-[#2F2F2F]">{formatRupiah(value)}</p>
-                                        <p className="font-inter text-[11px] text-[#777]">{cycles != null ? `balik modal ${num(cycles, 1)} siklus` : "—"}</p>
+                                    <div key={mortality} className={`rounded-xl px-3 py-2 ${mortality === settings.preventedMortalityPct ? "bg-white ring-1 ring-[#7B1113]/30" : "bg-white"}`}>
+                                        <p className="font-inter text-[11px] text-[#999]">{num(mortality, 1)}% dicegah</p>
+                                        <p className="font-poppins text-sm font-semibold text-[#2F2F2F]">ROI {pct(e.roiFirstYear)}</p>
+                                        <p className="font-inter text-[11px] text-[#777]">balik modal: {months(e.paybackMonths)}</p>
                                     </div>
                                 );
                             })}
@@ -158,7 +170,7 @@ export default function ImpactCard() {
                     </div>
                 )}
                 <p className="mt-2 font-inter text-[11px] text-[#AAA]">
-                    Angka di atas adalah estimasi dari asumsi yang bisa diubah, bukan hasil uji lapangan. Kejadian nyata (kipas mati saat siang panas, listrik padam malam hari) bisa menyebabkan kematian jauh di atas 1%.
+                    Angka di atas adalah estimasi dari asumsi yang bisa diubah, bukan hasil uji lapangan. Default: Rp19.500/kg (HAP Juli 2026), bobot 1,73 kg (Kementan 2024), langganan ±Rp195rb/bulan (internet ±Rp100rb, server ±Rp87rb, AI ±Rp8rb; HiveMQ Cloud & Telegram Bot gratis). Hemat listrik diisi dari hasil uji efisiensi. Kejadian nyata (kipas mati saat siang panas, listrik padam malam hari) bisa menyebabkan kematian jauh di atas 1%.
                 </p>
             </div>
         </section>
