@@ -56,23 +56,23 @@ export function cycleToLease(cycle: Cycle): Lease {
 
 /** Status live dari server; nilai null (stale/no_data) tidak diubah jadi angka palsu. */
 export function isLiveOnline(live: Live | null | undefined): boolean {
-    return live?.status === "live" || live?.status === "ok" || live?.status === "fresh";
+    return live?.source === "sensor" && (live.status === "live" || live.status === "ok" || live.status === "fresh");
 }
 
-/** Live backend → LiveStatus lama. Null diganti 0 hanya untuk perhitungan; tampilan memakai `online`. */
+/** Preserve every server null; one available field does not validate the other metrics. */
 export function liveToLegacy(live: Live | null | undefined, coop: { id: number; code?: string }): LiveStatus | undefined {
-    if (!live || !live.recorded_at) return undefined;
+    if (!live || live.source !== "sensor" || !live.recorded_at) return undefined;
     return {
         room_id: coop.id,
         number: coop.code,
-        flow_rate_lpm: num(live.flow_rate_lpm) ?? 0,
-        water_total_liter: num(live.water_total_liter) ?? 0,
-        voltage: num(live.voltage_v) ?? 0,
-        current: num(live.current_a) ?? 0,
-        power: num(live.power_w) ?? 0,
-        energy_kwh_total: num(live.energy_kwh_total) ?? 0,
-        frequency: num(live.frequency_hz) ?? 0,
-        pf: num(live.power_factor) ?? 0,
+        flow_rate_lpm: num(live.flow_rate_lpm),
+        water_total_liter: num(live.water_total_liter),
+        voltage: num(live.voltage_v),
+        current: num(live.current_a),
+        power: num(live.power_w),
+        energy_kwh_total: num(live.energy_kwh_total),
+        frequency: num(live.frequency_hz),
+        pf: num(live.power_factor),
         recorded_at: live.recorded_at,
     };
 }
@@ -84,8 +84,8 @@ export function todayFromMetric(today: DailyMetric | null | undefined): TodayUsa
     const ready = water != null || energy != null;
     const date = today?.metric_date;
     return {
-        waterTodayLiter: water ?? 0,
-        energyTodayKwh: energy ?? 0,
+        waterTodayLiter: water,
+        energyTodayKwh: energy,
         since: ready && date ? new Date(`${date}T00:00:00`) : null,
         ready,
     };
@@ -98,20 +98,23 @@ export function cycleUsageFromMetric(totals: DailyMetric | null | undefined, cyc
     if (!cycle || (water == null && energy == null)) return null;
     const since = new Date(`${cycle.placement_date}T00:00:00`);
     return {
-        waterLiter: water ?? 0,
-        energyKwh: energy ?? 0,
+        waterLiter: water,
+        energyKwh: energy,
         since,
-        elapsedDays: Math.max(0.25, cycle.day_age ?? (Date.now() - since.getTime()) / 86_400_000),
+        elapsedDays: Math.max(0, cycle.day_age),
     };
 }
 
 /** Tarif lahan → Tariff lama (Rp/kWh dan Rp/m³). */
 export function farmToTariff(farm: Partial<Farm> | null | undefined): Tariff | undefined {
     if (!farm) return undefined;
+    const electricityRate = num(farm.electricity_rate_idr_per_kwh);
+    const waterRate = num(farm.water_rate_idr_per_m3);
+    if (electricityRate == null || waterRate == null) return undefined;
     return {
         id: farm.id ?? 0,
-        electricity_rate: num(farm.electricity_rate_idr_per_kwh) ?? 0,
-        water_rate: num(farm.water_rate_idr_per_m3) ?? 0,
+        electricity_rate: electricityRate,
+        water_rate: waterRate,
         electricity_free_quota: 0,
         water_free_quota: 0,
         late_fee_flat: 0,
@@ -156,8 +159,9 @@ export type ServerEquipment = {
     count: number;
     rated_watt: number | string;
     is_expected_active: boolean | number;
+    is_active?: boolean | number;
     unit?: string;
-    schedule?: unknown;
+    schedule?: { start: string; end: string } | null;
 };
 
 const EQUIPMENT_TO_LOCAL: Record<string, EquipmentType> = { fan: "kipas", light: "lampu", heater: "pemanas", brooder: "pemanas", pump: "pompa", other: "lainnya" };
@@ -171,17 +175,21 @@ export function equipmentToLegacy(e: ServerEquipment): Equipment {
         count: Number(e.count) || 0,
         watt: num(e.rated_watt) ?? 0,
         active: Boolean(Number(e.is_expected_active)),
+        serverType: e.type,
+        unit: e.unit,
+        schedule: e.schedule ?? null,
     };
 }
 
 export function equipmentToServer(e: Equipment) {
     return {
         name: e.name?.trim() || e.type,
-        type: EQUIPMENT_TO_SERVER[e.type] ?? "other",
+        type: e.serverType && EQUIPMENT_TO_LOCAL[e.serverType] === e.type ? e.serverType : EQUIPMENT_TO_SERVER[e.type] ?? "other",
         count: e.count,
         rated_watt: e.watt,
         is_expected_active: e.active,
-        unit: "unit",
+        unit: e.unit ?? "unit",
+        schedule: e.schedule ?? null,
     };
 }
 

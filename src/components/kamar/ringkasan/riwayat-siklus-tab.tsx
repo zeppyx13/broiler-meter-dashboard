@@ -8,7 +8,6 @@ import { readData } from "@/lib/broiler-api";
 import { cycleToLease } from "@/lib/broiler-adapters";
 import { useCycles, type CycleReport } from "@/lib/broiler-queries";
 import { useBroiler } from "@/components/broiler/broiler-provider";
-import { localDateKey } from "@/lib/broiler-local-store";
 import { formatRupiah } from "@/lib/broiler-reference";
 import { rankMetric, summarizeServerCycle, type BestWorst, type CycleSummary } from "@/lib/cycle-history";
 import type { KandangData } from "./use-kandang-data";
@@ -47,7 +46,7 @@ export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
     );
     const reports = useQueries({
         queries: cycles.map((c) => ({
-            queryKey: ["broiler", b.user?.id, room?.id, "cycle-report", c.id, b.source],
+            queryKey: ["broiler", b.user?.id, room?.id, "cycle-report", c.id],
             queryFn: () => readData<CycleReport>(`/api/flock-cycles/${c.id}/report`, { source: b.source }),
             staleTime: 60_000,
         })),
@@ -55,12 +54,12 @@ export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
     const reportKey = reports.map((r) => r.dataUpdatedAt).join(",");
 
     const rows = useMemo(() => {
-        const today = localDateKey();
+        const today = data.localDate;
         return cycles
             .map((c, i) => summarizeServerCycle(c, cycleToLease(c), reports[i]?.data, c.status === "active" ? serverRecords.length : 0, today))
             .sort((a, b) => b.startDate.localeCompare(a.startDate));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [cycles, reportKey, serverRecords.length]);
+    }, [cycles, reportKey, serverRecords.length, data.localDate]);
 
     // Peringkat hanya antar siklus yang sudah selesai — siklus berjalan belum lengkap.
     const ranks = useMemo(() => {
@@ -81,7 +80,7 @@ export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
                     <History size={28} className="text-[#C6A971]" />
                     <p className="font-poppins text-sm font-semibold text-[#2F2F2F]">Belum ada riwayat siklus</p>
                     <p className="max-w-sm font-inter text-xs text-[#999]">
-                        Setelah siklus pertama ditutup (panen), kinerjanya muncul di sini dan bisa dibandingkan dengan siklus berikutnya.
+                        Belum ada siklus yang selesai.
                     </p>
                 </div>
             </SectionCard>
@@ -110,7 +109,7 @@ export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
                     </div>
                     <button
                         onClick={() => {
-                            setPrintedAt(new Date().toLocaleString("id-ID"));
+                            setPrintedAt(`${new Date().toLocaleString("id-ID", { timeZone: data.timezone })} · zona ${data.timezone}`);
                             setTimeout(() => window.print(), 0);
                         }}
                         suppressHydrationWarning
@@ -182,7 +181,7 @@ export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
                                     </p>
                                     {(r.fcr == null || r.ip == null) && (
                                         <p className="mt-2 font-inter text-xs text-[#9A6B14]">
-                                            FCR dan IP butuh pakan (kg) dan bobot rata-rata di Catat Harian, serta populasi awal saat chick-in.
+                                            FCR dan IP perlu data pakan dan bobot di Catat Harian.
                                         </p>
                                     )}
                                 </div>

@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { writeData } from "@/lib/broiler-api";
-import { localDateKey } from "@/lib/broiler-local-store";
 import { apiErrorMessage } from "@/lib/api-error";
 import type { KandangData } from "./use-kandang-data";
 import { CancelButton, Field, ModalShell, NumberStepper, PrimaryButton, inputClass } from "./form-parts";
@@ -21,20 +20,17 @@ type StartProps = {
 
 const errorMessage = apiErrorMessage;
 
-function addDays(date: string, days: number) {
-    const d = new Date(`${date}T00:00:00`);
-    d.setDate(d.getDate() + days);
-    return localDateKey(d);
-}
+function addDays(date: string, days: number) { return new Date(Date.parse(date) + days * 86400000).toISOString().slice(0, 10); }
 
 export function CycleStartModal({ open, onClose, data, editing, onSaved }: StartProps) {
     const room = data.room!;
     const editCycle = editing ? data.serverCycle : null;
-    const [startDate, setStartDate] = useState(localDateKey());
+    const [startDate, setStartDate] = useState(data.localDate);
     const [population, setPopulation] = useState(0);
     const [strain, setStrain] = useState("");
     const [targetDays, setTargetDays] = useState(35);
     const [loading, setLoading] = useState(false);
+    const saving = useRef(false);
 
     useEffect(() => {
         if (!open) return;
@@ -44,7 +40,7 @@ export function CycleStartModal({ open, onClose, data, editing, onSaved }: Start
             setStrain(data.cycle?.extra.strain ?? "");
             setTargetDays(data.harvestTargetDays);
         } else {
-            setStartDate(localDateKey());
+            setStartDate(data.localDate);
             setPopulation(0);
             setStrain("");
             setTargetDays(35);
@@ -53,7 +49,8 @@ export function CycleStartModal({ open, onClose, data, editing, onSaved }: Start
     }, [open, editCycle?.id]);
 
     async function handleSave() {
-        if (population <= 0) return;
+        if (population <= 0 || saving.current) return;
+        saving.current = true;
         setLoading(true);
         try {
             const profile = { strain: strain.trim() || null, harvest_target_days: targetDays };
@@ -87,6 +84,7 @@ export function CycleStartModal({ open, onClose, data, editing, onSaved }: Start
         } catch (err) {
             Swal.fire({ icon: "error", title: "Gagal menyimpan", text: errorMessage(err), confirmButtonColor: "#7B1113" });
         } finally {
+            saving.current = false;
             setLoading(false);
         }
     }
@@ -111,7 +109,7 @@ export function CycleStartModal({ open, onClose, data, editing, onSaved }: Start
                 <input
                     type="date"
                     value={startDate}
-                    max={localDateKey()}
+                    max={data.localDate}
                     disabled={Boolean(editCycle)}
                     onChange={(e) => setStartDate(e.target.value)}
                     suppressHydrationWarning
@@ -167,33 +165,40 @@ export function CycleCloseModal({ open, onClose, data, onSaved }: CloseProps) {
     const cycle = data.serverCycle!;
     const roomNumber = data.room?.number ?? "";
     const populationNow = cycle?.current_population;
-    const [harvestDate, setHarvestDate] = useState(localDateKey());
+    const [harvestDate, setHarvestDate] = useState(data.localDate);
     const [harvested, setHarvested] = useState(0);
     const [note, setNote] = useState("");
     const [loading, setLoading] = useState(false);
+    const saving = useRef(false);
+    const pendingRequest = useRef<{ payload: string; id: string } | null>(null);
 
     useEffect(() => {
         if (!open) return;
-        setHarvestDate(localDateKey());
+        setHarvestDate(data.localDate);
         setHarvested(populationNow ?? 0);
         setNote("");
     }, [open, populationNow]);
 
     async function handleClose() {
+        if (saving.current) return;
+        saving.current = true;
         setLoading(true);
         try {
-            await writeData("post", `/api/flock-cycles/${cycle.id}/harvest`, {
+            const body = {
                 harvested_count: harvested,
                 actual_harvest_date: harvestDate,
                 ...(note.trim() ? { notes: note.trim().slice(0, 255) } : {}),
-                request_id: crypto.randomUUID(),
-            });
+            };
+            const payload = JSON.stringify([cycle.id, body]);
+            if (pendingRequest.current?.payload !== payload) pendingRequest.current = { payload, id: crypto.randomUUID() };
+            await writeData("post", `/api/flock-cycles/${cycle.id}/harvest`, { ...body, request_id: pendingRequest.current.id });
             onSaved();
             onClose();
             Swal.fire({ icon: "success", title: "Siklus ditutup", text: "Kandang masuk masa istirahat.", timer: 1800, showConfirmButton: false });
         } catch (err) {
             Swal.fire({ icon: "error", title: "Gagal menutup siklus", text: errorMessage(err), confirmButtonColor: "#7B1113" });
         } finally {
+            saving.current = false;
             setLoading(false);
         }
     }
@@ -217,7 +222,7 @@ export function CycleCloseModal({ open, onClose, data, onSaved }: CloseProps) {
                     type="date"
                     value={harvestDate}
                     min={cycle.placement_date.slice(0, 10)}
-                    max={localDateKey()}
+                    max={data.localDate}
                     onChange={(e) => setHarvestDate(e.target.value)}
                     suppressHydrationWarning
                     className={inputClass}
@@ -245,7 +250,7 @@ export function CycleCloseModal({ open, onClose, data, onSaved }: CloseProps) {
                 />
             </Field>
             <p className="rounded-2xl bg-[#F8F8F8] px-4 py-3 font-inter text-xs text-[#777]">
-                Siklus ditutup dan total air & listrik siklus dihitung server dari data sensor untuk laporan.
+                Siklus ditutup.
             </p>
         </ModalShell>
     );

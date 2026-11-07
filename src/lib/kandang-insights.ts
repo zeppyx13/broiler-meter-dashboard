@@ -18,7 +18,7 @@ export type KandangAlert = {
     action: string;
 };
 
-type CycleUsage = { waterLiter: number; energyKwh: number; since: Date; elapsedDays: number } | null;
+type CycleUsage = { waterLiter: number | null; energyKwh: number | null; since: Date; elapsedDays: number } | null;
 
 export type InsightInput = {
     hasActiveCycle: boolean;
@@ -51,7 +51,7 @@ export function computeKandangInsights(input: InsightInput) {
     const settings = input.settings ?? getGuardSettings();
 
     const hoursToday = todayUsage.since ? (Date.now() - todayUsage.since.getTime()) / 3_600_000 : 0;
-    const waterPerBirdSoFar = populationNow ? todayUsage.waterTodayLiter / populationNow : null;
+    const waterPerBirdSoFar = populationNow && todayUsage.waterTodayLiter != null ? todayUsage.waterTodayLiter / populationNow : null;
     const waterPerBirdPace = waterPerBirdSoFar != null && hoursToday >= MIN_HOURS_FOR_WATER_CHECK
         ? (waterPerBirdSoFar * 24) / hoursToday
         : null;
@@ -59,24 +59,24 @@ export function computeKandangInsights(input: InsightInput) {
         ? classifyWaterDeviation(waterPerBirdPace, ageDays, settings)
         : null;
 
-    const actualPowerKw = (live?.power ?? 0) / 1000;
-    const powerDeviation = expectedPowerKw ? classifyPowerDeviation(actualPowerKw, expectedPowerKw, online, settings) : null;
+    const actualPowerKw = live?.power == null ? null : live.power / 1000;
+    const powerDeviation = expectedPowerKw && actualPowerKw != null ? classifyPowerDeviation(actualPowerKw, expectedPowerKw, online, settings) : null;
 
     const rate = tariff?.electricity_rate ?? 0;
     const waterRate = tariff?.water_rate ?? 0;
-    const cycleEnergyCost = cycleUsage && tariff ? cycleUsage.energyKwh * rate : null;
-    const cycleWaterCost = cycleUsage && tariff ? (cycleUsage.waterLiter / 1000) * waterRate : null;
-    const energyTodayCost = tariff ? todayUsage.energyTodayKwh * rate : null;
+    const cycleEnergyCost = cycleUsage?.energyKwh != null && tariff ? cycleUsage.energyKwh * rate : null;
+    const cycleWaterCost = cycleUsage?.waterLiter != null && tariff ? (cycleUsage.waterLiter / 1000) * waterRate : null;
+    const energyTodayCost = todayUsage.energyTodayKwh != null && tariff ? todayUsage.energyTodayKwh * rate : null;
 
     const canForecast = cycleUsage != null && cycleUsage.elapsedDays >= MIN_DAYS_FOR_FORECAST && daysToHarvest != null;
-    const predictedEnergyKwh = canForecast
+    const predictedEnergyKwh = canForecast && cycleUsage.energyKwh != null
         ? cycleUsage.energyKwh + (cycleUsage.energyKwh / cycleUsage.elapsedDays) * daysToHarvest
         : null;
-    const predictedWaterM3 = canForecast
+    const predictedWaterM3 = canForecast && cycleUsage.waterLiter != null
         ? (cycleUsage.waterLiter + (cycleUsage.waterLiter / cycleUsage.elapsedDays) * daysToHarvest) / 1000
         : null;
-    const predictedCost = predictedEnergyKwh != null && tariff
-        ? predictedEnergyKwh * rate + (predictedWaterM3 ?? 0) * waterRate
+    const predictedCost = predictedEnergyKwh != null && predictedWaterM3 != null && tariff
+        ? predictedEnergyKwh * rate + predictedWaterM3 * waterRate
         : null;
 
     const alerts: KandangAlert[] = [];
@@ -104,7 +104,7 @@ export function computeKandangInsights(input: InsightInput) {
                     : "Cek kebocoran nipple, pipa, dan pelampung tandon.",
             });
         }
-        if (powerDeviation && powerDeviation.tier !== "normal" && online) {
+        if (powerDeviation && actualPowerKw != null && powerDeviation.tier !== "normal" && online) {
             alerts.push({
                 id: "power",
                 tier: powerDeviation.tier,
@@ -113,7 +113,7 @@ export function computeKandangInsights(input: InsightInput) {
                 action: "Kemungkinan ada kipas mati. Periksa kipas satu per satu dan belt-nya.",
             });
         }
-        if (online && live && live.voltage > 0 && (live.voltage < settings.voltageMin || live.voltage > settings.voltageMax)) {
+        if (online && live?.voltage != null && live.voltage > 0 && (live.voltage < settings.voltageMin || live.voltage > settings.voltageMax)) {
             alerts.push({
                 id: "voltage",
                 tier: "waspada",
@@ -122,7 +122,7 @@ export function computeKandangInsights(input: InsightInput) {
                 action: "Pantau kipas dan pompa. Tegangan tidak stabil bisa merusak motor.",
             });
         }
-        if (online && live && live.pf > 0 && live.pf < LOW_POWER_FACTOR) {
+        if (online && live?.pf != null && live.pf > 0 && live.pf < LOW_POWER_FACTOR) {
             alerts.push({
                 id: "power-factor",
                 tier: "info",

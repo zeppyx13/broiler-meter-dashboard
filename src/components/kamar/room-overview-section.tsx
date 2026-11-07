@@ -110,7 +110,7 @@ export default function RoomOverviewSection() {
 
             {!isLoading && b.farms.length === 0 && (
                 <div className="rounded-3xl border border-[#EAEAEA] bg-white px-6 py-14 text-center font-inter text-sm text-[#999]">
-                    Belum ada lahan untuk akun ini. Owner dapat menambahkan lahan di Pengaturan.
+                    Belum ada lahan. Tambahkan di Pengaturan.
                 </div>
             )}
 

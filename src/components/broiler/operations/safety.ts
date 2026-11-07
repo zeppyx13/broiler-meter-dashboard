@@ -1,11 +1,14 @@
 export type DeviceSafety = { is_active: boolean | number; connectivity_status?: string; last_seen_at?: string | null; stale_after_seconds?: number; device_type?: string; firmware_version?: string | null };
 export type RelaySafety = { is_enabled: boolean | number; channel: number };
 export type RelayCommandSafety = { status: string; requested_at?: string | null };
+export type RelayPreflight = { allowed: boolean; reason: string; reason_code?: string; pending_command_id?: number | null; timeout_at?: string | null; retry_after_ms?: number; server_time?: string };
 
 /** A UI preflight only: the server must recheck scope, heartbeat and transport. */
-export function relayAvailability(input: { allowed: boolean; source: "real" | "simulation"; relay: RelaySafety; device?: DeviceSafety; command?: RelayCommandSafety; now?: number }) {
+export function relayAvailability(input: { allowed: boolean; source: "real"; relay: RelaySafety; device?: DeviceSafety; command?: RelayCommandSafety; preflight?: RelayPreflight; now?: number }) {
     if (!input.allowed) return { allowed: false, reason: "Akun ini tidak mempunyai capability relay:operate untuk kandang ini." };
-    if (input.source !== "real") return { allowed: false, reason: "Sumber simulasi tidak mengendalikan perangkat fisik." };
+    // The server reconciles expired reservations and uses its own clock/transport state.
+    // A browser timer, desired state, or missing firmware ACK never grants permission.
+    if (input.preflight) return { allowed: input.preflight.allowed, reason: input.preflight.reason };
     if (!input.relay.is_enabled || input.relay.channel !== 1) return { allowed: false, reason: "Mapping relay tidak aktif atau kanal tidak didukung firmware v3.1." };
     const device = input.device;
     if (!device || !device.is_active || device.connectivity_status !== "online") return { allowed: false, reason: "Perangkat belum memiliki koneksi aktif yang dipercaya server." };

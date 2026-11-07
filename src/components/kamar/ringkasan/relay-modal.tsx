@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import Swal from "sweetalert2";
@@ -9,6 +9,7 @@ import { readData, writeData } from "@/lib/broiler-api";
 import { useBroiler } from "@/components/broiler/broiler-provider";
 import { CancelButton, ModalShell } from "./form-parts";
 import { apiErrorMessage } from "@/lib/api-error";
+import type { RelayPreflight } from "@/components/broiler/operations/safety";
 
 type Props = {
     open: boolean;
@@ -27,38 +28,56 @@ export default function RelayModal({ open, onClose, roomId, roomNumber, online }
     const b = useBroiler();
     const relays = useQuery({
         queryKey: ["broiler", b.user?.id, roomId, "relays"],
-        queryFn: () => readData<{ relays: RelayRow[] }>("/api/relays", { coop_id: roomId, page: 1, limit: 20 }),
+        queryFn: ({ signal }) => readData<{ relays: RelayRow[] }>("/api/relays", { coop_id: roomId, page: 1, limit: 20 }, { signal }),
         enabled: open && Boolean(b.user),
+        refetchInterval: open ? 5000 : false,
     });
     const relay = (relays.data?.relays ?? []).find((r) => Boolean(Number(r.is_enabled)));
-    const blocked = b.source !== "real" ? "Relay hanya bisa dikendalikan pada mode Sensor (bukan Simulasi)." : !b.canRelay ? "Akun Anda tidak punya izin mengendalikan relay di kandang ini." : relays.isSuccess && !relay ? "Belum ada relay aktif yang terdaftar di kandang ini." : null;
+    const preflight = useQuery({
+        queryKey: ["broiler", b.user?.id, roomId, "relay-preflight", relay?.id],
+        queryFn: ({ signal }) => readData<RelayPreflight>(`/api/relays/${relay!.id}/preflight`, undefined, { signal }),
+        enabled: open && Boolean(b.user && relay) && b.source === "real", refetchInterval: open ? 5000 : false,
+    });
+    const blocked = b.source !== "real" ? "Relay hanya bisa dikendalikan pada mode Sensor (bukan Simulasi)." : !b.canRelay ? "Akun Anda tidak punya izin mengendalikan relay di kandang ini." : relays.error ? apiErrorMessage(relays.error) : relays.isSuccess && !relay ? "Belum ada relay aktif yang terdaftar di kandang ini." : preflight.error ? apiErrorMessage(preflight.error) : !preflight.data ? "Memeriksa perangkat…" : !preflight.data.allowed ? preflight.data.reason : null;
     const [sending, setSending] = useState<RelayCommand | null>(null);
     const [lastSent, setLastSent] = useState<{ command: RelayCommand; at: Date } | null>(null);
+    const inFlight = useRef(false);
+    const scope = `${b.user?.id}:${roomId}:${b.source}:${open}`;
+    const currentScope = useRef(scope);
+    useEffect(() => { currentScope.current = scope; setLastSent(null); setSending(null); return () => { currentScope.current = ""; }; }, [scope]);
 
     async function send(command: RelayCommand) {
+        if (blocked || !relay || inFlight.current) return;
+        const requestedScope = scope;
+        inFlight.current = true; setSending(command);
+        try {
         const confirm = await Swal.fire({
             title: `Yakin ${LABEL[command]} relay?`,
-            text: `Kandang ${roomNumber} — lampu/pemanas yang tersambung ke relay akan ${command === "relay_on" ? "menyala" : "mati"}.`,
+            text: `Kandang ${roomNumber} · ${relay.name}. Beban terhubung dapat berubah. Publikasi belum membuktikan hasil fisik.`,
             icon: "question",
             showCancelButton: true,
             confirmButtonText: "Ya, kirim",
             cancelButtonText: "Batal",
             confirmButtonColor: command === "relay_off" ? "#b91c1c" : "#7B1113",
         });
-        if (!confirm.isConfirmed) return;
-
-        setSending(command);
-        try {
-            if (!relay) return;
+        if (!confirm.isConfirmed || currentScope.current !== requestedScope) return;
+            const latest = await preflight.refetch();
+            if (currentScope.current !== requestedScope) return;
+            if (latest.isError) throw latest.error;
+            if (!latest.data?.allowed) throw new Error(latest.data?.reason || "Preflight server belum tersedia.");
             // Tidak idempoten di server: jangan retry otomatis.
             await writeData("post", `/api/relays/${relay.id}/commands`, { command: command === "relay_on" ? "on" : "off" });
             void relays.refetch();
+            void preflight.refetch();
+            if (currentScope.current !== requestedScope) return;
             setLastSent({ command, at: new Date() });
-            Swal.fire({ icon: "success", title: "Perintah terkirim", timer: 1300, showConfirmButton: false });
+            Swal.fire({ icon: "info", title: "Permintaan tercatat", text: "Periksa histori publikasi dan laporan perangkat. Hasil fisik belum terkonfirmasi.", confirmButtonColor: "#7B1113" });
         } catch (err) {
-            Swal.fire({ icon: "error", title: "Gagal mengirim", text: apiErrorMessage(err), confirmButtonColor: "#7B1113" });
+            void relays.refetch(); void preflight.refetch();
+            if (currentScope.current === requestedScope) Swal.fire({ icon: "error", title: "Permintaan belum terkonfirmasi", text: `${apiErrorMessage(err)}. Periksa histori sebelum mengirim permintaan baru.`, confirmButtonColor: "#7B1113" });
         } finally {
-            setSending(null);
+            inFlight.current = false;
+            if (currentScope.current === requestedScope) setSending(null);
         }
     }
 
@@ -74,14 +93,14 @@ export default function RelayModal({ open, onClose, roomId, roomNumber, online }
             {!online && (
                 <p className="flex items-start gap-2 rounded-2xl bg-[#FFF4E5] px-4 py-3 font-inter text-sm text-[#9A6B14]">
                     <WifiOff size={16} className="mt-0.5 shrink-0" />
-                    Perangkat sedang offline, jadi perintah kemungkinan tidak sampai ke alat.
+                    Perangkat belum online.
                 </p>
             )}
 
             {blocked && <p className="rounded-2xl bg-[#F8F8F8] px-4 py-3 font-inter text-sm text-[#777]">{blocked}</p>}
             {relay && (
                 <p className="font-inter text-xs text-[#777]">
-                    {relay.name} · channel {relay.channel} · posisi dilaporkan alat: <span className="font-medium text-[#2F2F2F]">{relay.reported_state ?? "belum ada"}</span>
+                    {relay.name} · channel {relay.channel} · posisi dilaporkan alat: <span className="font-medium text-[#2F2F2F]">{relay.reported_state ?? "belum ada"}</span> · observasi, perlu verifikasi fisik
                 </p>
             )}
 

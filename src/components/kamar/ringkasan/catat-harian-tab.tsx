@@ -3,7 +3,6 @@
 import Swal from "sweetalert2";
 import { ClipboardPlus, Pencil, Trash2 } from "lucide-react";
 import SectionCard from "@/components/dashboard/section-card";
-import { localDateKey } from "@/lib/broiler-local-store";
 import { writeData } from "@/lib/broiler-api";
 import { apiErrorMessage } from "@/lib/api-error";
 import { recordDate } from "@/lib/broiler-adapters";
@@ -40,7 +39,7 @@ export default function CatatHarianTab({ data, onOpenRecord }: Props) {
         );
     }
 
-    const today = localDateKey();
+    const today = data.localDate;
     const recordedToday = cycle.records.some((r) => r.date === today);
 
     async function handleDelete(date: string) {
@@ -97,7 +96,7 @@ export default function CatatHarianTab({ data, onOpenRecord }: Props) {
             <SectionCard className="overflow-hidden p-0!">
                 {cycle.records.length === 0 ? (
                     <p className="px-6 py-10 text-center font-inter text-sm text-[#999]">
-                        Belum ada catatan. Catat ayam mati dan afkir setiap hari agar populasi dan konsumsi per ekor akurat.
+                        Belum ada catatan. Catat ayam mati dan afkir setiap hari.
                     </p>
                 ) : (
                     <ul className="divide-y divide-[#F0F0F0]">

@@ -12,6 +12,7 @@ const PAGE_TITLES: { path: string; label: string; title: string }[] = [
     { path: "/dashboard/kamar", label: "Kelola", title: "Kandang" },
     { path: "/dashboard/peringatan", label: "Guard", title: "Peringatan" },
     { path: "/dashboard/tagihan", label: "Efisiensi", title: "Laporan" },
+    { path: "/dashboard/validasi", label: "Uji alat", title: "Validasi Alat" },
     { path: "/dashboard/settings", label: "Akun & Tarif", title: "Pengaturan" },
     { path: "/dashboard/iot", label: "Teknis", title: "Alat IoT" },
     { path: "/dashboard/terminal", label: "Teknis", title: "IoT Terminal" },

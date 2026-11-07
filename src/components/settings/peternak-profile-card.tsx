@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { LoaderCircle, User } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { LoaderCircle } from "lucide-react";
 import Swal from "sweetalert2";
-import { getUser, getToken, setAuth } from "@/lib/auth";
 import { writeData } from "@/lib/broiler-api";
 import { useBroiler } from "@/components/broiler/broiler-provider";
 import { apiErrorMessage } from "@/lib/api-error";
@@ -24,23 +23,22 @@ export default function PeternakProfileCard() {
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");
     const [loading, setLoading] = useState(false);
+    const inFlight = useRef(false);
 
     useEffect(() => {
-        const current = (b.user as ProfileUser | null) ?? getUser();
+        const current = (b.user as ProfileUser | undefined) ?? null;
         setUser(current);
         setName(current?.name ?? "");
         setPhone(current?.phone ?? "");
     }, [b.user]);
 
     async function handleSave() {
-        if (!user) return;
+        if (!b.user || inFlight.current) return;
+        inFlight.current = true;
         try {
             setLoading(true);
-            await writeData("put", "/api/users/me", { name: name.trim(), phone: phone.trim() || null });
-            const updatedUser = { ...user, name, phone };
-            const token = getToken();
-            if (token) setAuth(token, updatedUser);
-            setUser(updatedUser);
+            const result = await writeData<{ user: ProfileUser }>("put", "/api/users/me", { name: name.trim(), phone: phone.trim() || null });
+            setUser(result.user);
             await b.refresh();
             Swal.fire({ icon: "success", title: "Profil diperbarui", timer: 1500, showConfirmButton: false });
         } catch (err) {
@@ -51,6 +49,7 @@ export default function PeternakProfileCard() {
                 confirmButtonColor: "#7B1113",
             });
         } finally {
+            inFlight.current = false;
             setLoading(false);
         }
     }
@@ -58,18 +57,13 @@ export default function PeternakProfileCard() {
     return (
         <div className="rounded-3xl border border-[#EAEAEA] bg-white p-6 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
             <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7B1113]/10">
-                    <User size={20} className="text-[#7B1113]" />
-                </div>
                 <div>
-                    <p className="font-inter text-sm text-[#666]">Akun Peternak</p>
                     <h3 className="font-poppins text-lg font-semibold text-[#2F2F2F]">Profil Peternak</h3>
                 </div>
             </div>
 
             <p className="mt-3 font-inter text-xs text-[#999]">
-                Data akun yang sedang login. Akses ke lahan dan kandang diatur pemilik lahan di bagian Lahan &amp; Tim.
-                {user?.id != null && <> ID akun Anda: <span className="font-semibold text-[#555]">{user.id}</span> (dipakai saat ditambahkan ke tim).</>}
+                {user?.id != null && <>ID akun: <span className="font-semibold text-[#555]">{user.id}</span></>}
             </p>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -77,6 +71,7 @@ export default function PeternakProfileCard() {
                     <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">Nama</label>
                     <input
                         type="text"
+                        maxLength={120}
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         suppressHydrationWarning
@@ -97,6 +92,7 @@ export default function PeternakProfileCard() {
                     <label className="mb-1.5 block font-inter text-sm font-medium text-[#2F2F2F]">No. HP</label>
                     <input
                         type="text"
+                        maxLength={30}
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         placeholder="08xx..."

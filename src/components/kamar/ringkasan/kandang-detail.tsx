@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
 import { ArrowLeft, Wifi, WifiOff, ClipboardPlus, Flag, Pencil, Sprout, AlertTriangle, Power, Bot, FileText, ChevronLeft, ChevronRight } from "lucide-react";
-import { localDateKey } from "@/lib/broiler-local-store";
 import { writeData } from "@/lib/broiler-api";
 import { useBroiler } from "@/components/broiler/broiler-provider";
 import RoomFormModal, { type CoopFormPayload } from "../room-form-modal";
@@ -57,7 +56,7 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
         );
     }
 
-    const recordedToday = cycle?.records.some((r) => r.date === localDateKey()) ?? false;
+    const recordedToday = cycle?.records.some((r) => r.date === data.localDate) ?? false;
     const progressPct = ageDays != null ? Math.min(100, (ageDays / harvestTargetDays) * 100) : 0;
     const looksStale = ageDays != null && ageDays > harvestTargetDays + 14;
 
@@ -102,7 +101,7 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
                     </div>
                     <span className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 font-inter text-xs font-medium ${online ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                         {online ? <Wifi size={13} /> : <WifiOff size={13} />}
-                        {online ? "Perangkat online" : "Perangkat offline"}
+                        {online ? "Perangkat online" : "Perangkat belum online"}
                         {live?.recorded_at && ` · ${new Date(live.recorded_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`}
                     </span>
                 </div>
@@ -134,7 +133,7 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
 
                         <div className="mt-4 flex flex-wrap items-center gap-2">
                             {canOperate && <button
-                                onClick={() => setRecordDate(localDateKey())}
+                                onClick={() => setRecordDate(data.localDate)}
                                 suppressHydrationWarning
                                 className="relative flex w-full items-center justify-center gap-2 rounded-2xl bg-[#7B1113] px-5 py-3 font-poppins text-sm font-semibold text-[#C6A971] transition hover:opacity-90 sm:w-auto"
                             >
@@ -191,7 +190,7 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
             {tab === "ringkasan" && (
                 <KandangRingkasan data={data} onEditCycle={() => setEditCycleOpen(true)} onOpenEquipment={() => setTab("peralatan")} />
             )}
-            {tab === "harian" && <CatatHarianTab data={data} onOpenRecord={(date) => setRecordDate(date ?? localDateKey())} />}
+            {tab === "harian" && <CatatHarianTab data={data} onOpenRecord={(date) => setRecordDate(date ?? data.localDate)} />}
             {tab === "riwayat" && <RiwayatSiklusTab data={data} />}
             {tab === "peralatan" && <PeralatanTab data={data} />}
             {tab === "pengaturan" && <KandangSettingsTab data={data} onEditRoom={canManage ? () => setRoomFormOpen(true) : undefined} />}

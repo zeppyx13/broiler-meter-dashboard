@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { writeData } from "@/lib/broiler-api";
+import { apiErrorMessage } from "@/lib/api-error";
 import Link from "next/link";
 import {
     ComposedChart, Line, ReferenceDot, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
-    Droplets, Zap, Wallet, TrendingUp, ShieldAlert, Leaf, Lightbulb, Bot, AlertCircle, ChevronRight, MessageSquare,
+    Droplets, Zap, Wallet, TrendingUp, AlertCircle, ChevronRight, MessageSquare,
 } from "lucide-react";
 import SectionCard from "@/components/dashboard/section-card";
 import { askCopilot, KANDANG_QUESTIONS } from "@/lib/copilot-context";
@@ -21,10 +23,6 @@ const TONE_TEXT: Record<DeviationTier, string> = {
     normal: "text-[#999]",
 };
 
-function timeLabel(date: Date) {
-    return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-}
-
 type Props = {
     data: KandangData;
     onEditCycle: () => void;
@@ -32,8 +30,17 @@ type Props = {
 };
 
 export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }: Props) {
-    const { room, live, activeCycle, cycle, expectedPowerKw, ageDays, harvestTargetDays, daysToHarvest, todayUsage, cycleUsage, insights } = data;
+    const { live, activeCycle, cycle, expectedPowerKw, ageDays, harvestTargetDays, daysToHarvest, todayUsage, cycleUsage, insights } = data;
     const populationNow = cycle?.populationNow;
+    const [ecoError, setEcoError] = useState<string | null>(null);
+    const [ecoPending, setEcoPending] = useState<number | null>(null);
+    async function setRecommendation(id: number, status: string) {
+        if (ecoPending != null) return;
+        setEcoPending(id); setEcoError(null);
+        try { await writeData("patch", `/api/eco-recommendations/${id}/status`, { status }); data.refreshAll(); }
+        catch (error) { setEcoError(apiErrorMessage(error)); }
+        finally { setEcoPending(null); }
+    }
 
     const checklist = [
         activeCycle && !cycle?.populationStart && {
@@ -41,7 +48,7 @@ export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }:
             action: <button onClick={onEditCycle} className="font-semibold text-[#7B1113] hover:underline">Isi sekarang</button>,
         },
         !expectedPowerKw && {
-            text: "Peralatan kandang belum diisi — Guard belum bisa mendeteksi kipas mati.",
+            text: "Isi daftar peralatan dulu.",
             action: <button onClick={onOpenEquipment} className="font-semibold text-[#7B1113] hover:underline">Isi peralatan</button>,
         },
         !live && {
@@ -91,31 +98,31 @@ export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }:
 
             {/* KPI */}
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <Kpi icon={<Droplets size={14} className="text-blue-500" />} label="Air minum hari ini"
-                    value={todayUsage.ready ? `${todayUsage.waterTodayLiter.toFixed(0)} L` : "—"}
+                <Kpi icon={<Droplets size={14} className="text-blue-500" />} label="Air inlet hari ini"
+                    value={todayUsage.waterTodayLiter != null ? `${todayUsage.waterTodayLiter.toFixed(0)} L` : "—"}
                     tone={waterTone}
-                    sub={!todayUsage.ready
+                    sub={todayUsage.waterTodayLiter == null
                         ? "Menunggu data perangkat"
                         : insights.waterPerBirdSoFar == null
-                            ? `Sejak ${timeLabel(todayUsage.since!)} · isi populasi untuk per-ekor`
+                            ? "Isi populasi untuk per-ekor"
                             : insights.waterDeviation
                                 ? `${insights.waterPerBirdSoFar.toFixed(3)} L/ekor · ${insights.waterDeviation.pct >= 0 ? "+" : ""}${insights.waterDeviation.pct.toFixed(0)}% dari pola normal`
-                                : `${insights.waterPerBirdSoFar.toFixed(3)} L/ekor sejak ${timeLabel(todayUsage.since!)} · dinilai setelah 2 jam`}
+                                : `${insights.waterPerBirdSoFar.toFixed(3)} L/ekor`}
                 />
                 <Kpi icon={<Zap size={14} className="text-amber-500" />} label="Daya saat ini"
-                    value={live ? `${insights.actualPowerKw.toFixed(2)} kW` : "—"}
+                    value={live && insights.actualPowerKw != null ? `${insights.actualPowerKw.toFixed(2)} kW` : "—"}
                     tone={powerTone}
                     sub={expectedPowerKw ? `Seharusnya ${expectedPowerKw.toFixed(2)} kW` : "Peralatan belum diisi"}
                 />
                 <Kpi icon={<TrendingUp size={14} className="text-[#7B1113]" />} label="Energi siklus berjalan"
-                    value={cycleUsage ? `${cycleUsage.energyKwh.toFixed(1)} kWh` : "—"}
+                    value={cycleUsage?.energyKwh != null ? `${cycleUsage.energyKwh.toFixed(1)} kWh` : "—"}
                     sub={!activeCycle
                         ? "Mulai siklus untuk menghitung"
                         : !cycleUsage
                             ? "Menunggu data perangkat"
                             : [
                                 insights.cycleEnergyCost != null && `≈ ${formatRupiah(insights.cycleEnergyCost)}`,
-                                populationNow && `${((cycleUsage.energyKwh * 1000) / populationNow).toFixed(0)} Wh/ekor`,
+                                populationNow && cycleUsage.energyKwh != null && `${((cycleUsage.energyKwh * 1000) / populationNow).toFixed(0)} Wh/ekor`,
                                 cycleSinceNote,
                             ].filter(Boolean).join(" · ")}
                 />
@@ -124,7 +131,7 @@ export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }:
                     sub={!activeCycle
                         ? "Mulai siklus untuk memprediksi"
                         : insights.predictedEnergyKwh == null
-                            ? "Butuh minimal 6 jam data siklus"
+                            ? `Forecast server: ${data.forecastState}; minimal 3 tanggal selesai`
                             : [
                                 insights.predictedCost != null && `≈ ${formatRupiah(insights.predictedCost)}`,
                                 insights.predictedWaterM3 != null && `air ±${insights.predictedWaterM3.toFixed(1)} m³`,
@@ -137,9 +144,9 @@ export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }:
             {/* Chart + Peringatan */}
             <div className="grid gap-6 xl:grid-cols-3">
                 <SectionCard className="xl:col-span-2">
-                    <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Konsumsi air per ekor menurut hari umur</p>
+                    <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Air per ekor per hari</p>
                     <p className="mt-1 font-inter text-xs text-[#999]">
-                        Garis putus-putus = pola normal (estimasi referensi umum). Titik merah = laju aktual hari ini.
+                        Putus-putus: pola normal · titik merah: hari ini
                     </p>
                     <div className="mt-4 h-64">
                         <ResponsiveContainer width="100%" height="100%">
@@ -161,16 +168,13 @@ export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }:
                 </SectionCard>
 
                 <SectionCard>
-                    <div className="flex items-center gap-2">
-                        <ShieldAlert size={18} className="text-[#7B1113]" />
-                        <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Peringatan</p>
-                    </div>
+                    <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Peringatan</p>
                     <div className="mt-4 space-y-3">
                         {!activeCycle ? (
-                            <p className="font-inter text-sm text-[#999]">Guard aktif saat ada siklus berjalan.</p>
+                            <p className="font-inter text-sm text-[#999]">Belum ada siklus berjalan.</p>
                         ) : insights.alerts.length === 0 ? (
                             <div className="rounded-2xl border border-dashed border-[#D8D8D8] bg-[#FAFAFA] p-4 text-center">
-                                <p className="font-inter text-sm text-[#777]">Semua normal.</p>
+                                <p className="font-inter text-sm text-[#777]">Tidak ada peringatan.</p>
                             </div>
                         ) : (
                             insights.alerts.map((a) => (
@@ -191,13 +195,7 @@ export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }:
             {/* Forecast + Eco-Advisor */}
             <div className="grid gap-6 xl:grid-cols-2">
                 <SectionCard>
-                    <div className="flex items-center gap-2">
-                        <TrendingUp size={18} className="text-[#7B1113]" />
-                        <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Forecast</p>
-                    </div>
-                    <p className="mt-1 font-inter text-xs text-[#999]">
-                        Proyeksi dari rata-rata konsumsi harian siklus ini; makin akurat seiring data terkumpul.
-                    </p>
+                    <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Perkiraan sampai panen</p>
                     <div className="mt-4 grid grid-cols-2 gap-3">
                         <MiniStat label="Sisa hari ke panen" value={daysToHarvest != null ? `${daysToHarvest} hari` : "—"} />
                         <MiniStat label="Estimasi biaya energi" value={insights.predictedCost != null ? formatRupiah(insights.predictedCost) : "—"} />
@@ -205,20 +203,11 @@ export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }:
                 </SectionCard>
 
                 <SectionCard>
-                    <div className="flex items-center gap-2">
-                        <Leaf size={18} className="text-green-600" />
-                        <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Eco-Advisor</p>
-                    </div>
+                    <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Saran hemat</p>
                     <div className="mt-4 space-y-2.5">
-                        {insights.waterDeviation?.direction === "naik" && insights.waterDeviation.tier !== "normal" && (
-                            <EcoTip title="Indikasi kebocoran air" detail="Konsumsi air di atas pola normal. Cek jalur nipple dan tandon." />
-                        )}
-                        {ageDays != null && ageDays <= 14 ? (
-                            <EcoTip title="Atur pemanas sesuai suhu brooding" detail="Kurangi pemanas bertahap saat suhu lingkungan sudah mendekati target umur ini." />
-                        ) : (
-                            <EcoTip title="Atur kipas mengikuti suhu siang-malam" detail="Kurangi kipas yang menyala di malam hari saat suhu luar turun, sesuai kebutuhan ventilasi minimum." />
-                        )}
-                        <EcoTip title="Matikan lampu tambahan di siang hari" detail="Manfaatkan cahaya alami bila intensitasnya sudah cukup untuk aktivitas ayam." />
+                        {data.ecoRecommendations.map((r) => <EcoTip key={r.id} title={r.status === "new" ? r.title : `${r.title} · ${r.status === "accepted" ? "diterima" : r.status === "dismissed" ? "diabaikan" : r.status}`} detail={`${r.description ?? r.recommendation_text ?? r.message ?? ""}${r.estimated_savings_idr != null ? ` · hemat ±${formatRupiah(r.estimated_savings_idr)}` : ""}`} action={<>{data.canOperate && r.status === "new" && <span className="flex gap-3">{["accepted", "dismissed"].map((status) => <button key={status} disabled={ecoPending != null} onClick={() => setRecommendation(r.id, status)} className="font-inter text-xs text-[#7B1113] underline">{status === "accepted" ? "Terima saran" : "Abaikan"}</button>)}</span>}</>} />)}
+                        {!data.ecoRecommendations.length && <p className="font-inter text-xs text-[#999]">{data.ecoError ? "Saran gagal dimuat." : "Belum ada saran."}</p>}
+                        {ecoError && <p role="alert" className="font-inter text-xs text-red-600">{ecoError}</p>}
                     </div>
                 </SectionCard>
             </div>
@@ -226,13 +215,7 @@ export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }:
             {/* Copilot — pintasan ke chat Copilot (pojok kanan bawah), yang otomatis fokus ke kandang ini. */}
             <SectionCard>
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                        <Bot size={18} className="text-[#7B1113]" />
-                        <div>
-                            <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Tanya Copilot</p>
-                            <p className="font-inter text-xs text-[#999]">Copilot membaca data terkini Kandang {room?.number}.</p>
-                        </div>
-                    </div>
+                    <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Tanya Copilot</p>
                     <button
                         onClick={() => askCopilot()}
                         suppressHydrationWarning
@@ -277,15 +260,13 @@ function MiniStat({ label, value }: { label: string; value: string }) {
     );
 }
 
-function EcoTip({ title, detail }: { title: string; detail: string }) {
+function EcoTip({ title, detail, action }: { title: string; detail: string; action?: React.ReactNode }) {
     return (
         <div className="flex items-start gap-3 rounded-2xl border border-[#EAEAEA] bg-[#FAFAFA] p-3.5">
-            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-green-50">
-                <Lightbulb size={14} className="text-green-600" />
-            </div>
             <div>
                 <p className="font-poppins text-sm font-semibold text-[#2F2F2F]">{title}</p>
                 <p className="mt-0.5 font-inter text-xs text-[#666]">{detail}</p>
+                {action}
             </div>
         </div>
     );

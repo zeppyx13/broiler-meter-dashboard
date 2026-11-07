@@ -1,4 +1,4 @@
-import { Home, Warehouse, BellRing, FileText, Settings, Cpu, Terminal } from "lucide-react";
+import { Home, Warehouse, BellRing, FileText, Settings, Cpu, Terminal, ClipboardCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { SidebarIconName } from "@/types/dashboard";
 
@@ -10,6 +10,7 @@ export const NAV_ICONS: Record<SidebarIconName, LucideIcon> = {
     settings: Settings,
     cpu: Cpu,
     terminal: Terminal,
+    validasi: ClipboardCheck,
 };
 
 export function isNavActive(href: string, pathname: string) {

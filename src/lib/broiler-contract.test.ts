@@ -20,7 +20,6 @@ const fixtureSummary: Summary = {
     live: metricFields,
     today: { water_liters: 0, energy_kwh: 0, energy_wh_per_bird: 0, population_basis: 100, status: "partial", source: "real" },
     cycle_totals: { water_liters: 1500, energy_kwh: 2, energy_wh_per_bird: 20, population_basis: 100, status: "partial", source: "real" },
-    simulation: { live: { ...metricFields, source: "simulation", status: "live", power_w: 500, water_total_liter: 1500, energy_kwh_total: 2 }, today: { water_liters: 500, energy_kwh: 2, energy_wh_per_bird: 20, source: "simulation", status: "partial" }, cycle_totals: null },
 };
 let server: Server;
 let originalBase: string | undefined;
@@ -49,7 +48,7 @@ beforeAll(async () => {
             const page = Number(url.searchParams.get("page"));
             send({ coops: page === 1 ? Array.from({ length: 100 }, (_, index) => ({ id: index + 1 })) : [{ id: 101 }] });
         } else if (url.pathname === "/api/ai/copilot") {
-            send({ state: "unavailable", reason: "not_configured", retryable: false, source: "simulation" });
+            send({ state: "unavailable", reason: "not_configured", retryable: false, source: "real" });
         } else if (url.pathname === "/api/meters/7" && request.method === "PATCH") {
             send({ meter: { id: 7, is_active: false } });
         } else {
@@ -75,11 +74,11 @@ describe("frontend wire contract through actual local HTTP", () => {
     });
 
     it("attaches synthetic bearer only in headers and preserves query parameters", async () => {
-        await readData<Summary>("/api/dashboard/summary", { coop_id: 41, include_simulation: true });
+        await readData<Summary>("/api/dashboard/summary", { coop_id: 41 });
         const url = new URL(received[0].path, "http://fixture.invalid");
         expect(received[0].authorization).toBe(`Bearer ${auth.token}`);
         expect(url.searchParams.get("coop_id")).toBe("41");
-        expect(url.searchParams.get("include_simulation")).toBe("true");
+        expect(url.searchParams.has("include_simulation")).toBe(false);
         expect(received[0].path).not.toContain(auth.token);
     });
 
@@ -103,7 +102,7 @@ describe("frontend wire contract through actual local HTTP", () => {
     });
 
     it("leaves HTTP200 Copilot unavailable distinct from ready content", async () => {
-        const unavailable = await writeData<{ state: string; reason: string; retryable: boolean; message?: unknown }>("post", "/api/ai/copilot", { coop_id: 41, source: "simulation", message: "Fixture context question", request_id: "00000000-0000-4000-8000-000000000001" });
+        const unavailable = await writeData<{ state: string; reason: string; retryable: boolean; message?: unknown }>("post", "/api/ai/copilot", { coop_id: 41, source: "real", message: "Fixture context question", request_id: "00000000-0000-4000-8000-000000000001" });
         expect(unavailable).toMatchObject({ state: "unavailable", reason: "not_configured", retryable: false });
         expect(unavailable.message).toBeUndefined();
     });
@@ -122,14 +121,12 @@ describe("frontend wire contract through actual local HTTP", () => {
 });
 
 describe("canonical server metric and context boundaries", () => {
-    it("keeps real null/stale separate from populated simulation and preserves accepted-zero", async () => {
-        const summary = await readData<Summary>("/api/dashboard/summary", { coop_id: 41, include_simulation: true });
-        expect(stream(summary, "real")?.live.power_w).toBeNull();
-        expect(stream(summary, "real")?.live.field_status.power_w).toBe("stale");
-        expect(stream(summary, "simulation")?.live.power_w).toBe(500);
-        expect(metric(stream(summary, "real")?.today?.energy_kwh, 2, " kWh")).toBe("0 kWh");
-        expect(metric(stream(summary, "real")?.live.power_w, 2, " W")).toBe("—");
-        expect(stream({ ...summary, simulation: undefined }, "simulation")).toBeUndefined();
+    it("keeps real null/stale separate from accepted-zero", async () => {
+        const summary = await readData<Summary>("/api/dashboard/summary", { coop_id: 41 });
+        expect(stream(summary)?.live.power_w).toBeNull();
+        expect(stream(summary)?.live.field_status.power_w).toBe("stale");
+        expect(metric(stream(summary)?.today?.energy_kwh, 2, " kWh")).toBe("0 kWh");
+        expect(metric(stream(summary)?.live.power_w, 2, " W")).toBe("—");
     });
 
     it("keeps server-provided dimensional fields unchanged and labels them explicitly", async () => {
@@ -156,13 +153,12 @@ describe("canonical server metric and context boundaries", () => {
         }
     });
 
-    it("isolates query scopes by account, farm, coop, source and cycle", () => {
-        const initial = queryScope(1, 2, 3, "real", 4);
-        expect(initial).not.toEqual(queryScope(2, 2, 3, "real", 4));
-        expect(initial).not.toEqual(queryScope(1, 5, 3, "real", 4));
-        expect(initial).not.toEqual(queryScope(1, 2, 5, "real", 4));
-        expect(initial).not.toEqual(queryScope(1, 2, 3, "simulation", 4));
-        expect(initial).not.toEqual(queryScope(1, 2, 3, "real", 5));
-        expect(initial).toEqual(["broiler", 1, 2, 3, "real", 4]);
+    it("isolates query scopes by account, farm, coop and cycle", () => {
+        const initial = queryScope(1, 2, 3, 4);
+        expect(initial).not.toEqual(queryScope(2, 2, 3, 4));
+        expect(initial).not.toEqual(queryScope(1, 5, 3, 4));
+        expect(initial).not.toEqual(queryScope(1, 2, 5, 4));
+        expect(initial).not.toEqual(queryScope(1, 2, 3, 5));
+        expect(initial).toEqual(["broiler", 1, 2, 3, 4]);
     });
 });
