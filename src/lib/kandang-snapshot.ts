@@ -40,6 +40,11 @@ const DEFAULT_HARVEST_TARGET_DAYS = 35;
  * Kondisi terkini setiap kandang yang bisa diakses, dari ringkasan & Guard server.
  * Dipakai Beranda dan daftar kandang agar angkanya selalu sama.
  */
+/** Kandang demo (kode berawalan "DEMO"): tetap dihitung, kartunya tidak tampil di Beranda. */
+export function isDemoKandang(code: string | null | undefined): boolean {
+    return /^demo\b/i.test((code ?? "").trim());
+}
+
 export function useKandangSnapshots() {
     const b = useBroiler();
     const coops = b.coops;

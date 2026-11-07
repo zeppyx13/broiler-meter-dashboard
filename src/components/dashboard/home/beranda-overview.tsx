@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Droplets, Zap, Wallet, Wifi, WifiOff, ShieldCheck, ShieldAlert, ChevronRight, Sprout } from "lucide-react";
-import { useKandangSnapshots, type KandangSnapshot } from "@/lib/kandang-snapshot";
+import { isDemoKandang, useKandangSnapshots, type KandangSnapshot } from "@/lib/kandang-snapshot";
 import { useBroiler } from "@/components/broiler/broiler-provider";
 import { ALERT_TIER_ORDER, type AlertTier } from "@/lib/kandang-insights";
 import { formatRupiah } from "@/lib/broiler-reference";
@@ -141,8 +141,9 @@ export default function BerandaOverview() {
                         )}
                     </div>
                 ) : (
+                    // Kandang demo tetap dihitung di ringkasan, tapi kartunya tidak ditampilkan (buka lewat menu Kandang).
                     <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                        {active.map((s) => <KandangCard key={s.room.id} snapshot={s} />)}
+                        {active.filter((s) => !isDemoKandang(s.room.number)).map((s) => <KandangCard key={s.room.id} snapshot={s} />)}
                     </div>
                 )}
             </section>
