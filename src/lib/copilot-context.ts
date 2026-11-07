@@ -36,7 +36,7 @@ function describeFocus(s: KandangSnapshot): string[] {
         const dev = insights.powerDeviation;
         lines.push(`- Daya terukur ${insights.actualPowerKw.toFixed(2)} kW${dev ? ` (${dev.pct >= 0 ? "+" : ""}${dev.pct.toFixed(0)}% dari daya seharusnya)` : ""}.`);
     }
-    if (s.live) lines.push(`- Tegangan ${s.live.voltage?.toFixed(0) ?? "belum tersedia"} V, PF ${s.live.pf?.toFixed(2) ?? "belum tersedia"}, debit inlet tandon ${s.live.flow_rate_lpm?.toFixed(2) ?? "belum tersedia"} L/menit. Sumber ${s.source === "simulation" ? "SIMULASI BACKEND" : "REAL"}.`);
+    if (s.live) lines.push(`- Tegangan ${s.live.voltage?.toFixed(0) ?? "belum tersedia"} V, PF ${s.live.pf?.toFixed(2) ?? "belum tersedia"}, debit inlet tandon ${s.live.flow_rate_lpm?.toFixed(2) ?? "belum tersedia"} L/menit. Sumber REAL.`);
     insights.alerts.forEach((a) => lines.push(`- Peringatan [${a.tier}]: ${a.title} — ${a.detail}`));
     return lines;
 }
@@ -54,7 +54,7 @@ export function buildFarmContext(snapshots: KandangSnapshot[], alerts: LoggedAle
             parts.push("istirahat");
         }
         parts.push(s.online ? "heartbeat perangkat REAL online" : "heartbeat perangkat REAL belum online");
-        parts.push(s.source === "simulation" ? "SIMULASI BACKEND" : "REAL");
+        parts.push("REAL");
         if (s.live?.power != null) parts.push(`daya panel ${(s.live.power / 1000).toFixed(2)} kW`);
         if (s.expectedPowerKw != null) parts.push(`daya seharusnya ${s.expectedPowerKw.toFixed(2)} kW`);
         if (s.todayUsage.waterTodayLiter != null) parts.push(`air inlet hari ini ${Math.round(s.todayUsage.waterTodayLiter)} L`);

@@ -69,7 +69,6 @@ export default function EfficiencyReportGenerator() {
 function EfficiencyReport({ roomId }: { roomId: number }) {
     const data = useKandangData(roomId);
     const { room, isLoading, activeCycle, cycle, expectedPowerKw, ageDays, harvestTargetDays, daysToHarvest, cycleUsage, insights } = data;
-    const { source } = useBroiler();
 
     if (isLoading) return <div className="h-64 animate-pulse rounded-3xl border border-[#EAEAEA] bg-white" />;
     if (!room) return null;
@@ -85,7 +84,7 @@ function EfficiencyReport({ roomId }: { roomId: number }) {
                         Kandang {room.number}
                     </h2>
                     <p className="mt-1 font-inter text-xs text-[#999]">
-                        Dicetak {new Date().toLocaleString("id-ID", { timeZone: data.timezone, day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · {source === "simulation" ? "SIMULASI BACKEND · " : ""}{data.timezone}
+                        Dicetak {new Date().toLocaleString("id-ID", { timeZone: data.timezone, day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · {data.timezone}
                     </p>
                 </div>
                 <button

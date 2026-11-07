@@ -46,7 +46,7 @@ export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
     );
     const reports = useQueries({
         queries: cycles.map((c) => ({
-            queryKey: ["broiler", b.user?.id, room?.id, "cycle-report", c.id, b.source],
+            queryKey: ["broiler", b.user?.id, room?.id, "cycle-report", c.id],
             queryFn: () => readData<CycleReport>(`/api/flock-cycles/${c.id}/report`, { source: b.source }),
             staleTime: 60_000,
         })),
@@ -109,7 +109,7 @@ export default function RiwayatSiklusTab({ data }: { data: KandangData }) {
                     </div>
                     <button
                         onClick={() => {
-                            setPrintedAt(`${new Date().toLocaleString("id-ID", { timeZone: data.timezone })} · ${b.source === "simulation" ? "SIMULASI BACKEND · " : ""}zona ${data.timezone}`);
+                            setPrintedAt(`${new Date().toLocaleString("id-ID", { timeZone: data.timezone })} · zona ${data.timezone}`);
                             setTimeout(() => window.print(), 0);
                         }}
                         suppressHydrationWarning

@@ -58,7 +58,7 @@ function AccuracySection({ rooms, roomName }: { rooms: { id: number; number: str
     const b = useBroiler();
     const calibrationQueries = useQueries({
         queries: rooms.map((r) => ({
-            queryKey: ["broiler", b.user?.id, r.id, "calibrations", b.source],
+            queryKey: ["broiler", b.user?.id, r.id, "calibrations"],
             queryFn: () => readData<{ calibrations: ServerCalibration[] }>(`/api/coops/${r.id}/calibrations`, { source: b.source, limit: 100 }),
         })),
     });
@@ -239,7 +239,7 @@ function ReliabilitySection({ rooms }: { rooms: { id: number; number: string }[]
     const b = useBroiler();
     const reports = useQueries({
         queries: rooms.map((r) => ({
-            queryKey: ["broiler", b.user?.id, r.id, "validation-report", b.source],
+            queryKey: ["broiler", b.user?.id, r.id, "validation-report"],
             queryFn: () => readData<ValidationReport>(`/api/coops/${r.id}/validation-report`, { source: b.source }),
             staleTime: 60_000,
         })),
@@ -302,7 +302,7 @@ function ReliabilitySection({ rooms }: { rooms: { id: number; number: string }[]
 
 function GuardResponseSection({ rooms }: { rooms: { id: number; number: string }[] }) {
     const b = useBroiler();
-    const reports = useQueries({ queries: rooms.map((r) => ({ queryKey: ["broiler", b.user?.id, r.id, "validation-report", b.source], queryFn: () => readData<ValidationReport>(`/api/coops/${r.id}/validation-report`, { source: b.source }), staleTime: 60_000 })) });
+    const reports = useQueries({ queries: rooms.map((r) => ({ queryKey: ["broiler", b.user?.id, r.id, "validation-report"], queryFn: () => readData<ValidationReport>(`/api/coops/${r.id}/validation-report`, { source: b.source }), staleTime: 60_000 })) });
     const values = reports.flatMap((q) => q.data?.guard_response?.state === "independently_attested" ? q.data.guard_response.observations ?? [] : []).map((v) => v.response_seconds).filter((v) => Number.isFinite(v) && v >= 0).sort((a, b) => a - b);
     const middle = Math.floor(values.length / 2);
     const median = values.length ? values.length % 2 ? values[middle] : (values[middle - 1] + values[middle]) / 2 : null;
@@ -352,7 +352,7 @@ function FieldTestSection() {
     const inFlight = useRef(false);
     const scope = useRef("");
     scope.current = `${b.user?.id}:${b.source}`;
-    const reports = useQueries({ queries: b.coops.map((c) => ({ queryKey: ["broiler", b.user?.id, c.id, "validation-report", b.source], queryFn: () => readData<ValidationReport>(`/api/coops/${c.id}/validation-report`, { source: b.source }), staleTime: 60_000 })) });
+    const reports = useQueries({ queries: b.coops.map((c) => ({ queryKey: ["broiler", b.user?.id, c.id, "validation-report"], queryFn: () => readData<ValidationReport>(`/api/coops/${c.id}/validation-report`, { source: b.source }), staleTime: 60_000 })) });
     const entries = reports.flatMap((q) => (q.data?.evidence ?? []).filter((e) => e.kind === "field_trial"));
     const allEntries = reports.flatMap((q, i) => (q.data?.evidence ?? []).map((e) => ({ ...e, coopId: b.coops[i].id })));
     async function recordEvidence() {

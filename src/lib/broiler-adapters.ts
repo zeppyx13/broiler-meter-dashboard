@@ -56,12 +56,12 @@ export function cycleToLease(cycle: Cycle): Lease {
 
 /** Status live dari server; nilai null (stale/no_data) tidak diubah jadi angka palsu. */
 export function isLiveOnline(live: Live | null | undefined): boolean {
-    return live?.source !== "simulation" && (live?.status === "live" || live?.status === "ok" || live?.status === "fresh");
+    return live?.source === "sensor" && (live.status === "live" || live.status === "ok" || live.status === "fresh");
 }
 
 /** Preserve every server null; one available field does not validate the other metrics. */
 export function liveToLegacy(live: Live | null | undefined, coop: { id: number; code?: string }): LiveStatus | undefined {
-    if (!live || !live.recorded_at) return undefined;
+    if (!live || live.source !== "sensor" || !live.recorded_at) return undefined;
     return {
         room_id: coop.id,
         number: coop.code,

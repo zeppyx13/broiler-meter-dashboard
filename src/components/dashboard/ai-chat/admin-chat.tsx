@@ -250,7 +250,7 @@ export default function AdminChat() {
                                     Copilot Coasther
                                 </p>
                                 <p className="font-inter text-xs text-white/70">
-                                    {focusRoom ? `Fokus: Kandang ${focusRoom.code}${b.source === "simulation" ? " · SIMULASI" : ""}` : "Pilih kandang dulu"}
+                                    {focusRoom ? `Fokus: Kandang ${focusRoom.code}` : "Pilih kandang dulu"}
                                 </p>
                             </div>
                         </div>

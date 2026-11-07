@@ -15,9 +15,6 @@ describe("manual relay UI safety boundary", () => {
         expect(relayAvailability(base).allowed).toBe(true);
         expect(relayAvailability({ ...base, allowed: false }).allowed).toBe(false);
     });
-    it("never treats simulation as a physical-control entitlement", () => {
-        expect(relayAvailability({ ...base, source: "simulation" }).allowed).toBe(false);
-    });
     it("rejects unknown, stale and future heartbeats despite online label", () => {
         for (const last_seen_at of [null, "invalid", "2026-11-05T23:55:00Z", "2026-11-06T00:01:00Z"]) {
             expect(relayAvailability({ ...base, device: { ...base.device, last_seen_at } }).allowed).toBe(false);

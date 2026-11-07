@@ -101,7 +101,7 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
                     </div>
                     <span className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 font-inter text-xs font-medium ${online ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                         {online ? <Wifi size={13} /> : <WifiOff size={13} />}
-                        {b.source === "simulation" ? "SIM backend · " : ""}{online ? "Perangkat online" : "Perangkat belum online"}
+                        {online ? "Perangkat online" : "Perangkat belum online"}
                         {live?.recorded_at && ` · ${new Date(live.recorded_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`}
                     </span>
                 </div>

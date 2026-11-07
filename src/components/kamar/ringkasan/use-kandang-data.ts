@@ -40,7 +40,7 @@ export function useKandangData(roomId: number) {
     const ecoQuery = useEcoRecommendations(coopId, b.source);
 
     const summary = summaryQuery.data;
-    const selected = pickStream(summary, b.source);
+    const selected = pickStream(summary);
     const room = useMemo(() => (coop ? coopToRoom(coop) : undefined), [coop]);
     const live = useMemo(() => (coop ? liveToLegacy(selected?.live, coop) : undefined), [selected?.live, coop]);
     const online = Boolean(summary?.devices.some((d) => d.connectivity_status === "online"));

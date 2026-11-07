@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Droplets, Zap, Wallet, Wifi, WifiOff, ShieldCheck, ShieldAlert, ChevronRight, Sprout } from "lucide-react";
-import { isDemoKandang, useKandangSnapshots, type KandangSnapshot } from "@/lib/kandang-snapshot";
+import { useKandangSnapshots, type KandangSnapshot } from "@/lib/kandang-snapshot";
 import { useBroiler } from "@/components/broiler/broiler-provider";
 import { ALERT_TIER_ORDER, type AlertTier } from "@/lib/kandang-insights";
 import { formatRupiah } from "@/lib/broiler-reference";
@@ -32,7 +32,7 @@ function subtotal(values: (number | null | undefined)[]) {
 
 export default function BerandaOverview() {
     const { snapshots: allSnapshots, isLoading, isError, lastUpdate } = useKandangSnapshots();
-    const { farmId, farms, source } = useBroiler();
+    const { farmId, farms } = useBroiler();
     // Beranda menampilkan lahan yang sedang dipilih (bila akun punya lebih dari satu lahan).
     const snapshots = farms.length > 1 ? allSnapshots.filter((s) => s.room.floor === farmId) : allSnapshots;
     const timezone = farms.find((farm) => farm.id === farmId)?.timezone ?? "Asia/Makassar";
@@ -71,9 +71,6 @@ export default function BerandaOverview() {
     const powerNow = subtotal(snapshots.map((s) => s.insights.actualPowerKw));
     const onlineCount = subtotal(snapshots.map((s) => s.onlineDeviceCount));
     const deviceCount = subtotal(snapshots.map((s) => s.deviceCount));
-    // Label sumber hanya ditampilkan untuk data simulasi; data sensor nyata tidak diberi label.
-    const provenance = source === "simulation" ? "SIMULASI BACKEND" : "";
-    const withSource = (text: string) => (provenance ? `${provenance} · ${text}` : text);
 
     const headline = counts.kritis > 0
         ? { text: `${counts.kritis} kandang butuh tindakan segera`, tone: "text-[#B42318]", icon: <ShieldAlert size={22} className="text-[#B42318]" /> }
@@ -94,7 +91,7 @@ export default function BerandaOverview() {
                     <div className="min-w-0 flex-1">
                         <h2 className={`font-poppins text-xl font-bold sm:text-2xl ${headline.tone}`}>{headline.text}</h2>
                         <p className="mt-1 font-inter text-sm text-[#777]">
-                            {active.length} kandang aktif · {resting.length} istirahat{provenance ? ` · ${provenance}` : ""}{unknownCount > 0 ? ` · ${unknownCount} belum ada data` : ""}
+                            {active.length} kandang aktif · {resting.length} istirahat{unknownCount > 0 ? ` · ${unknownCount} belum ada data` : ""}
                             {lastUpdate && ` · data alat ${new Date(lastUpdate).toLocaleTimeString("id-ID", { timeZone: timezone, hour: "2-digit", minute: "2-digit" })}`}
                         </p>
                     </div>
@@ -110,9 +107,9 @@ export default function BerandaOverview() {
 
             {/* Total hari ini */}
             <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-                <Kpi icon={<Droplets size={16} className="text-blue-500" />} label="Air inlet hari ini" value={waterToday.value == null ? "—" : `${waterToday.value.toLocaleString("id-ID", { maximumFractionDigits: 0 })} L`} sub={withSource(waterToday.value == null ? "Belum ada data" : waterToday.partial ? "Data parsial kandang aktif" : "Semua kandang aktif")} />
-                <Kpi icon={<Zap size={16} className="text-amber-500" />} label="Daya sekarang" value={powerNow.value == null ? "—" : `${powerNow.value.toFixed(2)} kW`} sub={withSource(powerNow.value == null ? "Belum ada data" : powerNow.partial ? "Data panel parsial" : "Total panel teramati")} />
-                <Kpi icon={<Wallet size={16} className="text-[#7B1113]" />} label="Energi hari ini" value={energyToday.value == null ? "—" : `${energyToday.value.toFixed(1)} kWh`} sub={withSource(`${energyCost.value == null ? "Biaya belum tersedia" : `≈ ${formatRupiah(energyCost.value)}`}${energyToday.partial || energyCost.partial ? " · parsial" : ""}`)} />
+                <Kpi icon={<Droplets size={16} className="text-blue-500" />} label="Air inlet hari ini" value={waterToday.value == null ? "—" : `${waterToday.value.toLocaleString("id-ID", { maximumFractionDigits: 0 })} L`} sub={waterToday.value == null ? "Belum ada data" : waterToday.partial ? "Data parsial kandang aktif" : "Semua kandang aktif"} />
+                <Kpi icon={<Zap size={16} className="text-amber-500" />} label="Daya sekarang" value={powerNow.value == null ? "—" : `${powerNow.value.toFixed(2)} kW`} sub={powerNow.value == null ? "Belum ada data" : powerNow.partial ? "Data panel parsial" : "Total panel teramati"} />
+                <Kpi icon={<Wallet size={16} className="text-[#7B1113]" />} label="Energi hari ini" value={energyToday.value == null ? "—" : `${energyToday.value.toFixed(1)} kWh`} sub={`${energyCost.value == null ? "Biaya belum tersedia" : `≈ ${formatRupiah(energyCost.value)}`}${energyToday.partial || energyCost.partial ? " · parsial" : ""}`} />
                 <Kpi icon={<Wifi size={16} className="text-green-600" />} label="Perangkat online" value={onlineCount.value == null || deviceCount.value == null ? "—" : `${onlineCount.value} / ${deviceCount.value}`} sub={deviceCount.value == null ? "Heartbeat belum tersedia" : deviceCount.value === 0 ? "Belum ada perangkat terdaftar" : `Heartbeat perangkat${onlineCount.partial ? " · data parsial" : ""}`} />
             </div>
 
@@ -141,9 +138,8 @@ export default function BerandaOverview() {
                         )}
                     </div>
                 ) : (
-                    // Kandang demo tetap dihitung di ringkasan, tapi kartunya tidak ditampilkan (buka lewat menu Kandang).
                     <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                        {active.filter((s) => !isDemoKandang(s.room.number)).map((s) => <KandangCard key={s.room.id} snapshot={s} />)}
+                        {active.map((s) => <KandangCard key={s.room.id} snapshot={s} />)}
                     </div>
                 )}
             </section>
@@ -190,7 +186,7 @@ function KandangCard({ snapshot: s }: { snapshot: KandangSnapshot }) {
             <div className="flex items-start justify-between gap-2">
                 <div>
                     <p className="font-poppins text-base font-bold text-[#2F2F2F]">Kandang {s.room.number}</p>
-                    <p className="font-inter text-xs text-[#999]">Hari ke-{s.ageDays} dari {s.harvestTargetDays}{s.source === "simulation" ? " · SIMULASI" : ""}</p>
+                    <p className="font-inter text-xs text-[#999]">Hari ke-{s.ageDays} dari {s.harvestTargetDays}</p>
                 </div>
                 <span className={`rounded-full px-2.5 py-1 font-inter text-xs font-semibold ${style.pill}`}>{style.label}</span>
             </div>

@@ -10,7 +10,7 @@ import { allPages, readData, writeData, type User, type Farm, type Coop, type Cy
 import { apiErrorMessage } from "@/lib/api-error";
 
 type Capabilities = { read?: boolean; operate?: boolean; manage?: boolean; relay_operate?: boolean;[key: string]: unknown };
-type ContextValue = { user?: User; farms: Farm[]; coops: Coop[]; farmId?: number; coopId?: number; coop?: Coop; source: Source; selectFarm: (id: number) => void; selectCoop: (id: number) => void; setSource: (source: Source) => void; refresh: () => Promise<void>; capabilities: Capabilities; canOperate: boolean; canManage: boolean; canRelay: boolean; loading: boolean; error: string | null; socketStatus: "idle" | "connecting" | "live" | "rest"; socketError: string | null };
+type ContextValue = { user?: User; farms: Farm[]; coops: Coop[]; farmId?: number; coopId?: number; coop?: Coop; source: Source; selectFarm: (id: number) => void; selectCoop: (id: number) => void; refresh: () => Promise<void>; capabilities: Capabilities; canOperate: boolean; canManage: boolean; canAdminIot: boolean; canRelay: boolean; loading: boolean; error: string | null; socketStatus: "idle" | "connecting" | "live" | "rest"; socketError: string | null };
 const Context = createContext<ContextValue | null>(null);
 const EMPTY_COOPS: Coop[] = [];
 const EMPTY_CAPABILITIES: Capabilities = {};
@@ -23,19 +23,19 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
     const [token, setToken] = useState(() => getToken());
     const [sessionVersion, setSessionVersion] = useState(0);
     const [selection, setSelection] = useState<{ farmId?: number; coopId?: number }>({});
-    const [source, setSource] = useState<Source>("real");
+    const source: Source = "real";
     const [socket, setSocket] = useState<Socket | null>(null);
     const [socketStatus, setSocketStatus] = useState<ContextValue["socketStatus"]>("idle");
     const [socketError, setSocketError] = useState<string | null>(null);
     const [selectionError, setSelectionError] = useState<unknown>(null);
     const socketRef = useRef<Socket | null>(null);
-    const scopeRef = useRef<{ coopId?: number; source: Source }>({ source: "real" });
+    const scopeRef = useRef<{ coopId?: number }>({});
     const defaultWrite = useRef<Promise<unknown>>(Promise.resolve());
     const selectionVersion = useRef(0);
     const hydrated = useSyncExternalStore(subscribeHydration, () => true, () => false);
     const enabled = hydrated && pathname.startsWith("/dashboard") && Boolean(token);
     useEffect(() => {
-        const session = () => { socketRef.current?.disconnect(); void client.cancelQueries(); client.clear(); selectionVersion.current++; setSessionVersion(value => value + 1); setSelection({}); setSelectionError(null); setSource("real"); setToken(getToken()); };
+        const session = () => { socketRef.current?.disconnect(); void client.cancelQueries(); client.clear(); selectionVersion.current++; setSessionVersion(value => value + 1); setSelection({}); setSelectionError(null); setToken(getToken()); };
         const unauthorized = () => { clearAuth(); session(); router.replace("/"); };
         const syncSession = () => { if (getToken() !== token) { session(); if (!getToken()) router.replace("/"); } };
         window.addEventListener("coasther:session", session);
@@ -50,17 +50,28 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
     const coops = useQuery({ queryKey: ["broiler-coops", userId], queryFn: ({ signal }) => allPages<Coop>("/api/coops", "coops", undefined, { signal }), enabled: Boolean(user), retry: false });
     const bootstrap = useQuery({ queryKey: ["broiler-context", userId], queryFn: ({ signal }) => readData<{ state: string; coop: Coop | null; active_cycle: Cycle | null }>("/api/dashboard/context", undefined, { signal }), enabled: Boolean(user), retry: false });
     const allCoops = user ? coops.data ?? EMPTY_COOPS : EMPTY_COOPS;
-    const defaultCoop = allCoops.find(c => c.id === user?.default_coop_id) ?? bootstrap.data?.coop ?? undefined;
+    // Prefer an accessible physical binding when a saved legacy default has no real device.
+    // An explicit selection always wins, including a coop that has no telemetry yet.
+    const deviceRegistry = useQuery({ queryKey: ["broiler-device-selection", userId], queryFn: ({ signal }) => allPages<{ coop_id: number; device_type: string; data_provenance?: string; is_active: boolean | number }>("/api/devices", "devices", { is_active: 1 }, { signal }), enabled: Boolean(user), retry: false, staleTime: 60000 });
+    const hasPhysicalDevice = (id: number) => deviceRegistry.data?.some(device => device.coop_id === id && device.device_type === "esp32" && device.data_provenance !== "simulation" && (device.is_active === true || Number(device.is_active) === 1)) ?? false;
+    const preferredCoop = allCoops.find(c => c.id === user?.default_coop_id) ?? allCoops.find(c => c.id === bootstrap.data?.coop?.id);
+    const defaultCoop = preferredCoop && hasPhysicalDevice(preferredCoop.id) ? preferredCoop : allCoops.find(c => hasPhysicalDevice(c.id)) ?? preferredCoop;
     const farmId = selection.farmId ?? defaultCoop?.farm_id ?? farms.data?.[0]?.id;
     const visibleCoops = allCoops.filter(c => c.farm_id === farmId);
-    const coop = visibleCoops.find(c => c.id === selection.coopId) ?? visibleCoops.find(c => c.id === defaultCoop?.id) ?? visibleCoops[0];
+    const coop = user && deviceRegistry.isPending && !selection.coopId && !selection.farmId ? undefined : visibleCoops.find(c => c.id === selection.coopId) ?? visibleCoops.find(c => c.id === defaultCoop?.id) ?? visibleCoops.find(c => hasPhysicalDevice(c.id)) ?? visibleCoops[0];
     const coopId = coop?.id;
+    useEffect(() => {
+        // Keep the initial registry-backed choice stable while a setup wizard adds a device.
+        // This is local selection only; preference writes remain explicit user actions.
+        if (coopId && farmId && !deviceRegistry.isPending && !selection.coopId && !selection.farmId) setSelection({ farmId, coopId });
+    }, [coopId, farmId, deviceRegistry.isPending, selection.coopId, selection.farmId]);
     const capabilityQuery = useQuery({ queryKey: ["broiler-capabilities", userId, coopId], queryFn: ({ signal }) => readData<{ capabilities: Capabilities }>(`/api/coops/${coopId}/capabilities`, undefined, { signal }), enabled: Boolean(user && coopId), retry: false, refetchInterval: 60000 });
     const capabilities = capabilityQuery.isError ? EMPTY_CAPABILITIES : capabilityQuery.data?.capabilities ?? EMPTY_CAPABILITIES;
     const role = coop?.member_role ?? farms.data?.find(f => f.id === farmId)?.member_role;
     const canManage = coopId ? capabilities.manage === true : user?.role === "admin" || role === "owner" || role === "manager";
     const canOperate = capabilities.operate === true;
-    const canRelay = capabilities.relay_operate === true || capabilities["relay:operate"] === true;
+    const canAdminIot = Boolean(user && (user.role === "admin" || role === "owner"));
+    const canRelay = canAdminIot && (capabilities.relay_operate === true || capabilities["relay:operate"] === true);
     const selectFarm = useCallback((id: number) => { selectionVersion.current++; setSelectionError(null); setSelection({ farmId: id }); }, []);
     const selectCoop = useCallback((id: number) => {
         const selected = allCoops.find(c => c.id === id);
@@ -77,7 +88,7 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
         }).catch(error => { if (getToken() === selectedToken && version === selectionVersion.current) setSelectionError(error); });
     }, [allCoops, client]);
     const refresh = useCallback(async () => { await client.invalidateQueries({ predicate: q => String(q.queryKey[0]).startsWith("broiler") }); }, [client]);
-    useEffect(() => { scopeRef.current = { coopId, source }; }, [coopId, source]);
+    scopeRef.current = { coopId };
     useEffect(() => {
         if (!enabled || !token || !userId) return;
         const connection = io(API_BASE_URL || undefined, {
@@ -130,16 +141,15 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
         const notified = new Set<number>();
         const notify = (payload: { id?: number; coop_id?: number; source?: string; severity?: string; title?: string; message?: string }) => {
             update("alert_created", payload);
-            const selected = scopeRef.current;
-            if ((payload.source === "simulation") === (selected.source === "simulation") && ["warning", "critical"].includes(payload.severity ?? "") && payload.id && !notified.has(payload.id)) {
+            if (["rule", "manual", "real", "sensor"].includes(payload.source ?? "") && ["warning", "critical"].includes(payload.severity ?? "") && payload.id && !notified.has(payload.id)) {
                 if (notified.size >= 100) notified.delete(notified.values().next().value!);
                 notified.add(payload.id);
                 void import("@/lib/guard-settings").then(({ getGuardSettings }) => {
                     const preference = getGuardSettings();
-                    if (active && (preference.notifySound || preference.notifyBrowser)) void import("@/lib/alert-notify").then(module => {
-                        if (!active) return;
+                    if (active && getToken() === token && (preference.notifySound || preference.notifyBrowser)) void import("@/lib/alert-notify").then(module => {
+                        if (!active || getToken() !== token) return;
                         if (preference.notifySound && payload.severity === "critical" && document.visibilityState === "visible") module.playAlertSound();
-                        if (preference.notifyBrowser && payload.coop_id) module.showAlertNotification({ key: `broiler:${userId}:${payload.id}`, roomId: payload.coop_id, roomNumber: String(payload.coop_id), tier: payload.severity === "critical" ? "kritis" : "waspada", title: `${payload.source === "simulation" ? "[SIMULASI] " : ""}${payload.title ?? "Peringatan Guard"}`, action: payload.message ?? "Buka Guard untuk melihat bukti server." });
+                        if (preference.notifyBrowser && payload.coop_id) module.showAlertNotification({ key: `broiler:${userId}:${payload.id}`, roomId: payload.coop_id, roomNumber: String(payload.coop_id), tier: payload.severity === "critical" ? "kritis" : "waspada", title: payload.title ?? "Peringatan Guard", action: payload.message ?? "Buka Guard untuk melihat bukti server." });
                     });
                 });
             }
@@ -198,14 +208,9 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
         };
         socket.on("connect", subscribe); subscribe();
         return () => { active = false; if (retry) clearTimeout(retry); socket.off("connect", subscribe); if (socket.connected) socket.emit("coop:unsubscribe", { coop_id: coopId }); };
-    }, [socket, coopId, source, client, refresh]);
-    useEffect(() => {
-        if (!enabled || !userId || socketStatus === "live") return;
-        const timer = setInterval(() => { void client.invalidateQueries({ predicate: q => q.queryKey[1] === userId && ["broiler", "broiler-overview", "broiler-nav-alerts", "broiler-nav-unread"].includes(String(q.queryKey[0])) }); }, 20000);
-        return () => clearInterval(timer);
-    }, [enabled, userId, socketStatus, client]);
-    const error = me.error ?? farms.error ?? coops.error ?? bootstrap.error ?? capabilityQuery.error ?? selectionError;
-    const value = useMemo(() => ({ user, farms: user ? farms.data ?? [] : [], coops: allCoops, farmId, coopId, coop, source, selectFarm, selectCoop, setSource, refresh, capabilities, canOperate, canManage, canRelay, socketStatus, socketError, loading: enabled && (me.isPending || Boolean(user) && (farms.isPending || coops.isPending || bootstrap.isPending)), error: error ? apiErrorMessage(error) : null }), [user, farms.data, allCoops, farmId, coopId, coop, source, selectFarm, selectCoop, refresh, capabilities, canOperate, canManage, canRelay, socketStatus, socketError, enabled, me.isPending, farms.isPending, coops.isPending, bootstrap.isPending, error]);
+    }, [socket, coopId, client, refresh]);
+    const error = me.error ?? farms.error ?? coops.error ?? bootstrap.error ?? deviceRegistry.error ?? capabilityQuery.error ?? selectionError;
+    const value = useMemo(() => ({ user, farms: user ? farms.data ?? [] : [], coops: allCoops, farmId, coopId, coop, source, selectFarm, selectCoop, refresh, capabilities, canOperate, canManage, canAdminIot, canRelay, socketStatus, socketError, loading: enabled && (me.isPending || Boolean(user) && (farms.isPending || coops.isPending || bootstrap.isPending || deviceRegistry.isPending)), error: error ? apiErrorMessage(error) : null }), [user, farms.data, allCoops, farmId, coopId, coop, source, selectFarm, selectCoop, refresh, capabilities, canOperate, canManage, canAdminIot, canRelay, socketStatus, socketError, enabled, me.isPending, farms.isPending, coops.isPending, bootstrap.isPending, deviceRegistry.isPending, error]);
     return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export function useBroiler() { const value = useContext(Context); if (!value) throw new Error("BroilerProvider diperlukan"); return value; }

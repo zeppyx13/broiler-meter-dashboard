@@ -40,10 +40,6 @@ const DEFAULT_HARVEST_TARGET_DAYS = 35;
  * Kondisi terkini setiap kandang yang bisa diakses, dari ringkasan & Guard server.
  * Dipakai Beranda dan daftar kandang agar angkanya selalu sama.
  */
-/** Kandang demo (kode berawalan "DEMO"): tetap dihitung, kartunya tidak tampil di Beranda. */
-export function isDemoKandang(code: string | null | undefined): boolean {
-    return /^demo\b/i.test((code ?? "").trim());
-}
 
 export function useKandangSnapshots() {
     const b = useBroiler();
@@ -60,18 +56,18 @@ export function useKandangSnapshots() {
         };
     }) });
     const guard = useQueries({ queries: ids.map((coopId) => ({
-        queryKey: ["broiler", b.user?.id, coopId, "guard-snapshot", b.source],
-        queryFn: ({ signal }: { signal: AbortSignal }) => readData<{ evaluations: { is_active: boolean; status: string; checked_at?: string | null }[] }>("/api/guard/status", { coop_id: coopId, source: b.source === "simulation" ? "simulation" : "rule" }, { signal }),
+        queryKey: ["broiler", b.user?.id, coopId, "guard-snapshot"],
+        queryFn: ({ signal }: { signal: AbortSignal }) => readData<{ evaluations: { is_active: boolean; status: string; checked_at?: string | null }[] }>("/api/guard/status", { coop_id: coopId, source: "rule" }, { signal }),
         enabled: Boolean(b.user), refetchInterval: 20_000, retry: false,
     })) });
 
     const snapshots = useMemo<KandangSnapshot[]>(() => coops.map((coop, i) => {
         const summary = summaries[i]?.data;
-        const selected = pickStream(summary, b.source);
+        const selected = pickStream(summary);
         const serverCycle = summary?.active_cycle ?? null;
         const live = liveToLegacy(selected?.live, coop);
         // Device reachability always comes from the REAL trusted heartbeat list.
-        // A fresh simulation sample or browser socket cannot make a device online.
+        // Browser socket availability cannot make a device online.
         const online = summary?.devices.some((device) => device.connectivity_status === "online") ?? false;
         const dataAvailable = Boolean(summary && !summaries[i]?.isError);
         const telemetryAvailable = Boolean(selected?.live && ["live", "ok", "fresh"].includes(selected.live.status));
@@ -108,7 +104,7 @@ export function useKandangSnapshots() {
     const isLoading = b.loading || summaries.some((q) => q.isPending);
     const isError = summaries.length > 0 && summaries.every((q) => q.isError && !q.data);
     const lastUpdate = summaries
-        .map((q) => pickStream(q.data, b.source)?.live?.recorded_at)
+        .map((q) => pickStream(q.data)?.live?.recorded_at)
         .filter((v): v is string => Boolean(v))
         .sort()
         .at(-1);

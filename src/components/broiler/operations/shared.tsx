@@ -13,7 +13,7 @@ export const secondaryClass = "inline-flex items-center justify-center gap-2 rou
 
 export type UserRow = { id: number; name: string; email?: string; phone?: string | null; role: string };
 export type FarmRow = { id: number; name: string; location_text?: string | null; timezone?: string; member_role?: string; owner_user_id?: number; electricity_rate_idr_per_kwh?: number; water_rate_idr_per_m3?: number; is_active?: boolean | number };
-export type DeviceRow = { id: number; name: string; device_uid: string; mqtt_topic_key?: string; device_type: string; firmware_version?: string | null; is_active: boolean | number; connectivity_status?: string; last_seen_at?: string | null; stale_after_seconds?: number };
+export type DeviceRow = { id: number; coop_id?: number; data_provenance?: import("@/lib/broiler-api").DeviceProvenance; name: string; device_uid: string; mqtt_topic_key?: string; device_type: string; firmware_version?: string | null; is_active: boolean | number; connectivity_status?: string; last_seen_at?: string | null; stale_after_seconds?: number };
 export type MeterRow = { id: number; device_id: number; meter_uid: string; type: "water" | "electricity"; channel: string; unit: "liter" | "kwh"; is_active: boolean | number; installed_at?: string | null };
 export type RelayRow = { id: number; device_id: number; channel: number; name: string; purpose?: string; is_enabled: boolean | number; desired_state?: string | null; reported_state?: string | null; reported_status?: string; last_reported_at?: string | null; physical_state_confirmed?: boolean; device_acknowledged?: boolean };
 export type CommandRow = { id: number; command: string; status: string; requested_at?: string; published_at?: string; failure_reason?: string | null; timeout_at?: string | null; pending?: boolean; device_acknowledged?: boolean; physical_state_confirmed?: boolean };
@@ -42,7 +42,7 @@ export function DataState({ loading, error, empty, children }: { loading: boolea
 export function useScopedQuery<T>(name: string, path: string, params?: Record<string, string | number | boolean | undefined>, enabled = true, interval?: number) {
     const context = useBroiler();
     return useQuery({
-        queryKey: ["broiler", context.user?.id, context.farmId, context.coopId, context.source, name, path, params],
+        queryKey: ["broiler", context.user?.id, context.farmId, context.coopId, name, path, params],
         queryFn: ({ signal }) => readData<T>(path, params, { signal }),
         enabled: Boolean(context.user && enabled),
         retry: false,

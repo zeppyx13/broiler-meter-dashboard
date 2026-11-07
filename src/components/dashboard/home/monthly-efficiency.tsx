@@ -80,7 +80,7 @@ export default function MonthlyEfficiencyChart({ coopIds: coopIdsProp }: Props) 
     const coopIds = coopIdsProp ?? b.coops.map((c) => c.id);
     const monthly = useQueries({
         queries: coopIds.map((id) => ({
-            queryKey: ["broiler", b.user?.id, id, "monthly", b.source],
+            queryKey: ["broiler", b.user?.id, id, "monthly"],
             queryFn: () => readData<{ series: MonthRow[] }>(`/api/coops/${id}/reports/monthly`, { source: b.source }),
             enabled: Boolean(b.user),
             staleTime: 5 * 60_000,
@@ -182,7 +182,7 @@ export default function MonthlyEfficiencyChart({ coopIds: coopIdsProp }: Props) 
                     </div>
 
                     <p className="mt-2 font-inter text-[11px] text-[#AAA]">
-                        {b.source === "simulation" ? "SIMULASI · " : ""}Bulan tanpa data dibiarkan kosong.
+                        Bulan tanpa data dibiarkan kosong.
                     </p>
                 </>
             )}

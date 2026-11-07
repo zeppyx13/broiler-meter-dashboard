@@ -36,7 +36,7 @@ export default function RealtimeCharts({ samples, expectedPowerKw, online }: Pro
                 </div>
                 <span className={`flex items-center gap-1.5 font-inter text-xs ${isLive ? "text-green-700" : "text-[#999]"}`}>
                     <span className={`h-2 w-2 rounded-full ${isLive ? "animate-pulse bg-green-500" : "bg-[#CCC]"}`} />
-                    {b.source === "simulation" ? "SIMULASI backend" : isLive ? "Live" : last ? `REST · data terakhir ${hhmm(last.t)}` : "REST · menunggu data"}
+                    {isLive ? "Live" : last ? `REST · data terakhir ${hhmm(last.t)}` : "REST · menunggu data"}
                 </span>
             </div>
 

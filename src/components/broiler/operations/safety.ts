@@ -4,9 +4,8 @@ export type RelayCommandSafety = { status: string; requested_at?: string | null 
 export type RelayPreflight = { allowed: boolean; reason: string; reason_code?: string; pending_command_id?: number | null; timeout_at?: string | null; retry_after_ms?: number; server_time?: string };
 
 /** A UI preflight only: the server must recheck scope, heartbeat and transport. */
-export function relayAvailability(input: { allowed: boolean; source: "real" | "simulation"; relay: RelaySafety; device?: DeviceSafety; command?: RelayCommandSafety; preflight?: RelayPreflight; now?: number }) {
+export function relayAvailability(input: { allowed: boolean; source: "real"; relay: RelaySafety; device?: DeviceSafety; command?: RelayCommandSafety; preflight?: RelayPreflight; now?: number }) {
     if (!input.allowed) return { allowed: false, reason: "Akun ini tidak mempunyai capability relay:operate untuk kandang ini." };
-    if (input.source !== "real") return { allowed: false, reason: "Sumber simulasi tidak mengendalikan perangkat fisik." };
     // The server reconciles expired reservations and uses its own clock/transport state.
     // A browser timer, desired state, or missing firmware ACK never grants permission.
     if (input.preflight) return { allowed: input.preflight.allowed, reason: input.preflight.reason };
