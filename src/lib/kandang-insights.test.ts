@@ -82,7 +82,7 @@ describe("Guard — perangkat offline", () => {
 
 describe("Guard — air minum", () => {
     const base = input();
-    const scaled = (factor: number) => input({ todayUsage: { ...base.todayUsage, waterTodayLiter: base.todayUsage.waterTodayLiter * factor } });
+    const scaled = (factor: number) => input({ todayUsage: { ...base.todayUsage, waterTodayLiter: (base.todayUsage.waterTodayLiter ?? 0) * factor } });
 
     it("waspada saat laju air turun 10–25%", () => {
         expect(ids(scaled(0.85))).toContain("water:waspada");

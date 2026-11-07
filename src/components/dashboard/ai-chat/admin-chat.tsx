@@ -208,7 +208,7 @@ export default function AdminChat() {
             if (page.messages.some((m) => m.context.source !== b.source)) throw new Error("Sumber percakapan berbeda.");
             olderMessages.current = page.next_before_id;
             preserveScroll.current = true;
-            setMessages((prev) => [...page.messages].reverse().map((m) => ({ role: m.role === "user" ? "user" as const : "assistant" as const, content: m.content, timestamp: m.created_at })).concat(prev));
+            setMessages((prev) => [...page.messages].reverse().map((m): ChatMessage => ({ role: m.role === "user" ? "user" : "assistant", content: m.content, timestamp: m.created_at })).concat(prev));
         } catch (error) {
             if (scope.current === requestScope) await Swal.fire({ icon: "error", title: "Pesan sebelumnya belum dapat dimuat", text: apiErrorMessage(error), confirmButtonColor: "#7B1113" });
         } finally { if (scope.current === requestScope) busy.current = false; }
