@@ -5,7 +5,6 @@ export const sidebarMenus: SidebarMenuItem[] = [
     { label: "Kandang", iconName: "kandang", href: "/dashboard/kamar", mobile: true },
     { label: "Peringatan", iconName: "alert", href: "/dashboard/peringatan", mobile: true, alertBadge: true },
     { label: "Laporan", iconName: "report", href: "/dashboard/tagihan", mobile: true },
-    { label: "Validasi Alat", iconName: "validasi", href: "/dashboard/validasi" },
     // Di mobile, Pengaturan & menu Teknis ada di tombol "Lainnya" pada navigasi bawah.
     { label: "Pengaturan", iconName: "settings", href: "/dashboard/settings" },
     { label: "Alat IoT", iconName: "cpu", href: "/dashboard/iot", group: "teknis" },

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import DashboardShell from "@/components/dashboard/nav/dashboard-shell";
 import EfficiencyReportGenerator from "@/components/tagihan/efficiency-report-generator";
-import ImpactCard from "@/components/tagihan/impact-card";
+import RoiSimulationLink from "@/components/tagihan/roi-simulation-link";
 import MonthlyEfficiencyChart from "@/components/dashboard/home/monthly-efficiency";
 import { sidebarMenus } from "@/lib/dashboard-data";
 
@@ -13,7 +13,7 @@ export default function TagihanPage() {
             <Suspense fallback={<div className="h-40 animate-pulse rounded-3xl border border-[#EAEAEA] bg-white" />}>
                 <EfficiencyReportGenerator />
                 <MonthlyEfficiencyChart />
-                <ImpactCard />
+                <RoiSimulationLink />
             </Suspense>
         </DashboardShell>
     );
