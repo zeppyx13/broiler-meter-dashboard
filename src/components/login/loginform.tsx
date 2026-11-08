@@ -37,10 +37,6 @@ export default function LoginForm() {
 
             const { token, user } = await login(form);
 
-            if (!["admin", "manager", "operator"].includes(user.role)) {
-                throw new Error("Akses ditolak");
-            }
-
             setAuth(token, user, form.rememberMe);
 
             await Swal.fire({

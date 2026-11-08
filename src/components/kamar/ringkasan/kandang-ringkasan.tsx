@@ -205,15 +205,15 @@ export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }:
                 <SectionCard>
                     <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Saran hemat</p>
                     <div className="mt-4 space-y-2.5">
-                        {data.ecoRecommendations.map((r) => <EcoTip key={r.id} title={r.status === "new" ? r.title : `${r.title} · ${r.status === "accepted" ? "diterima" : r.status === "dismissed" ? "diabaikan" : r.status}`} detail={`${r.description ?? r.recommendation_text ?? r.message ?? ""}${r.estimated_savings_idr != null ? ` · hemat ±${formatRupiah(r.estimated_savings_idr)}` : ""}`} action={<>{data.canOperate && r.status === "new" && <span className="flex gap-3">{["accepted", "dismissed"].map((status) => <button key={status} disabled={ecoPending != null} onClick={() => setRecommendation(r.id, status)} className="font-inter text-xs text-[#7B1113] underline">{status === "accepted" ? "Terima saran" : "Abaikan"}</button>)}</span>}</>} />)}
-                        {!data.ecoRecommendations.length && <p className="font-inter text-xs text-[#999]">{data.ecoError ? "Saran gagal dimuat." : "Belum ada saran."}</p>}
+                        {data.ecoRecommendations.map((r) => <EcoTip key={r.id} title={r.status === "new" ? r.title : `${r.title} · ${r.status === "accepted" ? "diterima" : r.status === "dismissed" ? "diabaikan" : r.status}`} detail={`${r.description ?? r.recommendation_text ?? r.message ?? ""}${r.estimated_savings_idr != null ? ` · hemat ±${formatRupiah(r.estimated_savings_idr)}` : ""}`} action={<>{data.canOperate && data.canInsights && r.status === "new" && <span className="flex gap-3">{["accepted", "dismissed"].map((status) => <button key={status} disabled={ecoPending != null} onClick={() => setRecommendation(r.id, status)} className="font-inter text-xs text-[#7B1113] underline">{status === "accepted" ? "Terima saran" : "Abaikan"}</button>)}</span>}</>} />)}
+                        {!data.ecoRecommendations.length && <p className="font-inter text-xs text-[#999]">{!data.canInsights ? "Akses insight belum diberikan untuk kandang ini." : data.ecoError ? "Saran gagal dimuat." : "Belum ada saran."}</p>}
                         {ecoError && <p role="alert" className="font-inter text-xs text-red-600">{ecoError}</p>}
                     </div>
                 </SectionCard>
             </div>
 
             {/* Copilot — pintasan ke chat Copilot (pojok kanan bawah), yang otomatis fokus ke kandang ini. */}
-            <SectionCard>
+            {data.canInsights && <SectionCard>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="font-poppins text-base font-semibold text-[#2F2F2F]">Tanya Copilot</p>
                     <button
@@ -236,7 +236,7 @@ export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }:
                         </button>
                     ))}
                 </div>
-            </SectionCard>
+            </SectionCard>}
         </div>
     );
 }

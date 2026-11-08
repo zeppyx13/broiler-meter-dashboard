@@ -8,9 +8,11 @@ import { usePathname } from "next/navigation";
 
 // Urut dari path paling spesifik; dicocokkan dengan startsWith untuk halaman dinamis.
 const PAGE_TITLES: { path: string; label: string; title: string }[] = [
+    { path: "/dashboard/settings/team", label: "Pengaturan", title: "Tim & Hak Akses" },
     { path: "/dashboard/kamar/", label: "Kandang", title: "Detail Kandang" },
     { path: "/dashboard/kamar", label: "Kelola", title: "Kandang" },
     { path: "/dashboard/peringatan", label: "Guard", title: "Peringatan" },
+    { path: "/dashboard/tagihan/simulasi", label: "Laporan", title: "Simulasi Balik Modal" },
     { path: "/dashboard/tagihan", label: "Efisiensi", title: "Laporan" },
     { path: "/dashboard/validasi", label: "Uji alat", title: "Validasi Alat" },
     { path: "/dashboard/settings", label: "Akun & Tarif", title: "Pengaturan" },
@@ -23,7 +25,7 @@ export default function DashboardTopbar() {
     const pathname = usePathname();
     const { user } = useBroiler();
 
-    const firstName = user?.name?.split(" ")[0] ?? "Admin";
+    const firstName = user?.name?.split(" ")[0] ?? "Peternak";
     const page = PAGE_TITLES.find((p) => pathname === p.path || pathname.startsWith(p.path))
         ?? { label: "Coasther", title: "Dashboard" };
 

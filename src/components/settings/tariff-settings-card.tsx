@@ -50,7 +50,7 @@ export default function TariffSettingsCard() {
     const [form, setForm] = useState<Record<TariffKey, string>>(() => formFrom(farm));
     const [saving, setSaving] = useState(false);
     const inFlight = useRef(false);
-    const canEdit = b.user?.role === "admin" || ["owner", "manager"].includes(farm?.member_role ?? "");
+    const canEdit = farm?.capabilities?.["farm:manage"] === true;
 
     // Isi ulang form saat lahan dipilih ulang atau tarifnya berubah di server.
     const signature = `${farm?.id}:${farm?.electricity_rate_idr_per_kwh}:${farm?.water_rate_idr_per_m3}`;

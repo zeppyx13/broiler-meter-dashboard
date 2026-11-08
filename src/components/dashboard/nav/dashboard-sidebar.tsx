@@ -59,9 +59,6 @@ export default function DashboardSidebar({ menus }: DashboardSidebarProps) {
                             <p className="font-inter text-xs font-bold uppercase tracking-[0.18em] text-[#7B1113]">
                                 Coasther
                             </p>
-                            <span className="rounded bg-emerald-100 px-1 py-0.2 text-[9px] font-semibold text-emerald-800">
-                                IoT
-                            </span>
                         </div>
                         <h1 className="mt-0.5 font-poppins text-base font-bold text-[#2F2F2F] leading-tight">
                             Broiler Monitor

@@ -5,7 +5,7 @@ export type RelayPreflight = { allowed: boolean; reason: string; reason_code?: s
 
 /** A UI preflight only: the server must recheck scope, heartbeat and transport. */
 export function relayAvailability(input: { allowed: boolean; source: "real"; relay: RelaySafety; device?: DeviceSafety; command?: RelayCommandSafety; preflight?: RelayPreflight; now?: number }) {
-    if (!input.allowed) return { allowed: false, reason: "Akun ini tidak mempunyai capability relay:operate untuk kandang ini." };
+    if (!input.allowed) return { allowed: false, reason: "Izin Relay Manual belum tersedia untuk akun Anda pada kandang ini. Hubungi Owner farm." };
     // The server reconciles expired reservations and uses its own clock/transport state.
     // A browser timer, desired state, or missing firmware ACK never grants permission.
     if (input.preflight) return { allowed: input.preflight.allowed, reason: input.preflight.reason };

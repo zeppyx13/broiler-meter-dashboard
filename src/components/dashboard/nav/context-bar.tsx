@@ -2,6 +2,7 @@
 
 import { Cpu, MapPin } from "lucide-react";
 import { useBroiler } from "@/components/broiler/broiler-provider";
+import { roleLabel } from "@/lib/broiler-api";
 
 /** Sensor fisik dan lahan aktif. */
 export default function ContextBar() {
@@ -10,6 +11,7 @@ export default function ContextBar() {
     return (
         <div className="flex flex-wrap items-center gap-2">
             <span className="flex items-center gap-1.5 rounded-2xl bg-[#7B1113] px-4 py-2 font-inter text-sm text-white"><Cpu size={14} /> Sensor</span>
+            <span className="rounded-2xl bg-[#F5EEE4] px-3 py-2 font-inter text-xs font-medium text-[#7B1113]">{roleLabel(b.effectiveRole)}</span>
             {b.farms.length > 1 && (
                 <label className="flex items-center gap-2 rounded-2xl border border-[#EAEAEA] bg-white px-3 py-1.5 font-inter text-sm text-[#555]">
                     <MapPin size={14} className="text-[#7B1113]" />

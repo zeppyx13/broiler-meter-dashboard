@@ -13,7 +13,7 @@ const poppins = Poppins({
 });
 
 export const metadata = {
-  title: "Coasther — Smart Kandang Broiler",
+  title: "Coasther Smart Cage Dashboard",
   description: "Dashboard monitoring inlet tandon dan listrik panel kandang broiler: peringatan dini dan efisiensi energi per siklus.",
   icons: {
     icon: [

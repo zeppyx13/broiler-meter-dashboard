@@ -61,7 +61,7 @@ function DailyRecordForm({ onClose, data, initialDate, onSaved }: Props) {
     const set = <K extends keyof FormValues>(key: K, value: FormValues[K]) => setForm((f) => ({ ...f, [key]: value }));
 
     async function handleSave() {
-        if (!cycle || saving.current || !data.canOperate || !data.dailyRecordsReady) return;
+        if (!cycle || saving.current || !data.canOperate || !data.dailyRecordsReady || (form.isExisting && !data.canDailyCorrect)) return;
         saving.current = true;
         setLoading(true);
         try {
@@ -95,10 +95,11 @@ function DailyRecordForm({ onClose, data, initialDate, onSaved }: Props) {
             footer={
                 <>
                     <CancelButton onClick={onClose} />
-                    <PrimaryButton onClick={handleSave} loading={loading}>Simpan</PrimaryButton>
+                    <PrimaryButton onClick={handleSave} loading={loading} disabled={!data.canOperate || (form.isExisting && !data.canDailyCorrect)}>Simpan</PrimaryButton>
                 </>
             }
         >
+            {form.isExisting && !data.canDailyCorrect && <p className="font-inter text-sm text-[#777]">Tanggal ini sudah memiliki catatan. Koreksi memerlukan izin tambahan dari Owner.</p>}
             <Field label="Tanggal" required>
                 <input
                     type="date"

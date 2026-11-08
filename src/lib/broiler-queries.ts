@@ -169,19 +169,21 @@ export function useMonthly(coopId: number | undefined, source: Source) {
 }
 
 export function useForecastCurrent(coopId: number | undefined, source: Source) {
-    const { userId, enabled } = useScope();
+    const { b, userId, enabled } = useScope();
+    const insightsAllowed = coopId === b.coopId ? b.canInsights : b.coops.find(coop => coop.id === coopId)?.capabilities?.["insights:use"] === true;
     return useQuery({
         queryKey: ["broiler", userId, coopId, "forecast-current"],
         queryFn: ({ signal }) => readData<ForecastSnapshot>("/api/forecasts/current", { coop_id: coopId, source, window_days: 7 }, { signal }),
-        enabled: enabled && Boolean(coopId), refetchInterval: 60_000, retry: false,
+        enabled: enabled && Boolean(coopId) && insightsAllowed, refetchInterval: 60_000, retry: false,
     });
 }
 
 export function useEcoRecommendations(coopId: number | undefined, source: Source) {
-    const { userId, enabled } = useScope();
+    const { b, userId, enabled } = useScope();
+    const insightsAllowed = coopId === b.coopId ? b.canInsights : b.coops.find(coop => coop.id === coopId)?.capabilities?.["insights:use"] === true;
     return useQuery({
         queryKey: ["broiler", userId, coopId, "eco-current"],
         queryFn: ({ signal }) => readData<{ state: string; recommendations: EcoRecommendation[] }>("/api/eco-recommendations", { coop_id: coopId, source, page: 1, limit: 20 }, { signal }),
-        enabled: enabled && Boolean(coopId), refetchInterval: 60_000, retry: false,
+        enabled: enabled && Boolean(coopId) && insightsAllowed, refetchInterval: 60_000, retry: false,
     });
 }

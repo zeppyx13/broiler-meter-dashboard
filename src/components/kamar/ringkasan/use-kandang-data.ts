@@ -94,7 +94,8 @@ export function useKandangData(roomId: number) {
 
     const timezone = summary?.farm?.timezone ?? b.farms.find((f) => f.id === coop?.farm_id)?.timezone ?? "Asia/Makassar";
     const today = summary?.local_date ?? localDateKey(new Date(), timezone);
-    const projection = forecastQuery.data;
+    const insightsAllowed = coopId === b.coopId ? b.canInsights : coop?.capabilities?.["insights:use"] === true;
+    const projection = insightsAllowed ? forecastQuery.data : undefined;
     // Guard, forecasts and Eco come from the server. No browser extrapolation or local rule engine.
     const insights = serverInsights(selected, serverCycle?.current_population,
         projection?.source === b.source && Number(projection.flock_cycle_id) === serverCycle?.id ? projection : undefined,
@@ -132,12 +133,15 @@ export function useKandangData(roomId: number) {
         summary,
         localDate: today,
         timezone,
-        forecastState: forecastQuery.isError ? "unavailable" : projection?.state ?? "loading",
-        ecoRecommendations: ecoQuery.data?.recommendations ?? [],
+        forecastState: !insightsAllowed ? "permission_denied" : forecastQuery.isError ? "unavailable" : projection?.state ?? "loading",
+        ecoRecommendations: insightsAllowed ? ecoQuery.data?.recommendations ?? [] : [],
         ecoError: ecoQuery.error,
         canOperate: b.coopId === coopId && b.canOperate,
         canManage: b.coopId === coopId && b.canManage,
         canRelay: b.coopId === coopId && b.canRelay,
+        canDailyCorrect: b.coopId === coopId && b.canDailyCorrect,
+        canHarvest: b.coopId === coopId && b.canHarvest,
+        canInsights: b.coopId === coopId && b.canInsights,
         refreshLocal: refreshAll,
         refreshAll,
     };

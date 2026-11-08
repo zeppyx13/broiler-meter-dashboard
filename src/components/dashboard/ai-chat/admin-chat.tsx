@@ -91,7 +91,7 @@ export default function AdminChat() {
 
     async function handleSend(question?: string) {
         const text = (question ?? input).trim();
-        if (!text || busy.current || !b.user || !coopId || cycle.isPending || historicalConversation) return;
+        if (!text || busy.current || !b.user || !coopId || !b.canInsights || cycle.isPending || historicalConversation) return;
         const requestScope = conversationKey;
         const previous = pendingRequest.current;
         const request = previous && previous.key === requestScope && previous.text === text ? previous : { key: requestScope, text, id: crypto.randomUUID(), conversationId: conversation.key === conversationKey ? conversation.id : undefined };
@@ -214,6 +214,7 @@ export default function AdminChat() {
         } finally { if (scope.current === requestScope) busy.current = false; }
     }
 
+    if (!b.canInsights) return null;
     return (
         <>
             {/* Floating button */}

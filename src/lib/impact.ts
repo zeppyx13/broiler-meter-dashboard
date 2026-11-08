@@ -1,8 +1,8 @@
 // Hitungan dampak & balik modal COASTHER.
 // Nilai kematian dicegah per siklus = populasi × kematian yang dicegah × bobot panen × harga ayam hidup (rumus proposal).
-// Ekonomi lahan menambahkan hemat listrik dan SEMUA biaya berjalan (internet, server, AI, perawatan),
+// Ekonomi lahan menambahkan hemat listrik/air dan SEMUA biaya berjalan (internet, server, AI, perawatan),
 // supaya ROI tidak hanya membandingkan manfaat dengan harga perangkat.
-// Semua asumsi bisa diubah peternak (disimpan lokal).
+// Laporan membaca asumsi acuan tersimpan; perubahan simulasi hanya hidup di state halaman simulasi.
 
 export type ImpactSettings = {
     pricePerKg: number; // harga ayam hidup (Rp/kg)
@@ -11,6 +11,7 @@ export type ImpactSettings = {
     deviceCost: number; // biaya perangkat per kandang (Rp)
     cycleDays: number; // satu siklus + istirahat kandang (hari)
     electricitySavingPerCycle: number; // hemat listrik per kandang per siklus (Rp), isi dari hasil uji efisiensi
+    waterSavingPerCycle?: number; // hemat air per kandang per siklus (Rp), nol untuk asumsi lama
     opexMonthly: number; // langganan per lahan per bulan: internet, server, AI (Rp)
     maintenancePerYear: number; // perawatan per kandang per tahun (Rp)
 };
@@ -28,6 +29,7 @@ export const DEFAULT_IMPACT_SETTINGS: ImpactSettings = {
     deviceCost: 1_080_000,
     cycleDays: 60,
     electricitySavingPerCycle: 0,
+    waterSavingPerCycle: 0,
     opexMonthly: 195_000,
     maintenancePerYear: 100_000,
 };
@@ -80,6 +82,7 @@ export type FarmEconomics = {
     cyclesPerYear: number;
     mortalityValuePerCycle: number;
     electricityPerCycle: number;
+    waterPerCycle: number;
     benefitPerYear: number;
     opexPerYear: number;
     investment: number;
@@ -97,7 +100,8 @@ export function farmEconomics(kandangs: { population: number; harvestKg: number 
     const cyclesPerYear = s.cycleDays > 0 ? 365 / s.cycleDays : 0;
     const mortalityValuePerCycle = kandangs.reduce((sum, k) => sum + kandangImpact(k.population, k.harvestKg, s, mortalityPct).valuePerCycle, 0);
     const electricityPerCycle = s.electricitySavingPerCycle * kandangCount;
-    const benefitPerYear = (mortalityValuePerCycle + electricityPerCycle) * cyclesPerYear;
+    const waterPerCycle = (s.waterSavingPerCycle ?? 0) * kandangCount;
+    const benefitPerYear = (mortalityValuePerCycle + electricityPerCycle + waterPerCycle) * cyclesPerYear;
     const opexPerYear = kandangCount > 0 ? s.opexMonthly * 12 + s.maintenancePerYear * kandangCount : 0;
     const investment = s.deviceCost * kandangCount;
 
@@ -107,14 +111,14 @@ export function farmEconomics(kandangs: { population: number; harvestKg: number 
     const paybackMonths = investment > 0 && netPerYear > 0 ? (investment / netPerYear) * 12 : null;
 
     // Titik impas per kandang: populasi × manfaat/ekor/tahun = bagian langganan lahan + perawatan + penyusutan perangkat.
-    // Hemat listrik diasumsikan sebanding populasi (jumlah pemanas mengikuti jumlah DOC), diskalakan dari populasi sekarang.
+    // Hemat listrik/air diasumsikan sebanding populasi, diskalakan dari populasi sekarang.
     const totalPopulation = kandangs.reduce((sum, k) => sum + k.population, 0);
     const avgPopulation = kandangCount > 0 ? totalPopulation / kandangCount : 0;
     const avgKg = totalPopulation > 0 ? kandangs.reduce((sum, k) => sum + k.population * k.harvestKg, 0) / totalPopulation : s.harvestWeightKg;
-    const electricityPerBird = avgPopulation > 0 ? s.electricitySavingPerCycle / avgPopulation : 0;
-    const perBirdPerYear = ((mortalityPct / 100) * avgKg * s.pricePerKg + electricityPerBird) * cyclesPerYear;
+    const utilitySavingPerBird = avgPopulation > 0 ? (s.electricitySavingPerCycle + (s.waterSavingPerCycle ?? 0)) / avgPopulation : 0;
+    const perBirdPerYear = ((mortalityPct / 100) * avgKg * s.pricePerKg + utilitySavingPerBird) * cyclesPerYear;
     const fixedPerKandang = kandangCount > 0 ? (s.opexMonthly * 12) / kandangCount + s.maintenancePerYear + s.deviceCost / DEVICE_LIFETIME_YEARS : 0;
     const breakEvenPopulation = kandangCount > 0 && perBirdPerYear > 0 ? fixedPerKandang / perBirdPerYear : null;
 
-    return { kandangCount, cyclesPerYear, mortalityValuePerCycle, electricityPerCycle, benefitPerYear, opexPerYear, investment, roiFirstYear, paybackMonths, breakEvenPopulation };
+    return { kandangCount, cyclesPerYear, mortalityValuePerCycle, electricityPerCycle, waterPerCycle, benefitPerYear, opexPerYear, investment, roiFirstYear, paybackMonths, breakEvenPopulation };
 }

@@ -166,6 +166,8 @@ export default function PeringatanSection() {
 }
 
 function ActiveAlertCard({ alert, onAcknowledge, onResolve }: { alert: LoggedAlert; onAcknowledge?: () => void; onResolve?: () => void }) {
+    const b = useBroiler();
+    const canInsights = alert.roomId === b.coopId ? b.canInsights : b.coops.find(coop => coop.id === alert.roomId)?.capabilities?.["insights:use"] === true;
     const style = ALERT_TIER_STYLE[alert.tier];
     return (
         <div className={`rounded-2xl border-l-4 p-4 ${style.box} ${alert.acknowledgedAt ? "opacity-70" : ""}`}>
@@ -202,13 +204,13 @@ function ActiveAlertCard({ alert, onAcknowledge, onResolve }: { alert: LoggedAle
                         Selesaikan
                     </button>
                 )}
-                <button
+                {canInsights && <button
                     onClick={() => askCopilot(`Kandang ${alert.roomNumber} sedang ada peringatan "${alert.title}" (${alert.detail}). Apa kemungkinan penyebabnya dan langkah apa yang harus saya lakukan sekarang?`, alert.roomId)}
                     suppressHydrationWarning
                     className="flex items-center gap-1.5 rounded-xl px-3 py-2 font-inter text-sm font-medium text-[#7B1113] transition hover:bg-white/60"
                 >
                     <Bot size={15} /> Tanya Copilot
-                </button>
+                </button>}
                 <Link
                     href={`/dashboard/kamar/${alert.roomId}`}
                     className="flex items-center gap-1 rounded-xl px-3 py-2 font-inter text-sm font-medium text-[#7B1113] transition hover:bg-white/60"

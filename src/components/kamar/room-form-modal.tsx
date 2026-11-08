@@ -15,7 +15,7 @@ export type CoopFormPayload = {
 type RoomFormModalProps = {
     open: boolean;
     editData?: Coop | null;
-    /** Lahan yang boleh dipilih (akun owner/manager lahan). */
+    /** Lahan yang boleh dipilih (hak kelola kandang pada farm). */
     farms: Farm[];
     defaultFarmId?: number | null;
     onClose: () => void;

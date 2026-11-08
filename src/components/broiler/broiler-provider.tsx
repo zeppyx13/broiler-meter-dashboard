@@ -3,14 +3,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import { io, type Socket } from "socket.io-client";
 import { API_BASE_URL } from "@/lib/api";
 import { getToken, clearAuth } from "@/lib/auth";
-import { allPages, readData, writeData, type User, type Farm, type Coop, type Cycle, type Source } from "@/lib/broiler-api";
+import { allPages, readData, writeData, type User, type Farm, type Coop, type Cycle, type Source, type BusinessRole, type Capabilities } from "@/lib/broiler-api";
 import { apiErrorMessage } from "@/lib/api-error";
 
-type Capabilities = { read?: boolean; operate?: boolean; manage?: boolean; relay_operate?: boolean;[key: string]: unknown };
-type ContextValue = { user?: User; farms: Farm[]; coops: Coop[]; farmId?: number; coopId?: number; coop?: Coop; source: Source; selectFarm: (id: number) => void; selectCoop: (id: number) => void; refresh: () => Promise<void>; capabilities: Capabilities; canOperate: boolean; canManage: boolean; canAdminIot: boolean; canRelay: boolean; loading: boolean; error: string | null; socketStatus: "idle" | "connecting" | "live" | "rest"; socketError: string | null };
+type ContextValue = { user?: User; farms: Farm[]; coops: Coop[]; farmId?: number; coopId?: number; coop?: Coop; source: Source; selectFarm: (id: number) => void; selectCoop: (id: number) => void; refresh: () => Promise<void>; capabilities: Capabilities; farmCapabilities: Capabilities; effectiveRole: BusinessRole; accessVersion: number; canMaintenance: boolean; canInsights: boolean; canDailyCorrect: boolean; canHarvest: boolean; canOperate: boolean; canManage: boolean; canAdminIot: boolean; canRelay: boolean; loading: boolean; error: string | null; socketStatus: "idle" | "connecting" | "live" | "rest"; socketError: string | null };
 const Context = createContext<ContextValue | null>(null);
 const EMPTY_COOPS: Coop[] = [];
 const EMPTY_CAPABILITIES: Capabilities = {};
@@ -22,6 +22,7 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
     const client = useQueryClient();
     const [token, setToken] = useState(() => getToken());
     const [sessionVersion, setSessionVersion] = useState(0);
+    const [accessVersion, setAccessVersion] = useState(0);
     const [selection, setSelection] = useState<{ farmId?: number; coopId?: number }>({});
     const source: Source = "real";
     const [socket, setSocket] = useState<Socket | null>(null);
@@ -29,13 +30,21 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
     const [socketError, setSocketError] = useState<string | null>(null);
     const [selectionError, setSelectionError] = useState<unknown>(null);
     const socketRef = useRef<Socket | null>(null);
-    const scopeRef = useRef<{ coopId?: number }>({});
     const defaultWrite = useRef<Promise<unknown>>(Promise.resolve());
     const selectionVersion = useRef(0);
     const hydrated = useSyncExternalStore(subscribeHydration, () => true, () => false);
     const enabled = hydrated && pathname.startsWith("/dashboard") && Boolean(token);
+    const reloadAccess = useCallback(() => {
+        socketRef.current?.disconnect();
+        void client.cancelQueries(); client.clear();
+        selectionVersion.current++;
+        setSelection({}); setSelectionError(null);
+        setAccessVersion(value => value + 1); setSessionVersion(value => value + 1);
+        window.dispatchEvent(new Event("coasther:access-changed"));
+        void import("sweetalert2").then(({ default: Swal }) => Swal.close());
+    }, [client]);
     useEffect(() => {
-        const session = () => { socketRef.current?.disconnect(); void client.cancelQueries(); client.clear(); selectionVersion.current++; setSessionVersion(value => value + 1); setSelection({}); setSelectionError(null); setToken(getToken()); };
+        const session = () => { socketRef.current?.disconnect(); void client.cancelQueries(); client.clear(); selectionVersion.current++; setSessionVersion(value => value + 1); setAccessVersion(value => value + 1); setSelection({}); setSelectionError(null); setToken(getToken()); };
         const unauthorized = () => { clearAuth(); session(); router.replace("/"); };
         const syncSession = () => { if (getToken() !== token) { session(); if (!getToken()) router.replace("/"); } };
         window.addEventListener("coasther:session", session);
@@ -46,8 +55,8 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
     const me = useQuery({ queryKey: ["broiler-session", sessionVersion], queryFn: ({ signal }) => readData<{ user: User }>("/api/auth/me", undefined, { signal }), enabled, retry: false, staleTime: 30000 });
     const user = enabled ? me.data?.user : undefined;
     const userId = user?.id;
-    const farms = useQuery({ queryKey: ["broiler-farms", userId], queryFn: ({ signal }) => allPages<Farm>("/api/farms", "farms", undefined, { signal }), enabled: Boolean(user), retry: false });
-    const coops = useQuery({ queryKey: ["broiler-coops", userId], queryFn: ({ signal }) => allPages<Coop>("/api/coops", "coops", undefined, { signal }), enabled: Boolean(user), retry: false });
+    const farms = useQuery({ queryKey: ["broiler-farms", userId], queryFn: ({ signal }) => allPages<Farm>("/api/farms", "farms", undefined, { signal }), enabled: Boolean(user), retry: false, refetchInterval: 60000 });
+    const coops = useQuery({ queryKey: ["broiler-coops", userId], queryFn: ({ signal }) => allPages<Coop>("/api/coops", "coops", undefined, { signal }), enabled: Boolean(user), retry: false, refetchInterval: 60000 });
     const bootstrap = useQuery({ queryKey: ["broiler-context", userId], queryFn: ({ signal }) => readData<{ state: string; coop: Coop | null; active_cycle: Cycle | null }>("/api/dashboard/context", undefined, { signal }), enabled: Boolean(user), retry: false });
     const allCoops = user ? coops.data ?? EMPTY_COOPS : EMPTY_COOPS;
     // Prefer an accessible physical binding when a saved legacy default has no real device.
@@ -56,7 +65,7 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
     const hasPhysicalDevice = (id: number) => deviceRegistry.data?.some(device => device.coop_id === id && device.device_type === "esp32" && device.data_provenance !== "simulation" && (device.is_active === true || Number(device.is_active) === 1)) ?? false;
     const preferredCoop = allCoops.find(c => c.id === user?.default_coop_id) ?? allCoops.find(c => c.id === bootstrap.data?.coop?.id);
     const defaultCoop = preferredCoop && hasPhysicalDevice(preferredCoop.id) ? preferredCoop : allCoops.find(c => hasPhysicalDevice(c.id)) ?? preferredCoop;
-    const farmId = selection.farmId ?? defaultCoop?.farm_id ?? farms.data?.[0]?.id;
+    const farmId = farms.data?.find(farm => farm.id === selection.farmId)?.id ?? defaultCoop?.farm_id ?? farms.data?.[0]?.id;
     const visibleCoops = allCoops.filter(c => c.farm_id === farmId);
     const coop = user && deviceRegistry.isPending && !selection.coopId && !selection.farmId ? undefined : visibleCoops.find(c => c.id === selection.coopId) ?? visibleCoops.find(c => c.id === defaultCoop?.id) ?? visibleCoops.find(c => hasPhysicalDevice(c.id)) ?? visibleCoops[0];
     const coopId = coop?.id;
@@ -65,14 +74,23 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
         // This is local selection only; preference writes remain explicit user actions.
         if (coopId && farmId && !deviceRegistry.isPending && !selection.coopId && !selection.farmId) setSelection({ farmId, coopId });
     }, [coopId, farmId, deviceRegistry.isPending, selection.coopId, selection.farmId]);
-    const capabilityQuery = useQuery({ queryKey: ["broiler-capabilities", userId, coopId], queryFn: ({ signal }) => readData<{ capabilities: Capabilities }>(`/api/coops/${coopId}/capabilities`, undefined, { signal }), enabled: Boolean(user && coopId), retry: false, refetchInterval: 60000 });
+    const capabilityQuery = useQuery({ queryKey: ["broiler-capabilities", userId, coopId], queryFn: ({ signal }) => readData<{ effective_role?: BusinessRole; capabilities: Capabilities }>(`/api/coops/${coopId}/capabilities`, undefined, { signal }), enabled: Boolean(user && coopId), retry: false, refetchInterval: 60000 });
     const capabilities = capabilityQuery.isError ? EMPTY_CAPABILITIES : capabilityQuery.data?.capabilities ?? EMPTY_CAPABILITIES;
-    const role = coop?.member_role ?? farms.data?.find(f => f.id === farmId)?.member_role;
-    const canManage = coopId ? capabilities.manage === true : user?.role === "admin" || role === "owner" || role === "manager";
+    const selectedFarm = farms.data?.find(farm => farm.id === farmId);
+    const farmCapabilities = farms.isError ? EMPTY_CAPABILITIES : selectedFarm?.capabilities ?? EMPTY_CAPABILITIES;
+    const effectiveRole = capabilityQuery.isError ? "none" : capabilityQuery.data?.effective_role ?? coop?.effective_role ?? selectedFarm?.effective_role ?? "none";
+    useEffect(() => {
+        if (isAxiosError(capabilityQuery.error) && [403, 404, 409].includes(capabilityQuery.error.response?.status ?? 0)) reloadAccess();
+    }, [capabilityQuery.error, reloadAccess]);
+    const canManage = capabilities.manage === true;
     const canOperate = capabilities.operate === true;
-    const canAdminIot = Boolean(user && (user.role === "admin" || role === "owner"));
-    const canRelay = canAdminIot && (capabilities.relay_operate === true || capabilities["relay:operate"] === true);
-    const selectFarm = useCallback((id: number) => { selectionVersion.current++; setSelectionError(null); setSelection({ farmId: id }); }, []);
+    const canAdminIot = capabilities["device:manage"] === true;
+    const canMaintenance = capabilities["maintenance:operate"] === true;
+    const canRelay = capabilities["relay:operate"] === true;
+    const canInsights = capabilities["insights:use"] === true;
+    const canDailyCorrect = capabilities["daily:correct"] === true;
+    const canHarvest = capabilities["cycle:harvest"] === true;
+    const selectFarm = useCallback((id: number) => { if (!farms.data?.some(farm => farm.id === id)) return; selectionVersion.current++; setSelectionError(null); setSelection({ farmId: id }); }, [farms.data]);
     const selectCoop = useCallback((id: number) => {
         const selected = allCoops.find(c => c.id === id);
         if (!selected) return;
@@ -88,7 +106,6 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
         }).catch(error => { if (getToken() === selectedToken && version === selectionVersion.current) setSelectionError(error); });
     }, [allCoops, client]);
     const refresh = useCallback(async () => { await client.invalidateQueries({ predicate: q => String(q.queryKey[0]).startsWith("broiler") }); }, [client]);
-    scopeRef.current = { coopId };
     useEffect(() => {
         if (!enabled || !token || !userId) return;
         const connection = io(API_BASE_URL || undefined, {
@@ -165,27 +182,26 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
                 reconnectDelay = Math.min(30000, reconnectDelay * 2);
             }
         };
-        const revoked = ({ coop_id }: { coop_id: number }) => {
-            const affected = (q: { queryKey: readonly unknown[] }) => q.queryKey[1] === userId && (q.queryKey[0] === "broiler" ? (typeof q.queryKey[3] === "number" ? q.queryKey[3] : q.queryKey[2]) === coop_id : q.queryKey[0] === "broiler-overview" ? q.queryKey[3] === coop_id : q.queryKey[0] === "broiler-capabilities" && q.queryKey[2] === coop_id);
-            void client.cancelQueries({ predicate: affected }); client.removeQueries({ predicate: affected });
-            if (scopeRef.current.coopId === coop_id) { setSelection({}); setSocketStatus("rest"); setSocketError("Akses kandang berubah; daftar dan izin sedang dimuat ulang."); }
-            void refresh();
+        const accessChanged = () => {
+            if (!active || getToken() !== token) return;
+            reloadAccess();
         };
+        const revoked = () => accessChanged();
         const events = ["telemetry_update", "meter_update", "device_status", "alert_updated", "notification_created", "notification_updated", "notification_unread_count", "relay_state_update", "relay_command_update", "maintenance_request_update"];
         const handlers = events.map(event => ({ event, handler: (payload: { coop_id?: number }) => update(event, payload) }));
         handlers.forEach(({ event, handler }) => connection.on(event, handler));
-        connection.on("alert_created", notify); connection.on("coop:revoked", revoked);
+        connection.on("alert_created", notify); connection.on("coop:revoked", revoked); connection.on("access:changed", accessChanged);
         connection.on("disconnect", disconnected); connection.on("connect_error", failed);
         connection.connect();
         return () => {
             active = false; if (timer) clearTimeout(timer); if (reconnect) clearTimeout(reconnect);
             handlers.forEach(({ event, handler }) => connection.off(event, handler));
-            connection.off("alert_created", notify); connection.off("coop:revoked", revoked);
+            connection.off("alert_created", notify); connection.off("coop:revoked", revoked); connection.off("access:changed", accessChanged);
             connection.off("disconnect", disconnected); connection.off("connect_error", failed);
             connection.disconnect(); if (socketRef.current === connection) socketRef.current = null;
             setSocket(null); setSocketStatus("idle"); setSocketError(null);
         };
-    }, [enabled, token, userId, client, refresh]);
+    }, [enabled, token, userId, client, refresh, reloadAccess]);
     useEffect(() => {
         if (!socket) return;
         if (!coopId) { setSocketStatus("rest"); setSocketError(null); return; }
@@ -202,15 +218,15 @@ export function BroilerProvider({ children }: { children: ReactNode }) {
                 if (!error && ack?.success) { setSocketStatus("live"); setSocketError(null); void refresh(); return; }
                 setSocketStatus("rest"); setSocketError(ack?.message || "Subscription Socket belum terkonfirmasi; REST tetap aktif.");
                 if (ack?.statusCode === 401) window.dispatchEvent(new Event("coasther:unauthorized"));
-                else if (ack?.statusCode === 403 || ack?.statusCode === 404) { void client.invalidateQueries({ queryKey: ["broiler-coops"] }); void client.invalidateQueries({ queryKey: ["broiler-capabilities"] }); }
+                else if ([403, 404, 409].includes(ack?.statusCode ?? 0)) reloadAccess();
                 else retry = setTimeout(subscribe, 15000);
             });
         };
         socket.on("connect", subscribe); subscribe();
         return () => { active = false; if (retry) clearTimeout(retry); socket.off("connect", subscribe); if (socket.connected) socket.emit("coop:unsubscribe", { coop_id: coopId }); };
-    }, [socket, coopId, client, refresh]);
+    }, [socket, coopId, client, refresh, reloadAccess]);
     const error = me.error ?? farms.error ?? coops.error ?? bootstrap.error ?? deviceRegistry.error ?? capabilityQuery.error ?? selectionError;
-    const value = useMemo(() => ({ user, farms: user ? farms.data ?? [] : [], coops: allCoops, farmId, coopId, coop, source, selectFarm, selectCoop, refresh, capabilities, canOperate, canManage, canAdminIot, canRelay, socketStatus, socketError, loading: enabled && (me.isPending || Boolean(user) && (farms.isPending || coops.isPending || bootstrap.isPending || deviceRegistry.isPending)), error: error ? apiErrorMessage(error) : null }), [user, farms.data, allCoops, farmId, coopId, coop, source, selectFarm, selectCoop, refresh, capabilities, canOperate, canManage, canAdminIot, canRelay, socketStatus, socketError, enabled, me.isPending, farms.isPending, coops.isPending, bootstrap.isPending, deviceRegistry.isPending, error]);
+    const value = useMemo(() => ({ user, farms: user ? farms.data ?? [] : [], coops: allCoops, farmId, coopId, coop, source, selectFarm, selectCoop, refresh, capabilities, farmCapabilities, effectiveRole, accessVersion, canMaintenance, canInsights, canDailyCorrect, canHarvest, canOperate, canManage, canAdminIot, canRelay, socketStatus, socketError, loading: enabled && (me.isPending || Boolean(user) && (farms.isPending || coops.isPending || bootstrap.isPending || deviceRegistry.isPending || Boolean(coopId) && capabilityQuery.isPending)), error: error ? apiErrorMessage(error) : user?.scope_warnings?.length ? "Akses sebagian farm diblokir karena kepemilikan belum konsisten. Owner perlu meninjau hubungan kepemilikan sebelum akses dibuka kembali." : null }), [user, farms.data, allCoops, farmId, coopId, coop, source, selectFarm, selectCoop, refresh, capabilities, farmCapabilities, effectiveRole, accessVersion, canMaintenance, canInsights, canDailyCorrect, canHarvest, canOperate, canManage, canAdminIot, canRelay, socketStatus, socketError, enabled, me.isPending, farms.isPending, coops.isPending, bootstrap.isPending, deviceRegistry.isPending, capabilityQuery.isPending, error]);
     return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export function useBroiler() { const value = useContext(Context); if (!value) throw new Error("BroilerProvider diperlukan"); return value; }

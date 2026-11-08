@@ -49,7 +49,7 @@ export function CycleStartModal({ open, onClose, data, editing, onSaved }: Start
     }, [open, editCycle?.id]);
 
     async function handleSave() {
-        if (population <= 0 || saving.current) return;
+        if (population <= 0 || saving.current || !data.canManage) return;
         saving.current = true;
         setLoading(true);
         try {
@@ -180,7 +180,7 @@ export function CycleCloseModal({ open, onClose, data, onSaved }: CloseProps) {
     }, [open, populationNow]);
 
     async function handleClose() {
-        if (saving.current) return;
+        if (saving.current || !data.canHarvest) return;
         saving.current = true;
         setLoading(true);
         try {

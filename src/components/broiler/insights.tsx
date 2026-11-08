@@ -8,7 +8,7 @@ import { MetricChart } from "./charts";
 export function askBroilerCopilot(coopId: number, question: string) { window.dispatchEvent(new CustomEvent("broiler:copilot", { detail: { coopId, question } })); }
 type ForecastData = { meta?: { total: number }; state: string; forecasts: { id: number; metric: string; horizon: string; target_date: string; predicted_value: number; confidence: string; details_json: unknown }[]; limitations?: unknown; eligible_days?: unknown; horizons?: unknown; required_days?: number };
 type EcoData = { meta?: { total: number }; state: string; recommendations: { id: number; title: string; description?: string; message?: string; recommendation_text?: string; status: string; is_current: boolean; estimated_savings_idr: number | null; evidence_json: unknown }[] };
-export function Analytics({ compact = false }: { compact?: boolean }) { const b = useBroiler(); return <ScopedAnalytics key={`${b.user?.id}-${b.coopId}-${b.source}`} compact={compact} />; }
+export function Analytics({ compact = false }: { compact?: boolean }) { const b = useBroiler(); if (!b.canInsights) return null; return <ScopedAnalytics key={`${b.user?.id}-${b.coopId}-${b.source}`} compact={compact} />; }
 function ScopedAnalytics({ compact }: { compact: boolean }) {
     const b = useBroiler(); const [error, setError] = useState<unknown>(null); const [historyPage, setHistoryPage] = useState(1); const [ecoPage, setEcoPage] = useState(1);
     const forecast = useResource<ForecastData>("forecasts", b.coopId ? "/api/forecasts/current" : null, { coop_id: b.coopId, source: b.source, window_days: 7 });

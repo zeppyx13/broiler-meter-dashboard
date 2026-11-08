@@ -1,9 +1,12 @@
 import { api } from "./api";
 
 export type Source = "real";
-export type User = { id: number; name: string; email: string; phone?: string; role: string; default_coop_id?: number | null };
-export type Farm = { id: number; name: string; location_text?: string | null; owner_user_id?: number; member_role?: string; timezone: string; electricity_rate_idr_per_kwh: number; water_rate_idr_per_m3: number; is_active?: boolean | number };
-export type Coop = { id: number; farm_id: number; code: string; name: string; member_role?: string; status: string; capacity_birds?: number | null; description?: string | null; timezone?: string };
+export type BusinessRole = "owner" | "admin" | "operator" | "none";
+export type Capabilities = { [permission: string]: boolean | undefined };
+export const roleLabel = (role?: BusinessRole) => role === "owner" ? "Owner" : role === "admin" ? "Admin" : role === "operator" ? "Operator" : "Belum ditugaskan";
+export type User = { id: number; name: string; email: string; phone?: string; role: string; default_coop_id?: number | null; effective_role?: BusinessRole; effective_roles?: { farm_id: number; effective_role: BusinessRole; capabilities: Capabilities; coop_ids: number[]; legacy_read_only: boolean }[]; scope?: { farm_ids: number[]; coop_ids: number[] }; scope_warnings?: { farm_id: number; reason: "ownership_conflict" }[] };
+export type Farm = { id: number; name: string; location_text?: string | null; owner_user_id?: number; member_role?: string; effective_role?: BusinessRole; capabilities?: Capabilities; timezone: string; electricity_rate_idr_per_kwh: number; water_rate_idr_per_m3: number; is_active?: boolean | number };
+export type Coop = { id: number; farm_id: number; code: string; name: string; member_role?: string; effective_role?: BusinessRole; capabilities?: Capabilities; status: string; capacity_birds?: number | null; description?: string | null; timezone?: string };
 export type Cycle = { id: number; coop_id: number; cycle_code: string; status: string; initial_population: number; current_population: number; day_age: number; placement_date: string; planned_harvest_date?: string | null; actual_harvest_date?: string | null; strain?: string | null; notes?: string | null };
 export type Live = { source: string; status: string; recorded_at: string | null; flow_rate_lpm: number | null; water_total_liter: number | null; voltage_v: number | null; current_a: number | null; power_w: number | null; energy_kwh_total: number | null; frequency_hz: number | null; power_factor: number | null; field_status: Record<string, string>; metric_recorded_at?: Record<string, string | null>; metric_device_id?: Record<string, number | null> };
 export type DailyMetric = { metric_date?: string; source?: string; status?: string; data_quality?: string; water_liters: number | null; energy_kwh: number | null; water_liters_per_bird?: number | null; energy_wh_per_bird?: number | null; electricity_cost_idr?: number | null; water_cost_idr?: number | null; population_basis?: number | null };

@@ -54,4 +54,55 @@ describe("ekonomi lahan termasuk biaya operasional", () => {
         expect(e.roiFirstYear).toBeNull();
         expect(e.breakEvenPopulation).toBeNull();
     });
+
+    it("hemat air ikut manfaat, ROI, balik modal, dan titik impas", () => {
+        const settings: ImpactSettings = {
+            ...SLIDE,
+            cycleDays: 365 / 6,
+            preventedMortalityPct: 0,
+            deviceCost: 90_000,
+            opexMonthly: 0,
+            maintenancePerYear: 0,
+            electricitySavingPerCycle: 10_000,
+            waterSavingPerCycle: 20_000,
+        };
+        const kandangs = Array.from({ length: 2 }, () => ({ population: 1_000, harvestKg: 1.73 }));
+        const e = farmEconomics(kandangs, settings);
+        expect(e.electricityPerCycle).toBe(20_000);
+        expect(e.waterPerCycle).toBe(40_000);
+        expect(e.benefitPerYear).toBe(360_000);
+        expect(e.investment).toBe(180_000);
+        expect(e.roiFirstYear).toBeCloseTo(1);
+        expect(e.paybackMonths).toBeCloseTo(6);
+        expect(e.breakEvenPopulation).toBeCloseTo(166.6667, 3);
+    });
+
+    it("asumsi lama tanpa hemat air tetap menghasilkan hitungan yang sama", () => {
+        const legacySettings = { ...SLIDE };
+        delete legacySettings.waterSavingPerCycle;
+        const kandangs = [{ population: 500, harvestKg: 1.73 }];
+        expect(farmEconomics(kandangs, legacySettings)).toEqual(farmEconomics(kandangs, { ...SLIDE, waterSavingPerCycle: 0 }));
+    });
+
+    it("tanpa manfaat tidak ada balik modal atau titik impas", () => {
+        const e = farmEconomics([{ population: 500, harvestKg: 1.73 }], {
+            ...DEFAULT_IMPACT_SETTINGS,
+            preventedMortalityPct: 0,
+            electricitySavingPerCycle: 0,
+            waterSavingPerCycle: 0,
+        });
+        expect(e.benefitPerYear).toBe(0);
+        expect(e.roiFirstYear).toBe(-1);
+        expect(e.paybackMonths).toBeNull();
+        expect(e.breakEvenPopulation).toBeNull();
+    });
+
+    it("durasi siklus nol tidak menghasilkan angka tak hingga", () => {
+        const e = farmEconomics([{ population: 500, harvestKg: 1.73 }], { ...SLIDE, cycleDays: 0, waterSavingPerCycle: 20_000 });
+        expect(e.cyclesPerYear).toBe(0);
+        expect(e.benefitPerYear).toBe(0);
+        expect(e.roiFirstYear).toBe(-1);
+        expect(e.paybackMonths).toBeNull();
+        expect(e.breakEvenPopulation).toBeNull();
+    });
 });

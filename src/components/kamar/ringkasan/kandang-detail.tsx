@@ -31,7 +31,7 @@ const TABS: { key: Tab; label: string }[] = [
 
 export default function KandangDetail({ roomId }: { roomId: number }) {
     const data = useKandangData(roomId);
-    const { room, isLoading, isError, live, online, activeCycle, cycle, ageDays, harvestTargetDays, canOperate, canManage, canRelay } = data;
+    const { room, isLoading, isError, live, online, activeCycle, cycle, ageDays, harvestTargetDays, canOperate, canManage, canRelay, canDailyCorrect, canHarvest, canInsights } = data;
     const b = useBroiler();
     // Hak akses (capability) dihitung per kandang terpilih, jadi pilih kandang ini di konteks.
     const { loading: contextLoading, coopId: selectedCoopId, coops, selectCoop } = b;
@@ -132,7 +132,7 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
                         )}
 
                         <div className="mt-4 flex flex-wrap items-center gap-2">
-                            {canOperate && <button
+                            {canOperate && (!recordedToday || canDailyCorrect) && <button
                                 onClick={() => setRecordDate(data.localDate)}
                                 suppressHydrationWarning
                                 className="relative flex w-full items-center justify-center gap-2 rounded-2xl bg-[#7B1113] px-5 py-3 font-poppins text-sm font-semibold text-[#C6A971] transition hover:opacity-90 sm:w-auto"
@@ -140,15 +140,15 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
                                 <ClipboardPlus size={17} /> Catat Harian
                                 {!recordedToday && <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#C6A971]" title="Belum dicatat hari ini" />}
                             </button>}
-                            <SecondaryActions roomId={room.id} onRelay={canRelay ? () => setRelayOpen(true) : undefined} onCopilot={() => askCopilot()} showReport />
+                            <SecondaryActions roomId={room.id} onRelay={canRelay ? () => setRelayOpen(true) : undefined} onCopilot={canInsights ? () => askCopilot() : undefined} showReport />
                         </div>
-                        {canOperate && <div className="mt-3 flex gap-4 font-inter text-sm">
-                            <button onClick={() => setEditCycleOpen(true)} suppressHydrationWarning className="flex items-center gap-1.5 text-[#777] hover:text-[#7B1113]">
+                        {(canManage || canHarvest) && <div className="mt-3 flex gap-4 font-inter text-sm">
+                            {canManage && <button onClick={() => setEditCycleOpen(true)} suppressHydrationWarning className="flex items-center gap-1.5 text-[#777] hover:text-[#7B1113]">
                                 <Pencil size={14} /> Edit siklus
-                            </button>
-                            <button onClick={() => setCloseOpen(true)} suppressHydrationWarning className="flex items-center gap-1.5 text-[#777] hover:text-[#7B1113]">
+                            </button>}
+                            {canHarvest && <button onClick={() => setCloseOpen(true)} suppressHydrationWarning className="flex items-center gap-1.5 text-[#777] hover:text-[#7B1113]">
                                 <Flag size={14} /> Tutup siklus (panen)
-                            </button>
+                            </button>}
                         </div>}
                     </div>
                 ) : (
@@ -157,7 +157,7 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
                             <p className="font-poppins text-sm font-semibold text-[#2F2F2F]">Kandang sedang istirahat</p>
                             <p className="font-inter text-xs text-[#999]">Mulai siklus baru saat DOC masuk (chick-in).</p>
                         </div>
-                        {canOperate && <button
+                        {canManage && <button
                             onClick={() => setStartOpen(true)}
                             suppressHydrationWarning
                             className="flex items-center justify-center gap-2 rounded-2xl bg-[#7B1113] px-5 py-3 font-poppins text-sm font-semibold text-[#C6A971] transition hover:opacity-90"
@@ -168,7 +168,7 @@ export default function KandangDetail({ roomId }: { roomId: number }) {
                 )}
                 {!activeCycle && (
                     <div className="mt-3 flex flex-wrap gap-2">
-                        <SecondaryActions roomId={room.id} onRelay={canRelay ? () => setRelayOpen(true) : undefined} onCopilot={() => askCopilot()} />
+                        <SecondaryActions roomId={room.id} onRelay={canRelay ? () => setRelayOpen(true) : undefined} onCopilot={canInsights ? () => askCopilot() : undefined} />
                     </div>
                 )}
             </div>
@@ -248,16 +248,16 @@ function KandangPager({ roomId }: { roomId: number }) {
     );
 }
 
-function SecondaryActions({ roomId, onRelay, onCopilot, showReport }: { roomId: number; onRelay?: () => void; onCopilot: () => void; showReport?: boolean }) {
+function SecondaryActions({ roomId, onRelay, onCopilot, showReport }: { roomId: number; onRelay?: () => void; onCopilot?: () => void; showReport?: boolean }) {
     const cls = "flex flex-1 items-center justify-center gap-2 rounded-2xl border border-[#EAEAEA] bg-white px-4 py-3 font-inter text-sm font-medium text-[#555] transition hover:bg-[#F8F8F8] sm:flex-none";
     return (
         <>
             {onRelay && <button onClick={onRelay} suppressHydrationWarning className={cls}>
                 <Power size={15} /> Relay
             </button>}
-            <button onClick={onCopilot} suppressHydrationWarning className={cls}>
+            {onCopilot && <button onClick={onCopilot} suppressHydrationWarning className={cls}>
                 <Bot size={15} /> Copilot
-            </button>
+            </button>}
             {showReport && (
                 <Link href={`/dashboard/tagihan?kandang=${roomId}`} className={cls}>
                     <FileText size={15} /> Laporan
