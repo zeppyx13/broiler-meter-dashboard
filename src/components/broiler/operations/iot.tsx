@@ -8,6 +8,7 @@ import { apiErrorMessage } from "@/lib/api-error";
 import { getToken } from "@/lib/auth";
 import { relayAvailability, type RelayPreflight } from "./safety";
 import { DeviceRegistry } from "./device-setup";
+import { RelaySchedules } from "./relay-schedules";
 import { Card, DataState, StatusMessage, buttonClass, dateTime, saveData, scalar, secondaryClass, useAction, useScopedQuery, yes, type CommandRow, type DeviceRow, type RelayRow } from "./shared";
 
 const RELAY_PURPOSE_LABELS: Record<string, string> = { heater: "Pemanas", fan: "Kipas", light: "Lampu" };
@@ -21,7 +22,7 @@ export function IotOperations() {
     const [tab, setTab] = useState("monitor");
     if (context.loading && !context.coopId) return <Card title="Alat IoT"><p className="text-sm text-[#777]">Memuat kandang dan registry perangkat…</p></Card>;
     if (!context.coopId) return <Card title="Alat IoT"><p className="text-sm text-[#777]">Pilih kandang yang dapat diakses untuk melihat perangkat.</p></Card>;
-    return <div className="space-y-5"><div role="tablist" aria-label="Alat IoT" className="flex flex-wrap gap-2">{[["monitor", "Live Monitor"], ["devices", "Kelola Alat"], ["relays", "Kontrol Manual"]].filter(([key]) => key !== "devices" || context.canAdminIot).map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} onClick={() => setTab(key)} className={tab === key ? buttonClass : secondaryClass}>{label}</button>)}</div><div key={`${context.user?.id}:${context.farmId}:${context.coopId}:${tab}`} role="tabpanel">{tab === "monitor" ? <LiveMonitor onManage={context.canAdminIot ? () => setTab("devices") : undefined} /> : tab === "devices" ? <DeviceRegistry onNavigate={setTab} /> : <RelayRegistry />}</div></div>;
+    return <div className="space-y-5"><div role="tablist" aria-label="Alat IoT" className="flex flex-wrap gap-2">{[["monitor", "Live Monitor"], ["devices", "Kelola Alat"], ["relays", "Kontrol Manual"], ["schedules", "Kontrol Terjadwal"]].filter(([key]) => key !== "devices" || context.canAdminIot).map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} onClick={() => setTab(key)} className={tab === key ? buttonClass : secondaryClass}>{label}</button>)}</div><div key={`${context.user?.id}:${context.farmId}:${context.coopId}:${tab}`} role="tabpanel">{tab === "monitor" ? <LiveMonitor onManage={context.canAdminIot ? () => setTab("devices") : undefined} /> : tab === "devices" ? <DeviceRegistry onNavigate={setTab} /> : tab === "schedules" ? <RelaySchedules /> : <RelayRegistry />}</div></div>;
 }
 
 function LiveMonitor({ onManage }: { onManage?: () => void }) {
