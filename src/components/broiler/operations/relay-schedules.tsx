@@ -10,7 +10,7 @@ type ScheduleRelay = { id: number; name: string; device_name: string; physical_a
 type ScheduleList = { schedules: Schedule[]; relays: ScheduleRelay[]; physical_enabled: boolean; timezone: string; meta: { total: number } };
 type Execution = { id: number; schedule_name: string; command: "on" | "off"; trigger_kind: "scheduler" | "preview"; scheduled_for: string; created_at: string; status: string; dry_run: boolean; reason: string | null; command_failure_reason: string | null };
 const DAYS = [[1,"Senin"],[2,"Selasa"],[3,"Rabu"],[4,"Kamis"],[5,"Jumat"],[6,"Sabtu"],[7,"Minggu"]] as const;
-const STATES: Record<string,string> = { claimed:"Dicatat", queued:"Antrean", dry_run:"Simulasi tanpa MQTT", blocked:"Dilewati", published:"Dikirim; belum terverifikasi", timed_out:"Timeout; hasil fisik belum diketahui", failed:"Gagal", unverified:"Hasil belum terverifikasi" };
+const STATES: Record<string,string> = { claimed:"Dicatat", queued:"Antrean", dry_run:"Simulasi tanpa MQTT", blocked:"Dilewati", published:"Dikirim; belum terverifikasi", timed_out:"Timeout; hasil fisik belum diketahui", failed:"Gagal", unverified:"Hasil belum terverifikasi", device_acked:"Dikonfirmasi firmware; beban fisik belum terverifikasi" };
 const planPayload = (row: Schedule) => ({ name:row.name, days:row.days, on_time:row.on_time, off_time:row.off_time, enabled:row.enabled, dry_run:row.dry_run, revision:row.revision });
 
 export function RelaySchedules() {

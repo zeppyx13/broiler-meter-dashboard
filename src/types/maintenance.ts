@@ -20,9 +20,9 @@ export type MaintenanceRequest = {
     published_at?: string | null;
     timeout_at?: string | null;
     failure_reason?: string | null;
-    observation?: { received_at?: string; result?: string; correlated?: false } | null;
-    executed: false;
-    device_acknowledged: false;
+    observation?: { received_at?: string; result?: string; correlated?: boolean; backup_id?: number; late?: boolean } | null;
+    executed: boolean;
+    device_acknowledged: boolean;
     physical_state_confirmed: false;
 };
 export type MaintenanceResult = { request: MaintenanceRequest; capability?: CommandCapability };

@@ -18,13 +18,12 @@ type LogEntry = { key: string; at: string; level: LogLevel; label: string; messa
 type TerminalCommand = MaintenanceCommand | "relay_on" | "relay_off";
 const aliases: readonly string[] = [...maintenanceCommands, "relay_on", "relay_off"];
 const pendingStatuses = ["accepted", "publishing", "published", "observed"];
-const labels: Record<string, string> = { accepted: "Menunggu", publishing: "Menunggu", queued: "Menunggu", requested: "Menunggu", published: "Dikirim", observed: "Tidak terverifikasi", unverified: "Tidak terverifikasi", reported: "Tidak terverifikasi", blocked: "Ditolak", failed: "Gagal", timed_out: "Timeout" };
+const labels: Record<string, string> = { accepted: "Menunggu", publishing: "Menunggu", queued: "Menunggu", requested: "Menunggu", published: "Dikirim", observed: "Tidak terverifikasi", unverified: "Tidak terverifikasi", reported: "Tidak terverifikasi", blocked: "Ditolak", failed: "Gagal", timed_out: "Timeout", executed: "Selesai — dikonfirmasi perangkat", device_acked: "Dikonfirmasi perangkat" };
 const warnings = {
     reboot: "Perangkat akan dimulai ulang. Koneksi dan telemetry akan terputus sementara; pastikan operasi kandang aman.",
-    clear_buf: "Data offline yang belum terkirim dapat hilang.",
-    reset_nvs: "Counter air dan energi serta epoch perangkat dapat berubah.",
+    clear_buf: "Hapus buffer lokal setelah firmware membuat backup dan server menyimpan serta merekonsiliasi seluruh data. Jika perlindungan gagal, buffer tetap dipertahankan. Lanjutkan Clear Buffer?",
+    reset_nvs: "Bangun ulang NVS operasional setelah backup lokal dan server terverifikasi. Counter air dan status relay dipulihkan; energi PZEM dan histori server dipertahankan. Lanjutkan Reset NVS?",
 };
-const dataProtection = "Tidak tersedia: perlu perlindungan data perangkat";
 
 function clean(value: unknown) {
     return String(value ?? "").replace(/[\u0000-\u001f\u007f]/g, " ")
@@ -41,7 +40,7 @@ function requestLog(request: MaintenanceRequest): LogEntry {
         at: request.observation?.received_at ?? request.published_at ?? request.requested_at,
         level: ["blocked", "failed"].includes(request.status) ? "ERROR" : ["unverified", "observed", "timed_out"].includes(request.status) ? "WARN" : "INFO",
         label: "AUDIT",
-        message: `${request.command} · ${labels[request.status] ?? request.status} · ${request.request_id}${request.failure_reason ? ` · ${request.failure_reason}` : ""}${request.observation ? ` · laporan umum ${request.observation.result ?? "perangkat"}, bukan ACK permintaan` : ""}. Eksekusi fisik belum terverifikasi.`,
+        message: `${request.command} · ${labels[request.status] ?? request.status} · ${request.request_id}${request.failure_reason ? ` · ${request.failure_reason}` : ""}${request.observation ? ` · ${request.observation.correlated && request.device_acknowledged ? "respons perangkat sesuai UUID" : "laporan belum membuktikan eksekusi"}: ${request.observation.result ?? "perangkat"}${request.observation.backup_id ? ` · backup #${request.observation.backup_id}` : ""}` : ""}${request.executed ? ". Operasi dikonfirmasi firmware." : ". Hasil belum terverifikasi."}`,
     };
 }
 
@@ -149,9 +148,10 @@ function DeviceTerminal({ device, snapshot, available, refreshStatus }: { device
     }, [lookup.error]);
     useEffect(() => {
         if (!polling) return;
-        const timeout = setTimeout(() => setPolling(false), 60_000);
+        const protectedRequest = request?.command === "clear_buf" || request?.command === "reset_nvs";
+        const timeout = setTimeout(() => setPolling(false), protectedRequest ? 240_000 : 60_000);
         return () => clearTimeout(timeout);
-    }, [polling, requestId]);
+    }, [polling, requestId, request?.command]);
     useEffect(() => {
         append((relayCommands.data?.commands ?? []).slice().reverse().map<LogEntry>(item => ({ key: `relay:${item.id}:${item.status}`, at: item.published_at ?? item.requested_at ?? "", level: ["failed", "blocked"].includes(item.status) ? "ERROR" : ["timed_out", "reported"].includes(item.status) ? "WARN" : "INFO", label: "RELAY", message: `${item.command} · ${labels[item.status] ?? item.status}${item.failure_reason ? ` · ${item.failure_reason}` : ""}. Hasil fisik belum terverifikasi.` })));
     }, [relayCommands.data, append]);
@@ -159,7 +159,6 @@ function DeviceTerminal({ device, snapshot, available, refreshStatus }: { device
 
     function blockedReason(command: TerminalCommand) {
         if (command === "status") return context.coopId ? null : "Pilih kandang terlebih dahulu.";
-        if (command === "clear_buf" || command === "reset_nvs") return dataProtection;
         if (!device) return "Belum ada ESP32 terhubung. Daftarkan perangkat melalui Kelola Alat.";
         if (command === "relay_on" || command === "relay_off") return !context.canRelay ? "Izin Relay Manual belum diberikan untuk kandang ini." : !relay ? "Hubungkan mapping relay kanal 1 melalui Kelola Alat." : relayPreflight.isError || !relayPreflight.data ? "Preflight relay belum tersedia." : relayPreflight.data.allowed ? null : relayPreflight.data.reason;
         if (!canCommand) return "Command hanya tersedia untuk Admin atau Owner pada perangkat dalam cakupannya.";
@@ -184,9 +183,9 @@ function DeviceTerminal({ device, snapshot, available, refreshStatus }: { device
             }
             if (!device) return;
             const relayCommand = command === "relay_on" || command === "relay_off";
-            if (command === "reboot" || relayCommand) {
+            if (command === "reboot" || command === "clear_buf" || command === "reset_nvs" || relayCommand) {
                 dialogOpen.current = true;
-                const confirmation = await Swal.fire({ title: `${command === "reboot" ? "Reboot" : command === "relay_on" ? "Relay ON" : "Relay OFF"} · ${device.name}?`, text: command === "reboot" ? warnings.reboot : `Kandang ${context.coop?.name ?? context.coopId} · ${relay?.name}. Beban yang terhubung dapat berubah. Publikasi belum membuktikan hasil fisik.`, icon: "warning", showCancelButton: true, confirmButtonText: "Ya, Jalankan", cancelButtonText: "Batal", confirmButtonColor: "#7B1113" });
+                const confirmation = await Swal.fire({ title: `${command === "clear_buf" ? "Clear Buffer" : command === "reset_nvs" ? "Reset NVS" : command === "reboot" ? "Reboot" : command === "relay_on" ? "Relay ON" : "Relay OFF"} · ${device.name}?`, text: relayCommand ? `Kandang ${context.coop?.name ?? context.coopId} · ${relay?.name}. Beban yang terhubung dapat berubah. Publikasi belum membuktikan hasil fisik.` : warnings[command as keyof typeof warnings], icon: "warning", showCancelButton: true, confirmButtonText: "Ya, Jalankan", cancelButtonText: "Batal", confirmButtonColor: "#7B1113" });
                 dialogOpen.current = false;
                 if (!confirmation.isConfirmed || !stillCurrent()) return;
             }
@@ -212,7 +211,7 @@ function DeviceTerminal({ device, snapshot, available, refreshStatus }: { device
                 const id = crypto.randomUUID();
                 setRequestId(id); setSubmitted(undefined); setPolling(false);
                 // UUID is retained across an ambiguous transport outcome; no automatic retry.
-                const response = await api.post<{ success: boolean; message?: string; data: MaintenanceResult }>(`/api/coops/${context.coopId}/maintenance`, { device_id: target.id, command, request_id: id, source: "real" }, { signal: controller.current.signal });
+                const response = await api.post<{ success: boolean; message?: string; data: MaintenanceResult }>(`/api/coops/${context.coopId}/maintenance`, { device_id: target.id, command, request_id: id, source: "real", ...(["clear_buf", "reset_nvs"].includes(command) ? { confirmed: true } : {}) }, { signal: controller.current.signal });
                 if (!stillCurrent()) return;
                 if (!response.data.success || !response.data.data?.request) throw new Error(response.data.message ?? "Status pengiriman belum diketahui.");
                 setSubmitted(response.data.data); setPolling(pendingStatuses.includes(response.data.data.request.status));
@@ -273,7 +272,7 @@ function DeviceTerminal({ device, snapshot, available, refreshStatus }: { device
                 {requestId && <button className={`${secondaryClass} w-full`} disabled={busy || lookup.isFetching} onClick={() => { void lookup.refetch(); }}>Baca status permintaan</button>}
                 {request && <p className="break-words text-xs text-[#777]">{request.command}: <strong>{labels[request.status] ?? request.status}</strong> · {request.request_id}</p>}
             </Card>
-            <section className="space-y-4 rounded-3xl border border-red-200 bg-red-50/60 p-5 sm:p-6"><h2 className="flex items-center gap-2 font-poppins text-lg font-semibold text-red-800"><ShieldAlert size={19} />Danger Zone</h2><div className="space-y-2">{commandButton("reboot", "Reboot", true)}{commandButton("clear_buf", "Clear Buffer", true)}{commandButton("reset_nvs", "Reset NVS", true)}</div><p className="text-xs leading-relaxed text-red-800">Reboot memutus telemetry sementara. {dataProtection}. Firmware v3.1 belum menyediakan inventaris/backup buffer dan rekonsiliasi epoch counter.</p>{device?.command_capabilities?.reboot?.allowed !== true && <p className="text-xs text-red-700">{clean(blockedReason("reboot"))}</p>}</section>
+            <section className="space-y-4 rounded-3xl border border-red-200 bg-red-50/60 p-5 sm:p-6"><h2 className="flex items-center gap-2 font-poppins text-lg font-semibold text-red-800"><ShieldAlert size={19} />Danger Zone</h2><div className="space-y-2">{commandButton("reboot", "Reboot", true)}{commandButton("clear_buf", "Clear Buffer", true)}{commandButton("reset_nvs", "Reset NVS", true)}</div><p className="text-xs leading-relaxed text-red-800">Reboot memutus telemetry sementara. Clear Buffer dan Reset NVS memerlukan konfirmasi, firmware 3.2, serta backup lokal dan server terverifikasi. Reset memulihkan counter dan status relay tanpa menghapus histori server.</p>{(["reboot", "clear_buf", "reset_nvs"] as const).filter(command => device?.command_capabilities?.[command]?.allowed !== true).map(command => <p key={command} className="text-xs text-red-700">{clean(blockedReason(command))}</p>)}</section>
         </aside>
     </div>;
 }

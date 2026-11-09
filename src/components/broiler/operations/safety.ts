@@ -12,7 +12,7 @@ export function relayAvailability(input: { allowed: boolean; source: "real"; rel
     if (!input.relay.is_enabled || input.relay.channel !== 1) return { allowed: false, reason: "Mapping relay tidak aktif atau kanal tidak didukung firmware v3.1." };
     const device = input.device;
     if (!device || !device.is_active || device.connectivity_status !== "online") return { allowed: false, reason: "Perangkat belum memiliki koneksi aktif yang dipercaya server." };
-    if (device.device_type !== "esp32" || !["3.1", "v3.1"].includes(device.firmware_version ?? "")) return { allowed: false, reason: "Kontrol memerlukan ESP32 dengan firmware v3.1 yang terdaftar." };
+    if (device.device_type !== "esp32" || !["3.1", "v3.1", "3.2", "v3.2"].includes(device.firmware_version ?? "")) return { allowed: false, reason: "Kontrol memerlukan ESP32 dengan firmware v3.1/3.2 yang terdaftar." };
     const age = (input.now ?? Date.now()) - Date.parse(device.last_seen_at ?? "");
     if (!Number.isFinite(age) || age < 0 || age > (device.stale_after_seconds ?? 120) * 1000) return { allowed: false, reason: "Heartbeat tidak tersedia, stale, atau timestamp tidak sah." };
     if (input.command && ["queued", "published", "requested"].includes(input.command.status)) return { allowed: false, reason: "Masih ada perintah yang menunggu hasil. Muat ulang setelah status server berubah; jangan mengirim ulang otomatis." };
