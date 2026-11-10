@@ -18,7 +18,7 @@ type LogEntry = { key: string; at: string; level: LogLevel; label: string; messa
 type TerminalCommand = MaintenanceCommand | "relay_on" | "relay_off";
 const aliases: readonly string[] = [...maintenanceCommands, "relay_on", "relay_off"];
 const pendingStatuses = ["accepted", "publishing", "published", "observed"];
-const labels: Record<string, string> = { accepted: "Menunggu", publishing: "Menunggu", queued: "Menunggu", requested: "Menunggu", published: "Dikirim", observed: "Tidak terverifikasi", unverified: "Tidak terverifikasi", reported: "Tidak terverifikasi", blocked: "Ditolak", failed: "Gagal", timed_out: "Timeout", executed: "Selesai — dikonfirmasi perangkat", device_acked: "Dikonfirmasi perangkat" };
+const labels: Record<string, string> = { accepted: "Menunggu", publishing: "Menunggu", queued: "Menunggu", requested: "Menunggu", published: "Dikirim", observed: "Tidak terverifikasi", unverified: "Tidak terverifikasi", reported: "Tidak terverifikasi", blocked: "Ditolak", failed: "Gagal", timed_out: "Timeout", executed: "Selesai dikonfirmasi perangkat", device_acked: "Dikonfirmasi perangkat" };
 const warnings = {
     reboot: "Perangkat akan dimulai ulang. Koneksi dan telemetry akan terputus sementara; pastikan operasi kandang aman.",
     clear_buf: "Hapus buffer lokal setelah firmware membuat backup dan server menyimpan serta merekonsiliasi seluruh data. Jika perlindungan gagal, buffer tetap dipertahankan. Lanjutkan Clear Buffer?",
@@ -225,7 +225,7 @@ function DeviceTerminal({ device, snapshot, available, refreshStatus }: { device
             if (isAxiosError(cause) && (!code || code >= 500)) setPolling(true);
         } finally {
             inFlight.current = false;
-            if (stillCurrent()) { setBusy(false); void refreshStatus().catch(() => {}); if (relay) { void relayPreflight.refetch(); void relayCommands.refetch(); } }
+            if (stillCurrent()) { setBusy(false); void refreshStatus().catch(() => { }); if (relay) { void relayPreflight.refetch(); void relayCommands.refetch(); } }
         }
     }
 

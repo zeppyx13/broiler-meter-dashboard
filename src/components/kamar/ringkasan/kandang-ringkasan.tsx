@@ -44,7 +44,7 @@ export default function KandangRingkasan({ data, onEditCycle, onOpenEquipment }:
 
     const checklist = [
         activeCycle && !cycle?.populationStart && {
-            text: "Populasi awal siklus belum diisi — per-ekor dan Guard air belum bisa dihitung.",
+            text: "Populasi awal siklus belum diisi. per-ekor dan Guard air belum bisa dihitung.",
             action: <button onClick={onEditCycle} className="font-semibold text-[#7B1113] hover:underline">Isi sekarang</button>,
         },
         !expectedPowerKw && {

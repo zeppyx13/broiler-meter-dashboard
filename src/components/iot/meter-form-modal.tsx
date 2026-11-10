@@ -238,7 +238,7 @@ function MeterForm({ open, editData, onClose, onSubmit }: Props) {
                                 }`} />
                         </button>
                         <span className="font-inter text-sm text-[#555]">
-                            {form.is_active ? "Aktif — menerima data dari ESP32" : "Nonaktif"}
+                            {form.is_active ? "Aktif: menerima data dari ESP32" : "Nonaktif"}
                         </span>
                     </div>
                 </div>

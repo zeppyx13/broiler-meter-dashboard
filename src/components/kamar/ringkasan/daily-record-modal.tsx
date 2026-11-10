@@ -155,7 +155,7 @@ function DailyRecordForm({ onClose, data, initialDate, onSaved }: Props) {
                     rows={2}
                     value={form.note}
                     onChange={(e) => set("note", e.target.value)}
-                    placeholder="Opsional — cth. ayam lesu di sisi barat, nipple bocor"
+                    placeholder="Opsional cth: ayam lesu di sisi barat, nipple bocor"
                     className={`${inputClass} resize-none`}
                 />
             </Field>
