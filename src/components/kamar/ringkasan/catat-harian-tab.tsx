@@ -47,7 +47,7 @@ export default function CatatHarianTab({ data, onOpenRecord }: Props) {
         if (!server || !canDailyCorrect) return;
         const result = await Swal.fire({
             title: "Batalkan catatan ini?",
-            text: `${new Date(`${date}T00:00:00`).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })} — populasi dikoreksi kembali, jejak audit tetap tersimpan.`,
+            text: `${new Date(`${date}T00:00:00`).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}  populasi dikoreksi kembali, jejak audit tetap tersimpan.`,
             input: "textarea",
             inputPlaceholder: "Alasan pembatalan (min. 8 karakter)",
             inputValidator: (v) => (v.trim().length < 8 ? "Isi alasan minimal 8 karakter." : undefined),

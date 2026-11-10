@@ -51,16 +51,16 @@ export default function RelayModal({ open, onClose, roomId, roomNumber, online }
         const requestedScope = scope;
         inFlight.current = true; setSending(command);
         try {
-        const confirm = await Swal.fire({
-            title: `Yakin ${LABEL[command]} relay?`,
-            text: `Kandang ${roomNumber} · ${relay.name}. Beban terhubung dapat berubah. Publikasi belum membuktikan hasil fisik.`,
-            icon: "question",
-            showCancelButton: true,
-            confirmButtonText: "Ya, kirim",
-            cancelButtonText: "Batal",
-            confirmButtonColor: command === "relay_off" ? "#b91c1c" : "#7B1113",
-        });
-        if (!confirm.isConfirmed || currentScope.current !== requestedScope) return;
+            const confirm = await Swal.fire({
+                title: `Yakin ${LABEL[command]} relay?`,
+                text: `Kandang ${roomNumber} · ${relay.name}. Beban terhubung dapat berubah. Publikasi belum membuktikan hasil fisik.`,
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonText: "Ya, kirim",
+                cancelButtonText: "Batal",
+                confirmButtonColor: command === "relay_off" ? "#b91c1c" : "#7B1113",
+            });
+            if (!confirm.isConfirmed || currentScope.current !== requestedScope) return;
             const latest = await preflight.refetch();
             if (currentScope.current !== requestedScope) return;
             if (latest.isError) throw latest.error;
@@ -133,7 +133,7 @@ export default function RelayModal({ open, onClose, roomId, roomNumber, online }
             )}
 
             <p className="font-inter text-xs text-[#999]">
-                Perintah terkirim belum tentu berarti relay sudah berpindah — pastikan hasilnya langsung di kandang. Riwayat perintah dan pengaturan relay ada di{" "}
+                Perintah terkirim belum tentu berarti relay sudah berpindah. pastikan hasilnya langsung di kandang. Riwayat perintah dan pengaturan relay ada di{" "}
                 <Link href="/dashboard/iot" className="font-medium text-[#7B1113] hover:underline">Alat IoT</Link>.
             </p>
         </ModalShell>

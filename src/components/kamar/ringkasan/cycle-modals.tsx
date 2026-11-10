@@ -45,7 +45,7 @@ export function CycleStartModal({ open, onClose, data, editing, onSaved }: Start
             setStrain("");
             setTargetDays(35);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, editCycle?.id]);
 
     async function handleSave() {
@@ -245,7 +245,7 @@ export function CycleCloseModal({ open, onClose, data, onSaved }: CloseProps) {
                     rows={2}
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    placeholder="Opsional — cth. bobot rata-rata panen, kendala siklus"
+                    placeholder="Opsional cth: bobot rata-rata panen, kendala siklus"
                     className={`${inputClass} resize-none`}
                 />
             </Field>
