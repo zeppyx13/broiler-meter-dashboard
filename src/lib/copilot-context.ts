@@ -36,7 +36,7 @@ function describeFocus(s: KandangSnapshot): string[] {
         const dev = insights.powerDeviation;
         lines.push(`- Daya terukur ${insights.actualPowerKw.toFixed(2)} kW${dev ? ` (${dev.pct >= 0 ? "+" : ""}${dev.pct.toFixed(0)}% dari daya seharusnya)` : ""}.`);
     }
-    if (s.live) lines.push(`- Tegangan ${s.live.voltage?.toFixed(0) ?? "belum tersedia"} V, PF ${s.live.pf?.toFixed(2) ?? "belum tersedia"}, debit inlet tandon ${s.live.flow_rate_lpm?.toFixed(2) ?? "belum tersedia"} L/menit. Sumber REAL.`);
+    if (s.live) lines.push(`- Tegangan ${s.live.voltage?.toFixed(0) ?? "belum tersedia"} V, PF ${s.live.pf?.toFixed(2) ?? "belum tersedia"}, debit outlate tandon ${s.live.flow_rate_lpm?.toFixed(2) ?? "belum tersedia"} L/menit. Sumber REAL.`);
     insights.alerts.forEach((a) => lines.push(`- Peringatan [${a.tier}]: ${a.title} — ${a.detail}`));
     return lines;
 }
